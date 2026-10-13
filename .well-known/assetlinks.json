@@ -1,12 +1,8 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "com.aljamiya.app",
-      "sha256_cert_fingerprints": [
-        "PUT_YOUR_SHA256_FINGERPRINT_HERE"
-      ]
-    }
-  }
-]
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.aljamiya.app",
+        "sha256_cert_fingerprints": ["9A:72:DD:57:F6:71:92:33:74:4F:A5:19:99:C8:A6:EE:89:A5:62:06:0C:27:9B:30:C7:9E:45:27:D2:31:BB:70"]
+      }
+    }]
