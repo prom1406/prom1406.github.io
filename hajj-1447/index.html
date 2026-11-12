@@ -1,0 +1,1276 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07182D">
+<title>لوحة المؤشرات التنفيذية — حجاج 1447هـ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+<style>
+:root{
+  --navy:#07182D;--navy2:#0B2342;--navy3:#12335E;
+  --gold:#C5A059;--gold2:#E3C98A;--green:#006C35;--ok:#34C47A;--sky:#0EA5E9;--red:#E5484D;--amber:#F5A524;
+  --bg:#07182D;--bg2:radial-gradient(1200px 600px at 85% -10%,rgba(14,165,233,.16),transparent 60%),radial-gradient(900px 500px at 5% 0%,rgba(197,160,89,.13),transparent 55%),linear-gradient(180deg,#07182D,#061325);
+  --ink:#EAF1FA;--mut:#93A6BF;--card:rgba(255,255,255,.045);--card2:rgba(255,255,255,.07);
+  --line:rgba(197,160,89,.22);--line2:rgba(255,255,255,.08);--shadow:0 10px 30px rgba(0,0,0,.35);
+  --radius:16px;--nav-h:64px;
+}
+[data-theme=light]{
+  --bg:#F4F1EA;--bg2:linear-gradient(180deg,#F7F4EE,#EDE8DC);--ink:#0B1B30;--mut:#5A6B82;
+  --card:#FFFFFF;--card2:#F3EFE5;--line:rgba(7,24,45,.14);--line2:rgba(7,24,45,.08);--shadow:0 8px 24px rgba(7,24,45,.10);
+  --ok:#0B8A4B;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+html[data-theme=light]{color-scheme:light}
+body{margin:0;min-height:100vh;background:var(--bg);background-image:var(--bg2);background-attachment:fixed;color:var(--ink);
+  font-family:'Tajawal','IBM Plex Sans Arabic',system-ui,-apple-system,'Segoe UI',Tahoma,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+.num{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate;display:inline-block}
+[hidden]{display:none!important}
+
+/* ---------- Navigation ---------- */
+.nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:18px;padding:0 22px;height:var(--nav-h);
+  background:linear-gradient(180deg,rgba(7,24,45,.96),rgba(7,24,45,.86));backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+[data-theme=light] .nav{background:rgba(255,255,255,.9)}
+.brand{display:flex;align-items:center;gap:11px;min-width:190px}
+.brand .logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold),#8E6E32);color:#07182D;box-shadow:0 0 0 1px rgba(255,255,255,.12) inset}
+.brand b{display:block;font-size:15.5px;letter-spacing:.2px}
+.brand small{display:block;color:var(--gold);font-size:11.5px;margin-top:-2px}
+.tabs{display:flex;gap:6px;margin-inline:auto;padding:5px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid var(--line2)}
+.tab{position:relative;display:flex;align-items:center;gap:8px;padding:8px 18px;border-radius:999px;color:var(--mut);font-weight:600;transition:.25s}
+.tab:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+.tab svg{width:18px;height:18px;flex:none}
+.tab.active{color:#fff;background:linear-gradient(135deg,var(--navy3),#0C4A7A);box-shadow:0 0 0 1px var(--gold),0 0 14px rgba(197,160,89,.4);animation:glow 2.4s ease-in-out infinite}
+[data-theme=light] .tab.active{color:#fff}
+.tab.active::after{content:"";position:absolute;top:6px;inset-inline-start:7px;width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 0 rgba(197,160,89,.7);animation:ping 1.8s infinite}
+.tab.active svg{margin-inline-start:6px}
+.tab .badge{min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:var(--red);color:#fff;font-size:11.5px;font-weight:700;display:grid;place-items:center}
+@keyframes glow{0%,100%{box-shadow:0 0 0 1px var(--gold),0 0 8px rgba(197,160,89,.25)}50%{box-shadow:0 0 0 1px var(--gold2),0 0 22px rgba(14,165,233,.55)}}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(197,160,89,.7)}80%,100%{box-shadow:0 0 0 9px rgba(197,160,89,0)}}
+.tools{display:flex;align-items:center;gap:8px;min-width:190px;justify-content:flex-end}
+.live{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--mut);padding:0 6px}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(52,196,122,.6);animation:ping2 2s infinite}
+.live.err i{background:var(--red);animation:none}
+.live.load i{background:var(--sky)}
+@keyframes ping2{0%{box-shadow:0 0 0 0 rgba(52,196,122,.55)}80%,100%{box-shadow:0 0 0 8px rgba(52,196,122,0)}}
+.ibtn{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:var(--card);border:1px solid var(--line2);cursor:pointer;transition:.2s}
+.ibtn:hover{border-color:var(--gold);color:var(--gold)}
+.ibtn svg{width:18px;height:18px}
+.ibtn.spin svg{animation:rot .9s linear infinite}
+@keyframes rot{to{transform:rotate(-360deg)}}
+
+/* ---------- Layout ---------- */
+main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
+.hero{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;position:relative}
+.hero h1{margin:0;font-size:28px;letter-spacing:.2px}
+.hero h1 span{color:var(--gold)}
+.hero p{margin:4px 0 0;color:var(--mut)}
+.hero-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:11px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-weight:600;transition:.2s;white-space:nowrap}
+.btn:hover{border-color:var(--gold);transform:translateY(-1px)}
+.btn svg{width:16px;height:16px}
+.btn.gold{background:linear-gradient(135deg,var(--gold),#A98440);color:#07182D;border-color:transparent}
+.btn.green{background:var(--green);border-color:transparent;color:#fff}
+.btn.sky{background:rgba(14,165,233,.16);border-color:rgba(14,165,233,.5);color:var(--sky)}
+.btn.sm{padding:5px 11px;font-size:13px;border-radius:9px}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.panel{background:var(--card);border:1px solid var(--line2);border-radius:var(--radius);padding:16px 18px;margin-bottom:16px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.panel::before{content:"";position:absolute;inset-inline:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.55}
+.panel h2{margin:0 0 12px;font-size:16.5px;display:flex;align-items:center;gap:9px}
+.panel h2::before{content:"";width:4px;height:16px;border-radius:3px;background:var(--gold)}
+.panel-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.hint{color:var(--mut);font-size:12.5px}
+.grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:16px}
+.grid2.even{grid-template-columns:1fr 1fr}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:1000px){.grid2,.grid2.even,.cols2{grid-template-columns:1fr}}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:16px}
+.kpi{position:relative;padding:15px 16px;border-radius:var(--radius);background:var(--card);border:1px solid var(--line2);overflow:hidden;cursor:default;box-shadow:var(--shadow)}
+.kpi::after{content:"";position:absolute;inset-inline-end:-26px;top:-26px;width:90px;height:90px;border-radius:50%;background:var(--accent,var(--gold));opacity:.13}
+.kpi.click{cursor:pointer}.kpi.click:hover{border-color:var(--accent,var(--gold))}
+.kpi .l{color:var(--mut);font-size:13px;display:flex;gap:6px;align-items:center}
+.kpi .v{font-size:32px;font-weight:800;line-height:1.15;margin-top:4px;color:var(--accent,var(--ink));font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12.5px;color:var(--mut);margin-top:2px;min-height:18px}
+.kpi.gold{--accent:var(--gold)}.kpi.ok{--accent:var(--ok)}.kpi.sky{--accent:var(--sky)}.kpi.red{--accent:var(--red)}.kpi.amber{--accent:var(--amber)}
+.kpi.red.pulse{animation:redpulse 2s infinite}
+@keyframes redpulse{0%,100%{box-shadow:var(--shadow)}50%{box-shadow:0 0 0 1px var(--red),0 0 22px rgba(229,72,77,.35)}}
+.bar{height:6px;border-radius:9px;background:var(--line2);overflow:hidden}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--ok));border-radius:9px;transition:width .6s}
+
+/* ---------- Alert bar ---------- */
+.alertbar{display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:13px;margin-bottom:16px;background:linear-gradient(90deg,rgba(229,72,77,.18),rgba(229,72,77,.06));border:1px solid rgba(229,72,77,.5);cursor:pointer}
+.alertbar b{color:#ff8f93}
+[data-theme=light] .alertbar b{color:#b3262b}
+.alertbar .dot{width:10px;height:10px;border-radius:50%;background:var(--red);animation:ping3 1.4s infinite}
+@keyframes ping3{0%{box-shadow:0 0 0 0 rgba(229,72,77,.7)}80%,100%{box-shadow:0 0 0 10px rgba(229,72,77,0)}}
+.stale{background:rgba(245,165,36,.12);border:1px solid rgba(245,165,36,.5);padding:9px 14px;border-radius:12px;margin-bottom:14px;font-size:13.5px}
+
+/* ---------- Flight rail ---------- */
+.rail{display:flex;gap:12px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x proximity}
+.fl{scroll-snap-align:start;flex:0 0 232px;padding:12px 14px;border-radius:14px;background:var(--card2);border:1px solid var(--line2);cursor:pointer;transition:.2s;position:relative}
+.fl:hover{border-color:var(--gold)}
+.fl.on{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 0 16px rgba(197,160,89,.25)}
+.fl .t{display:flex;justify-content:space-between;align-items:center;font-weight:700}
+.fl .t .no{font-size:17px;letter-spacing:.5px;color:var(--gold2)}
+[data-theme=light] .fl .t .no{color:#8A6A2A}
+.fl .m{color:var(--mut);font-size:12.5px;margin:2px 0 8px;display:flex;justify-content:space-between;gap:6px}
+.fl .cd{font-size:18px;font-weight:700;margin:6px 0}
+.fl .row{display:flex;justify-content:space-between;font-size:12.5px;margin-top:5px;color:var(--mut)}
+.fl.danger{border-color:rgba(229,72,77,.55)}
+.fl.warn{border-color:rgba(245,165,36,.5)}
+.cd{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate;display:inline-block}
+.cd.neg{color:var(--mut)}
+.cd.crit{color:var(--red);font-weight:800}
+.cd.warn{color:var(--amber);font-weight:700}
+
+/* ---------- Toolbar & table ---------- */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.field{position:relative}
+.toolbar input[type=search],.toolbar select,.set input,.set select{background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:9px 12px;min-width:140px;outline:none}
+.toolbar input[type=search]{min-width:240px;padding-inline-start:36px}
+.field svg{position:absolute;inset-inline-start:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--mut);pointer-events:none}
+.toolbar input:focus,.toolbar select:focus,.set input:focus,.set select:focus{border-color:var(--gold)}
+select option{background:#0B2342;color:#EAF1FA}
+[data-theme=light] select option{background:#fff;color:#0B1B30}
+.sw{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--mut);user-select:none}
+.sw input{accent-color:var(--gold);width:16px;height:16px}
+.sp{flex:1}
+.bulk{display:flex;align-items:center;gap:12px;padding:9px 14px;border-radius:12px;background:rgba(197,160,89,.14);border:1px solid var(--line);margin-bottom:10px}
+.tablewrap{overflow:auto;border-radius:12px;border:1px solid var(--line2);max-height:72vh}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:900px}
+thead th{position:sticky;top:0;z-index:2;background:#0C2646;color:var(--gold2);text-align:start;padding:11px 12px;font-size:13px;white-space:nowrap;border-bottom:1px solid var(--line)}
+[data-theme=light] thead th{background:#E8E1D0;color:#5A4520}
+thead th.sort{cursor:pointer}thead th.sort:hover{color:#fff}
+[data-theme=light] thead th.sort:hover{color:#000}
+thead th .ar{opacity:.6;margin-inline-start:4px}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:middle}
+tbody tr.r:hover td{background:rgba(255,255,255,.04)}
+tbody tr.r.done td{opacity:.72}
+tbody tr.r.danger td:first-child{box-shadow:inset -3px 0 0 var(--red)}
+tbody tr.r.warn td:first-child{box-shadow:inset -3px 0 0 var(--amber)}
+tbody tr.r.syncing td{background:rgba(14,165,233,.08)}
+.nm{font-weight:700;cursor:pointer}
+.sub{color:var(--mut);font-size:12.5px}
+.nat{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.flag{width:26px;height:18px;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px rgba(255,255,255,.18);background:var(--card2);flex:none}
+.flag.ph{display:inline-grid;place-items:center;font-size:10px;color:var(--mut)}
+.pp{font-family:ui-monospace,Consolas,monospace;direction:ltr;unicode-bidi:isolate;display:inline-block;letter-spacing:.5px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok);background:rgba(0,108,53,.22)}
+.chip.info{color:var(--sky);background:rgba(14,165,233,.14)}
+.chip.warn{color:var(--amber);background:rgba(245,165,36,.14)}
+.chip.danger{color:#ff7b80;background:rgba(229,72,77,.16)}
+[data-theme=light] .chip.danger{color:#B3262B}
+.chip.mut{color:var(--mut);background:var(--line2)}
+.chip.sync{color:var(--sky);background:rgba(14,165,233,.14)}
+tr.detail td{background:rgba(255,255,255,.03)}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 18px}
+.kv div{font-size:13px}.kv b{color:var(--gold2);display:block;font-weight:600;font-size:12px}
+.more{text-align:center;padding:12px}
+.empty{padding:40px;text-align:center;color:var(--mut)}
+
+/* ---------- Dashboard bits ---------- */
+.chartbox{position:relative;height:270px}
+.nxt{display:flex;flex-direction:column;gap:8px}
+.nx{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--card2);border:1px solid var(--line2)}
+.nx .no{font-weight:800;color:var(--gold2);min-width:66px}
+[data-theme=light] .nx .no{color:#8A6A2A}
+.nx .i{flex:1;min-width:0}.nx .i small{display:block;color:var(--mut)}
+.nx .c{font-weight:700}
+.nx h3,.cols2 h3{margin:0 0 8px;font-size:14px;color:var(--mut);font-weight:600}
+.rings{display:flex;gap:22px;justify-content:space-around;flex-wrap:wrap;padding:6px 0}
+.ring{text-align:center}
+.ring svg{width:140px;height:140px;transform:rotate(90deg) scaleX(-1)}
+.ring .tx{margin-top:-96px;height:96px;display:grid;place-content:center;font-size:26px;font-weight:800}
+.ring .tx small{font-size:12px;color:var(--mut);font-weight:500}
+.ring .lb{margin-top:6px;color:var(--mut);font-size:13.5px}
+.natl{display:flex;flex-direction:column;gap:9px;max-height:300px;overflow:auto;padding-inline-end:4px}
+.nr{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:center}
+.nr .nn{display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:3px}
+.nr .bar{height:5px}
+.nr .bar>i{background:linear-gradient(90deg,var(--sky),var(--gold))}
+.feed .nx{border-inline-start:3px solid var(--red)}
+
+/* ---------- Modal / toast ---------- */
+.ov{position:fixed;inset:0;background:rgba(3,10,20,.65);backdrop-filter:blur(4px);z-index:100;display:grid;place-items:center;padding:16px}
+.modal{width:min(760px,100%);max-height:90vh;overflow:auto;background:#0A2039;border:1px solid var(--line);border-radius:18px;padding:20px 22px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+[data-theme=light] .modal{background:#fff}
+.modal h3{margin:0 0 14px;font-size:19px;color:var(--gold2)}
+[data-theme=light] .modal h3{color:#7A5A1E}
+.modal .act{display:flex;gap:10px;justify-content:flex-start;margin-top:16px;flex-wrap:wrap}
+.set{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.set label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mut)}
+.set label.full{grid-column:1/-1}
+.set input,.set select{width:100%;color:var(--ink)}
+.set h4{grid-column:1/-1;margin:10px 0 0;color:var(--gold2);font-size:14px;border-bottom:1px solid var(--line2);padding-bottom:4px}
+@media(max-width:640px){.set{grid-template-columns:1fr}}
+.toasts{position:fixed;bottom:86px;inset-inline-start:18px;z-index:120;display:flex;flex-direction:column;gap:8px}
+.toast{padding:11px 16px;border-radius:12px;background:#0C2646;border:1px solid var(--line);box-shadow:var(--shadow);max-width:360px;animation:tin .3s}
+.toast.ok{border-color:var(--ok)}.toast.err{border-color:var(--red)}.toast.warn{border-color:var(--amber)}
+[data-theme=light] .toast{background:#fff}
+@keyframes tin{from{transform:translateY(12px);opacity:0}}
+
+/* ---------- Responsive ---------- */
+@media(max-width:900px){
+  .nav{padding:0 12px;gap:8px;backdrop-filter:none;-webkit-backdrop-filter:none;background:#07182D}
+  [data-theme=light] .nav{background:#fff}
+  .brand{min-width:0}.brand small,.brand b{display:none}
+  .tools{min-width:0}.live em{display:none}
+  .tabs{position:fixed;bottom:12px;inset-inline:12px;margin:0;justify-content:space-around;background:#0C2646;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:60;border-color:var(--line)}
+  [data-theme=light] .tabs{background:#fff}
+  .tab{padding:9px 12px}.tab span.tl{display:none}.tab.active span.tl{display:inline}
+  main{padding:16px 12px 100px}
+  .toasts{bottom:90px}
+}
+@media(max-width:760px){
+  .kpis{grid-template-columns:1fr 1fr;gap:10px}.kpi .v{font-size:26px}
+  table,thead,tbody,tr,td{display:block;min-width:0}
+  thead{display:none}
+  .tablewrap{border:0;max-height:none}
+  tbody tr.r{background:var(--card2);border:1px solid var(--line2);border-radius:14px;margin-bottom:10px;padding:6px 4px}
+  tbody td{border:0;display:flex;justify-content:space-between;gap:12px;padding:6px 12px}
+  tbody td::before{content:attr(data-l);color:var(--mut);font-size:12.5px}
+  tbody td[data-l=""]::before{display:none}
+  tr.detail td{display:block}
+  .toolbar input[type=search]{min-width:100%}
+  .hero h1{font-size:23px}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media print{
+  .nav,.toolbar,.hero-actions,.bulk,.more,.rail,.toasts,.tabs,.btn,.alertbar{display:none!important}
+  body{background:#fff;color:#000}.panel,.kpi{box-shadow:none;border-color:#ccc}
+  .tablewrap{max-height:none;overflow:visible}thead th{position:static;background:#eee;color:#000}
+}
+
+</style>
+</head>
+<body data-page="index">
+<header id="nav"></header>
+<main id="app"></main>
+<script>
+/* =====================================================================
+   منظومة تحركات الحجاج 1447هـ — الطبقة الأساسية (منطق بحت بلا DOM)
+   تحليل CSV، اكتشاف الأعمدة، الدول والأعلام، الحالات، العدّ التنازلي
+   ===================================================================== */
+(function (root) {
+'use strict';
+
+/* ---------------- الإعدادات الافتراضية ---------------- */
+const DEFAULTS = {
+  arrival:   { csv: '', checkHeader: 'Check'    },   // الصق رابط CSV من الإعدادات (لا تضعه في الكود: المستودع عام)
+  departure: { csv: '', checkHeader: 'Check_De' },
+  webapp: '',            // رابط Google Apps Script (…/exec)
+  token: '',             // الرمز السري المطابق لما في Code.gs
+  readVia: 'csv',        // csv = الرابط المنشور | webapp = القراءة عبر Apps Script (فورية وخاصة)
+  refreshSec: 30,
+  dateOrder: 'DMY',      // ترتيب التاريخ في الجدول: DMY أو MDY
+  tz: '+03:00',          // توقيت الرحلات (الرياض)
+  criticalH: 3,          // ساعات: الرحلة "وشيكة/حرجة"
+  warnH: 12,             // ساعات: الرحلة "قريبة"
+  lateH: 2,              // ساعات بعد الهبوط قبل اعتبار التسكين "متأخراً"
+  map: { arrival: {}, departure: {} }   // ربط يدوي: الحقل → اسم العمود
+};
+
+/* ---------------- أدوات النصوص ---------------- */
+const toLatinDigits = s => String(s == null ? '' : s)
+  .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+  .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+
+// تطبيع عربي/إنجليزي للمقارنة: يزيل التشكيل والمسافات والرموز ويوحّد الهمزات والتاء المربوطة
+const normAr = s => toLatinDigits(s).toLowerCase()
+  .replace(/[ً-ٰٟـ]/g, '')
+  .replace(/[إأآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
+  .replace(/[^a-z0-9؀-ۿ]+/g, '');
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ---------------- محلل CSV (RFC 4180) ---------------- */
+function parseCSV(text) {
+  const rows = []; let row = [], cur = '', q = false;
+  text = String(text).replace(/^﻿/, '');
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur); rows.push(row); row = []; cur = '';
+    } else cur += c;
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+
+/* ---------------- الدول والأعلام ----------------
+   iso2|iso3|الاسم بالعربية|English|مرادفات (اختياري) */
+const COUNTRY_TABLE = `
+sa|SAU|السعودية|Saudi Arabia|المملكة العربية السعودية,KSA,Saudi
+eg|EGY|مصر|Egypt
+pk|PAK|باكستان|Pakistan
+in|IND|الهند|India
+bd|BGD|بنغلاديش|Bangladesh
+id|IDN|إندونيسيا|Indonesia|اندونيسيا
+my|MYS|ماليزيا|Malaysia
+tr|TUR|تركيا|Turkey|Turkish,Turkiye,Türkiye
+ir|IRN|إيران|Iran
+iq|IRQ|العراق|Iraq
+sy|SYR|سوريا|Syria|سورية
+lb|LBN|لبنان|Lebanon
+jo|JOR|الأردن|Jordan
+ps|PSE|فلسطين|Palestine|Palestinian Territory
+ye|YEM|اليمن|Yemen
+om|OMN|عُمان|Oman|سلطنة عمان
+ae|ARE|الإمارات|United Arab Emirates|الامارات العربية المتحدة,UAE,Emirates
+kw|KWT|الكويت|Kuwait
+qa|QAT|قطر|Qatar
+bh|BHR|البحرين|Bahrain
+sd|SDN|السودان|Sudan
+ss|SSD|جنوب السودان|South Sudan
+ly|LBY|ليبيا|Libya
+tn|TUN|تونس|Tunisia
+dz|DZA|الجزائر|Algeria
+ma|MAR|المغرب|Morocco
+mr|MRT|موريتانيا|Mauritania
+so|SOM|الصومال|Somalia
+dj|DJI|جيبوتي|Djibouti
+km|COM|جزر القمر|Comoros
+er|ERI|إريتريا|Eritrea
+et|ETH|إثيوبيا|Ethiopia|اثيوبيا
+ke|KEN|كينيا|Kenya
+tz|TZA|تنزانيا|Tanzania
+ug|UGA|أوغندا|Uganda
+rw|RWA|رواندا|Rwanda
+bi|BDI|بوروندي|Burundi
+cd|COD|الكونغو الديمقراطية|Democratic Republic of the Congo|DR Congo
+cg|COG|الكونغو|Congo
+ng|NGA|نيجيريا|Nigeria
+ne|NER|النيجر|Niger
+ml|MLI|مالي|Mali
+sn|SEN|السنغال|Senegal
+gm|GMB|غامبيا|Gambia
+gn|GIN|غينيا|Guinea
+gw|GNB|غينيا بيساو|Guinea-Bissau
+sl|SLE|سيراليون|Sierra Leone
+lr|LBR|ليبيريا|Liberia
+gh|GHA|غانا|Ghana
+ci|CIV|ساحل العاج|Ivory Coast|كوت ديفوار,Cote d'Ivoire
+bf|BFA|بوركينا فاسو|Burkina Faso
+tg|TGO|توغو|Togo
+bj|BEN|بنين|Benin
+cm|CMR|الكاميرون|Cameroon
+td|TCD|تشاد|Chad
+cf|CAF|أفريقيا الوسطى|Central African Republic
+ga|GAB|الغابون|Gabon
+za|ZAF|جنوب أفريقيا|South Africa|جنوب افريقيا
+mz|MOZ|موزمبيق|Mozambique
+mg|MDG|مدغشقر|Madagascar
+mw|MWI|ملاوي|Malawi
+zm|ZMB|زامبيا|Zambia
+zw|ZWE|زيمبابوي|Zimbabwe
+na|NAM|ناميبيا|Namibia
+ao|AGO|أنغولا|Angola
+mu|MUS|موريشيوس|Mauritius
+af|AFG|أفغانستان|Afghanistan
+lk|LKA|سريلانكا|Sri Lanka
+np|NPL|نيبال|Nepal
+mv|MDV|المالديف|Maldives|جزر المالديف
+mm|MMR|ميانمار|Myanmar|Burma,بورما
+th|THA|تايلاند|Thailand
+kh|KHM|كمبوديا|Cambodia
+vn|VNM|فيتنام|Vietnam
+ph|PHL|الفلبين|Philippines
+sg|SGP|سنغافورة|Singapore
+bn|BRN|بروناي|Brunei
+cn|CHN|الصين|China
+jp|JPN|اليابان|Japan
+kr|KOR|كوريا الجنوبية|South Korea|كوريا,Korea
+ru|RUS|روسيا|Russia
+kz|KAZ|كازاخستان|Kazakhstan
+uz|UZB|أوزبكستان|Uzbekistan|اوزبكستان
+tj|TJK|طاجيكستان|Tajikistan
+kg|KGZ|قرغيزستان|Kyrgyzstan
+tm|TKM|تركمانستان|Turkmenistan
+az|AZE|أذربيجان|Azerbaijan|اذربيجان
+ge|GEO|جورجيا|Georgia
+am|ARM|أرمينيا|Armenia
+al|ALB|ألبانيا|Albania
+ba|BIH|البوسنة والهرسك|Bosnia and Herzegovina|البوسنة,Bosnia
+xk|XKX|كوسوفو|Kosovo
+mk|MKD|مقدونيا الشمالية|North Macedonia|مقدونيا
+bg|BGR|بلغاريا|Bulgaria
+ro|ROU|رومانيا|Romania
+rs|SRB|صربيا|Serbia
+me|MNE|الجبل الأسود|Montenegro
+gb|GBR|بريطانيا|United Kingdom|المملكة المتحدة,UK,England,انجلترا
+ie|IRL|أيرلندا|Ireland
+fr|FRA|فرنسا|France
+de|DEU|ألمانيا|Germany|المانيا
+it|ITA|إيطاليا|Italy|ايطاليا
+es|ESP|إسبانيا|Spain|اسبانيا
+pt|PRT|البرتغال|Portugal
+nl|NLD|هولندا|Netherlands|Holland
+be|BEL|بلجيكا|Belgium
+ch|CHE|سويسرا|Switzerland
+at|AUT|النمسا|Austria
+se|SWE|السويد|Sweden
+no|NOR|النرويج|Norway
+dk|DNK|الدنمارك|Denmark
+fi|FIN|فنلندا|Finland
+gr|GRC|اليونان|Greece
+pl|POL|بولندا|Poland
+ua|UKR|أوكرانيا|Ukraine|اوكرانيا
+us|USA|الولايات المتحدة|United States|أمريكا,امريكا,America
+ca|CAN|كندا|Canada
+mx|MEX|المكسيك|Mexico
+br|BRA|البرازيل|Brazil
+ar|ARG|الأرجنتين|Argentina|الارجنتين
+au|AUS|أستراليا|Australia|استراليا
+nz|NZL|نيوزيلندا|New Zealand
+fj|FJI|فيجي|Fiji
+`;
+const COUNTRIES = []; const CIDX = new Map(); const CLONG = [];
+COUNTRY_TABLE.trim().split('\n').forEach(line => {
+  const p = line.split('|');
+  const c = { iso2: p[0], iso3: p[1], ar: p[2], en: p[3] };
+  COUNTRIES.push(c);
+  [p[0], p[1], p[2], p[3]].concat(p[4] ? p[4].split(',') : []).forEach(a => {
+    const k = normAr(a);
+    if (k && !CIDX.has(k)) CIDX.set(k, c);
+    const s = k.replace(/^ال/, '');
+    if (s.length >= 3) CLONG.push([s, c]);
+  });
+});
+function countryOf(str) {
+  const k = normAr(str); if (!k) return null;
+  if (CIDX.has(k)) return CIDX.get(k);
+  const s = k.replace(/^ال/, ''); if (CIDX.has(s)) return CIDX.get(s);
+  if (s.length < 3) return null;
+  // مطابقة بالبادئة تلتقط النسبة: «مصري» ↔ «مصر»، «Pakistani» ↔ «Pakistan»
+  let best = null, bl = 0;
+  for (const [a, c] of CLONG) {
+    if (s.startsWith(a) || a.startsWith(s)) { const l = Math.min(a.length, s.length); if (l > bl) { best = c; bl = l; } }
+  }
+  return best;
+}
+const flagUrl = (iso2, w) => 'https://flagcdn.com/w' + (w || 40) + '/' + iso2 + '.png';
+
+/* ---------------- اكتشاف الأعمدة ---------------- */
+const FIELDS = {
+  name:        { ar: 'الاسم',          al: ['name', 'fullname', 'pilgrim', 'pilgrimname', 'passengername', 'الاسم', 'اسم', 'اسمالحاج', 'الحاج', 'اسمالمعتمر', 'اسمالمسافر', 'المسافر'] },
+  passport:    { ar: 'رقم الجواز',     al: ['passport', 'passportno', 'passportnumber', 'passportnum', 'رقمالجواز', 'الجواز', 'جواز', 'جوازالسفر', 'رقمجوازالسفر'] },
+  nationality: { ar: 'الجنسية',        al: ['nationality', 'nation', 'country', 'citizenship', 'الجنسية', 'جنسية', 'الدولة', 'دولة', 'البلد'] },
+  flight:      { ar: 'رقم الرحلة',     al: ['flight', 'flightno', 'flightnumber', 'flightnum', 'flt', 'رقمالرحلة', 'الرحلة', 'رحلة'] },
+  airline:     { ar: 'الناقل',         al: ['airline', 'carrier', 'الناقل', 'شركةالطيران', 'الطيران', 'الخطوط'] },
+  date:        { ar: 'التاريخ',        al: ['date', 'arrivaldate', 'departuredate', 'تاريخالوصول', 'تاريخالمغادرة', 'التاريخ', 'تاريخ', 'يومالوصول', 'يومالمغادرة'] },
+  time:        { ar: 'الوقت',          al: ['time', 'arrivaltime', 'departuretime', 'eta', 'etd', 'وقتالوصول', 'وقتالمغادرة', 'الوقت', 'وقت', 'الساعة', 'ساعةالوصول', 'ساعةالمغادرة'] },
+  hotel:       { ar: 'الفندق',         al: ['hotel', 'accommodation', 'فندق', 'الفندق', 'السكن', 'مقرالسكن', 'اسمالفندق'] },
+  room:        { ar: 'الغرفة',         al: ['room', 'roomno', 'roomnumber', 'غرفة', 'الغرفة', 'رقمالغرفة'] },
+  group:       { ar: 'المجموعة',       al: ['group', 'groupname', 'campaign', 'agent', 'مجموعة', 'المجموعة', 'الحملة', 'حملة', 'مكتب', 'المكتب', 'الوكيل'] },
+  pax:         { ar: 'العدد',          al: ['pax', 'count', 'persons', 'عدد', 'العدد', 'عددالحجاج', 'عددالافراد', 'عددالأفراد'] },
+  phone:       { ar: 'الجوال',         al: ['phone', 'mobile', 'tel', 'جوال', 'الجوال', 'هاتف', 'الهاتف', 'رقمالجوال'] },
+  terminal:    { ar: 'الصالة',         al: ['terminal', 'صالة', 'الصالة', 'المبنى'] },
+  route:       { ar: 'من / إلى',       al: ['from', 'to', 'origin', 'destination', 'route', 'قادممن', 'الوجهة', 'وجهة', 'من', 'الى', 'إلى'] },
+  notes:       { ar: 'ملاحظات',        al: ['notes', 'note', 'remarks', 'ملاحظات', 'ملاحظة'] }
+};
+Object.values(FIELDS).forEach(f => { f.nal = f.al.map(normAr); });
+
+function findHeaderRow(rows) {
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    if (rows[i].filter(c => String(c).trim() !== '').length >= 3) return i;
+  }
+  return -1;
+}
+
+function buildMapping(headers, kind, overrides, checkHeader) {
+  const H = headers.map(normAr);
+  const map = {}; const used = new Set();
+  // عمود التأكيد (Check / Check_De): مطابقة تامة بعد التطبيع
+  const ck = normAr(checkHeader);
+  let ci = H.findIndex(h => h === ck);
+  if (overrides && overrides.check) { const j = headers.indexOf(overrides.check); if (j >= 0) ci = j; }
+  if (ci >= 0) { map.check = ci; used.add(ci); }
+  // الربط اليدوي أولاً
+  Object.keys(overrides || {}).forEach(f => {
+    if (f === 'check' || !FIELDS[f]) return;
+    const j = headers.indexOf(overrides[f]);
+    if (j >= 0 && !used.has(j)) { map[f] = j; used.add(j); }
+  });
+  const cand = [];
+  Object.keys(FIELDS).forEach(f => {
+    if (map[f] != null) return;
+    H.forEach((h, i) => {
+      if (used.has(i) || !h || h.startsWith('check')) return;
+      let sc = 0;
+      FIELDS[f].nal.forEach(a => {
+        if (h === a) sc = Math.max(sc, 100);
+        else if (a.length >= 4 && h.includes(a)) sc = Math.max(sc, 40 + a.length);
+      });
+      if (!sc) return;
+      if (f === 'date' || f === 'time') {
+        const arr = /arriv|وصول/.test(h), dep = /depart|مغادر/.test(h);
+        if (kind === 'arrival') { if (arr) sc += 30; if (dep) sc -= 60; }
+        else { if (dep) sc += 30; if (arr) sc -= 60; }
+      }
+      if (sc > 0) cand.push({ f, i, sc });
+    });
+  });
+  cand.sort((a, b) => b.sc - a.sc || a.i - b.i);
+  cand.forEach(c => { if (map[c.f] == null && !used.has(c.i)) { map[c.f] = c.i; used.add(c.i); } });
+  return map;
+}
+
+/* ---------------- التاريخ والوقت ---------------- */
+function parseDateParts(str, order) {
+  str = toLatinDigits(str).trim(); if (!str) return null;
+  let m;
+  if ((m = str.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[ T,]+(\d{1,2}):(\d{2}))?/)))
+    return { y: +m[1], mo: +m[2], d: +m[3], h: m[4] != null ? +m[4] : null, mi: m[5] != null ? +m[5] : null };
+  if ((m = str.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})(?:[ T,]+(\d{1,2}):(\d{2})\s*([APap]\.?[Mm]\.?|ص|م)?)?/))) {
+    let a = +m[1], b = +m[2], y = +m[3]; if (y < 100) y += 2000;
+    let d, mo; if (order === 'MDY') { mo = a; d = b; } else { d = a; mo = b; }
+    if (mo > 12 && d <= 12) { const t = d; d = mo; mo = t; }
+    let h = m[4] != null ? +m[4] : null; const ap = m[6];
+    if (h != null && ap) { const pm = /^[Pp]|م/.test(ap); if (pm && h < 12) h += 12; if (!pm && h === 12) h = 0; }
+    return { y, mo, d, h, mi: m[5] != null ? +m[5] : null };
+  }
+  const t = Date.parse(str);
+  if (!isNaN(t)) { const d = new Date(t); return { y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate(), h: null, mi: null }; }
+  return null;
+}
+function parseTimeParts(str) {
+  str = toLatinDigits(str).trim(); if (!str) return null;
+  let m = str.match(/(\d{1,2})\s*[:.]\s*(\d{2})(?::\d{2})?\s*([APap]\.?[Mm]\.?|ص|م)?/);
+  if (!m) { const m4 = str.match(/^(\d{2})(\d{2})$/); if (m4) m = [null, m4[1], m4[2], null]; }
+  if (!m) return null;
+  let h = +m[1]; const mi = +m[2]; const ap = m[3];
+  if (ap) { const pm = /^[Pp]|م/.test(ap); if (pm && h < 12) h += 12; if (!pm && h === 12) h = 0; }
+  if (h > 23 || mi > 59) return null;
+  return { h, mi };
+}
+const p2 = n => String(n).padStart(2, '0');
+function buildWhen(dateStr, timeStr, order, tz) {
+  const d = parseDateParts(dateStr, order); if (!d) return { when: null, approx: false };
+  let h = d.h, mi = d.mi, approx = false;
+  if (h == null) { const t = parseTimeParts(timeStr); if (t) { h = t.h; mi = t.mi; } }
+  if (h == null) { h = 12; mi = 0; approx = true; }
+  const dt = new Date(d.y + '-' + p2(d.mo) + '-' + p2(d.d) + 'T' + p2(h) + ':' + p2(mi) + ':00' + tz);
+  return { when: isNaN(dt) ? null : dt, approx };
+}
+const TZ_NAME = 'Asia/Riyadh';
+const fmtDay = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ_NAME }).format(d);
+const fmtTime = d => new Intl.DateTimeFormat('en-GB', { timeZone: TZ_NAME, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+const fmtDayAr = d => new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { timeZone: TZ_NAME, weekday: 'short', day: '2-digit', month: '2-digit' }).format(d);
+function fmtCountdown(ms) {
+  const neg = ms < 0; let s = Math.floor(Math.abs(ms) / 1000);
+  const d = Math.floor(s / 86400); s -= d * 86400;
+  const h = Math.floor(s / 3600); s -= h * 3600; const m = Math.floor(s / 60); s -= m * 60;
+  const hms = p2(h) + ':' + p2(m) + ':' + p2(s);
+  return { neg, d, hms, text: (d ? d + 'ي ' : '') + hms };
+}
+
+/* ---------------- السجلات ---------------- */
+const TRUE_SET = new Set(['true', '1', 'yes', 'y', 'x', 'نعم', 'تم', 'done', 'checked', 'تمالتسكين', 'تمتالمغادره', '✓', '✔', '☑']);
+const isTrue = v => { const t = normAr(v) || String(v).trim().toLowerCase(); return TRUE_SET.has(t) || TRUE_SET.has(String(v).trim().toLowerCase()); };
+
+function toRecords(rows, kind, cfg) {
+  const hi = findHeaderRow(rows);
+  if (hi < 0) return { headers: [], map: {}, records: [], headerRow: 0 };
+  const headers = rows[hi].map(h => String(h == null ? '' : h).trim());
+  const map = buildMapping(headers, kind, (cfg.map && cfg.map[kind]) || {}, cfg[kind].checkHeader);
+  const get = (row, f) => map[f] != null ? String(row[map[f]] == null ? '' : row[map[f]]).trim() : '';
+  const records = [];
+  for (let i = hi + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.every(c => String(c).trim() === '')) continue;
+    const name = get(row, 'name'), passport = get(row, 'passport'), flight = get(row, 'flight');
+    if (!name && !passport && !flight) continue;
+    const natRaw = get(row, 'nationality');
+    const paxN = parseInt(toLatinDigits(get(row, 'pax')), 10);
+    const w = buildWhen(get(row, 'date'), get(row, 'time'), cfg.dateOrder, cfg.tz);
+    const keyField = map.passport != null ? 'passport' : (map.name != null ? 'name' : null);
+    const r = {
+      kind, row: i + 1, name, passport, flight, natRaw,
+      country: countryOf(natRaw),
+      airline: get(row, 'airline'), date: get(row, 'date'), time: get(row, 'time'),
+      when: w.when, approx: w.approx,
+      hotel: get(row, 'hotel'), room: get(row, 'room'), group: get(row, 'group'),
+      pax: paxN > 0 ? paxN : 1, phone: get(row, 'phone'), terminal: get(row, 'terminal'),
+      route: get(row, 'route'), notes: get(row, 'notes'),
+      done: map.check != null ? isTrue(row[map.check]) : false,
+      key: keyField ? get(row, keyField) : '', keyHeader: keyField ? headers[map[keyField]] : '',
+      raw: headers.map((h, j) => [h || ('عمود ' + (j + 1)), String(row[j] == null ? '' : row[j]).trim()]).filter(x => x[1] !== '')
+    };
+    records.push(r);
+  }
+  return { headers, map, records, headerRow: hi + 1 };
+}
+
+/* ---------------- الحالات ---------------- */
+const ST = {
+  upcoming: { lv: 0, cls: 'info' }, soon: { lv: 1, cls: 'warn' }, critical: { lv: 3, cls: 'danger' },
+  pending: { lv: 2, cls: 'warn' }, late: { lv: 4, cls: 'danger' }, missed: { lv: 4, cls: 'danger' },
+  done: { lv: -1, cls: 'ok' }, nodate: { lv: 0, cls: 'mut' }
+};
+const ST_LABEL = {
+  arrival:   { upcoming: 'قادمة', soon: 'تصل قريباً', critical: 'تصل خلال ساعات', pending: 'وصلت — بانتظار التسكين', late: 'تأخر التسكين', done: 'تم التسكين', nodate: 'بلا موعد' },
+  departure: { upcoming: 'قادمة', soon: 'مغادرة قريبة', critical: 'مغادرة وشيكة', pending: 'بانتظار التأكيد', missed: 'لم يُؤكَّد بعد الإقلاع', late: 'متأخرة', done: 'تمت المغادرة', nodate: 'بلا موعد' }
+};
+function statusOf(r, now, c) {
+  if (r.done) return 'done';
+  if (!r.when) return 'nodate';
+  const h = (r.when.getTime() - now) / 36e5;
+  if (h > c.warnH) return 'upcoming';
+  if (h > c.criticalH) return 'soon';
+  if (h > 0) return 'critical';
+  if (r.kind === 'arrival') return (-h > c.lateH) ? 'late' : 'pending';
+  return 'missed';
+}
+function summarize(recs, now, c) {
+  const o = { rows: recs.length, total: 0, done: 0, pending: 0, danger: 0, warn: 0, dangerRows: 0, by: {} };
+  for (const r of recs) {
+    const p = r.pax || 1; r._st = statusOf(r, now, c);
+    o.total += p; if (r.done) o.done += p; else o.pending += p;
+    const cls = ST[r._st].cls;
+    if (cls === 'danger') { o.danger += p; o.dangerRows++; } else if (cls === 'warn') o.warn += p;
+    o.by[r._st] = (o.by[r._st] || 0) + p;
+  }
+  o.pct = o.total ? Math.round(o.done / o.total * 100) : 0;
+  return o;
+}
+function groupFlights(recs) {
+  const m = new Map();
+  for (const r of recs) {
+    const k = (r.flight || '—') + '|' + (r.when ? fmtDay(r.when) : '');
+    let g = m.get(k);
+    if (!g) { g = { key: k, flight: r.flight || '—', airline: r.airline, when: r.when, rows: [], pax: 0, done: 0, kind: r.kind }; m.set(k, g); }
+    g.rows.push(r); g.pax += r.pax; if (r.done) g.done += r.pax;
+    if (r.when && (!g.when || r.when < g.when)) g.when = r.when;
+  }
+  return [...m.values()].sort((a, b) => (a.when ? a.when.getTime() : 9e15) - (b.when ? b.when.getTime() : 9e15));
+}
+
+root.HajjCore = {
+  DEFAULTS, normAr, esc, toLatinDigits, parseCSV, COUNTRIES, countryOf, flagUrl, FIELDS,
+  findHeaderRow, buildMapping, parseDateParts, parseTimeParts, buildWhen, fmtDay, fmtTime, fmtDayAr, fmtCountdown,
+  isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, TZ_NAME
+};
+if (typeof module !== 'undefined' && module.exports) module.exports = root.HajjCore;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/* =====================================================================
+   منظومة تحركات الحجاج 1447هـ — طبقة الواجهة والمزامنة
+   ===================================================================== */
+(function () {
+'use strict';
+const C = window.HajjCore;
+const { esc, normAr, ST, ST_LABEL } = C;
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const LS_SET = 'hajj1447.settings', LS_THEME = 'hajj1447.theme', LS_BADGE = 'hajj1447.badges';
+const LIBS = {
+  xlsx: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  pdf: 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
+};
+
+/* ---------------- الإعدادات ---------------- */
+const clone = o => JSON.parse(JSON.stringify(o));
+function merge(a, b) { for (const k in b) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k])) a[k] = merge(a[k] && typeof a[k] === 'object' ? a[k] : {}, b[k]); else a[k] = b[k]; } return a; }
+let S; try { S = merge(clone(C.DEFAULTS), JSON.parse(localStorage.getItem(LS_SET) || '{}')); } catch (e) { S = clone(C.DEFAULTS); }
+const saveSettings = () => { try { localStorage.setItem(LS_SET, JSON.stringify(S)); } catch (e) { } };
+
+/* ---------------- الأيقونات ---------------- */
+const ic = (p, x) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"' + (x || '') + '>' + p + '</svg>';
+const PLANE = '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>';
+const ICON = {
+  plane: ic(PLANE),
+  dash: ic('<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/>'),
+  land: ic(PLANE, ' style="transform:rotate(90deg)"'),
+  take: ic(PLANE, ' style="transform:rotate(-45deg)"'),
+  refresh: ic('<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>'),
+  gear: ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+  theme: ic('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  xls: ic('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13l4 5M13 13l-4 5"/>'),
+  pdf: ic('<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M8 14h2.5a1.5 1.5 0 0 1 0 3H8v-3zM14 17v-3h2M14 15.5h1.5"/>'),
+  print: ic('<path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/>'),
+  search: ic('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'),
+  check: ic('<path d="M20 6 9 17l-5-5"/>'),
+  eye: ic('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')
+};
+
+/* ---------------- الحالة والمزامنة ---------------- */
+const state = { data: { arrival: null, departure: null }, sync: { arrival: 0, departure: 0 }, err: {}, pending: { arrival: {}, departure: {} }, fn: [] };
+const pkey = r => (r.key || ('r' + r.row));
+const emit = () => state.fn.forEach(f => { try { f(); } catch (e) { console.error(e); } });
+const onData = f => state.fn.push(f);
+
+async function fetchRows(kind) {
+  if (S.readVia === 'webapp' && S.webapp) {
+    const u = S.webapp + (S.webapp.includes('?') ? '&' : '?') + 'action=read&kind=' + kind + '&token=' + encodeURIComponent(S.token) + '&t=' + Date.now();
+    const r = await fetch(u, { cache: 'no-store' }); const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'خطأ في تطبيق الويب'); return j.rows;
+  }
+  const base = S[kind].csv;
+  if (!base) throw new Error('لم يُضبط مصدر البيانات — افتح الإعدادات ⚙ وأدخل رابط CSV للجدول أو رابط Apps Script');
+  const u = base + (base.includes('?') ? '&' : '?') + 't=' + Date.now();
+  const r = await fetch(u, { cache: 'no-store' });
+  if (!r.ok) throw new Error('تعذّر جلب الجدول (' + r.status + ')');
+  const t = await r.text();
+  if (/^\s*</.test(t)) throw new Error('الرابط لا يُرجع CSV — تأكد من نشر الجدول على الويب');
+  return C.parseCSV(t);
+}
+function processRows(kind, rows) {
+  const res = C.toRecords(rows, kind, S), pend = state.pending[kind];
+  res.records.forEach(r => {
+    const p = pend[pkey(r)]; if (!p) return;
+    if (r.done === p.value || Date.now() - p.ts > 600000) delete pend[pkey(r)];
+    else { r.done = p.value; r.syncing = true; }
+  });
+  state.data[kind] = res; return res;
+}
+function updateBadges() {
+  const b = {}; try { Object.assign(b, JSON.parse(localStorage.getItem(LS_BADGE) || '{}')); } catch (e) { }
+  ['arrival', 'departure'].forEach(k => { if (state.data[k]) { b[k] = C.summarize(state.data[k].records, Date.now(), S).dangerRows; } });
+  try { localStorage.setItem(LS_BADGE, JSON.stringify(b)); } catch (e) { }
+  ['arrival', 'departure'].forEach(k => { const el = $('#bd-' + k); if (!el) return; el.hidden = !b[k]; el.textContent = b[k] || ''; });
+}
+async function loadKind(kind) {
+  try {
+    const rows = await fetchRows(kind); processRows(kind, rows);
+    state.sync[kind] = Date.now(); state.err[kind] = null;
+    try { localStorage.setItem('hajj1447.cache.' + kind, JSON.stringify({ ts: Date.now(), rows })); } catch (e) { }
+  } catch (e) { state.err[kind] = e.message || String(e); }
+}
+let kindsInUse = [], lastTry = 0;
+async function refresh(kinds) {
+  kinds = kinds || kindsInUse; lastTry = Date.now();
+  const live = $('#live'), btn = $('#bRef');
+  if (live) live.className = 'live load'; if (btn) btn.classList.add('spin');
+  await Promise.all(kinds.map(loadKind));
+  if (btn) btn.classList.remove('spin');
+  updateBadges(); emit(); tick(true);
+}
+function hydrate(kinds) {
+  kinds.forEach(k => {
+    try { const c = JSON.parse(localStorage.getItem('hajj1447.cache.' + k) || 'null'); if (c && c.rows) { processRows(k, c.rows); state.sync[k] = c.ts; state.cached = true; } } catch (e) { }
+  });
+}
+
+/* ---------------- الكتابة (Apps Script) ---------------- */
+async function writeChecks(kind, recs, value) {
+  if (!S.webapp) { toast('اضبط رابط Apps Script من الإعدادات أولاً', 'warn'); openSettings(); return false; }
+  const d = state.data[kind];
+  if (d.map.check == null) { toast('لم يُعثر على عمود ' + S[kind].checkHeader + ' في الجدول', 'err'); return false; }
+  recs.forEach(r => { r.done = value; r.syncing = true; state.pending[kind][pkey(r)] = { value, ts: Date.now() }; });
+  emit();
+  const revert = rs => rs.forEach(r => { delete state.pending[kind][pkey(r)]; r.done = !value; r.syncing = false; });
+  try {
+    const res = await fetch(S.webapp, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ token: S.token, kind, headerRow: d.headerRow, ops: recs.map(r => ({ row: r.row, key: r.key, keyHeader: r.keyHeader, value })) })
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || 'فشل الحفظ');
+    const bad = [];
+    (j.results || []).forEach((x, i) => { if (!x.ok) bad.push([recs[i], x.error]); });
+    revert(bad.map(b => b[0]));
+    if (bad.length) toast('تعذّر حفظ ' + bad.length + ' سجل: ' + bad[0][1], 'err');
+    const okN = recs.length - bad.length;
+    if (okN) toast((value ? 'تم حفظ ' : 'تم التراجع عن ') + okN + ' سجل في Google Sheets', 'ok');
+    emit();
+    setTimeout(() => refresh([kind]), 2500); setTimeout(() => refresh([kind]), 9000);
+    return true;
+  } catch (e) {
+    revert(recs); emit(); toast('فشل الحفظ: ' + (e.message || e), 'err'); return false;
+  }
+}
+
+/* ---------------- مكوّنات الواجهة ---------------- */
+function toast(msg, type) {
+  let c = $('.toasts'); if (!c) { c = document.createElement('div'); c.className = 'toasts'; c.setAttribute('aria-live', 'polite'); document.body.appendChild(c); }
+  const t = document.createElement('div'); t.className = 'toast ' + (type || ''); t.textContent = msg; c.appendChild(t); setTimeout(() => t.remove(), 4500);
+}
+function modal(html) {
+  const ov = document.createElement('div'); ov.className = 'ov';
+  ov.innerHTML = '<div class="modal" role="dialog" aria-modal="true">' + html + '</div>';
+  document.body.appendChild(ov);
+  const close = () => { ov.remove(); document.removeEventListener('keydown', kd); };
+  const kd = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', kd);
+  ov.addEventListener('mousedown', e => { if (e.target === ov) close(); });
+  ov.close = close; return ov;
+}
+function confirmBox(title, msg, okText) {
+  return new Promise(res => {
+    const ov = modal('<h3>' + esc(title) + '</h3><p>' + esc(msg) + '</p><div class="act"><button class="btn green" data-y>' + esc(okText || 'تأكيد') + '</button><button class="btn" data-n>إلغاء</button></div>');
+    ov.querySelector('[data-y]').onclick = () => { ov.close(); res(true); };
+    ov.querySelector('[data-n]').onclick = () => { ov.close(); res(false); };
+  });
+}
+const libs = {};
+function loadLib(url) {
+  if (libs[url]) return libs[url];
+  return libs[url] = new Promise((ok, no) => { const s = document.createElement('script'); s.src = url; s.onload = ok; s.onerror = () => { delete libs[url]; no(new Error('تعذّر تحميل مكتبة التصدير — تحقق من الاتصال بالإنترنت')); }; document.head.appendChild(s); });
+}
+const mask = p => !p ? '' : (p.length > 4 ? '••••' + p.slice(-4) : p);
+const natHtml = r => {
+  const c = r.country;
+  if (!c) return '<span class="nat"><span class="flag ph">؟</span>' + esc(r.natRaw || '—') + '</span>';
+  return '<span class="nat"><img class="flag" loading="lazy" alt="" src="' + C.flagUrl(c.iso2, 40) + '" srcset="' + C.flagUrl(c.iso2, 80) + ' 2x" onerror="this.style.visibility=\'hidden\'">' + esc(c.ar) + '</span>';
+};
+const whenTxt = r => r.when ? C.fmtDayAr(r.when) + ' · ' + (r.approx ? '≈' : '') + C.fmtTime(r.when) : esc(r.date || '—');
+const cdHtml = (r) => r.when && !r.done ? '<span class="cd" data-w="' + r.when.getTime() + '"></span>' : '<span class="sub">—</span>';
+
+/* ---------------- العدّ التنازلي الحي ---------------- */
+function tick(force) {
+  const now = Date.now();
+  $$('.cd[data-w]').forEach(el => {
+    const ms = +el.dataset.w - now, f = C.fmtCountdown(ms), h = ms / 36e5;
+    el.innerHTML = (f.neg ? '<span dir="rtl">منذ</span> ' : '') + (f.d ? '<span dir="rtl">' + f.d + ' يوم</span> ' : '') + f.hms;
+    el.classList.toggle('neg', f.neg);
+    el.classList.toggle('crit', !f.neg && h <= S.criticalH);
+    el.classList.toggle('warn', !f.neg && h > S.criticalH && h <= S.warnH);
+  });
+  const live = $('#live'), txt = $('#syncTxt'); if (!live) return;
+  const last = Math.max(state.sync.arrival || 0, state.sync.departure || 0);
+  const err = kindsInUse.some(k => state.err[k]);
+  if (!$('#bRef').classList.contains('spin')) live.className = 'live' + (err ? ' err' : '');
+  txt.textContent = err ? 'تعذّر التحديث' : (last ? 'آخر تحديث ' + new Intl.DateTimeFormat('en-GB', { timeZone: C.TZ_NAME, hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(last) : 'جارٍ التحميل…');
+}
+
+/* ---------------- شريط التنقل ---------------- */
+function renderNav(page) {
+  const tabs = [['index', 'لوحة المؤشرات', 'dash'], ['arrival', 'متابعة الوصول', 'land'], ['departure', 'متابعة المغادرة', 'take']];
+  const nav = $('#nav'); nav.className = 'nav';
+  nav.innerHTML = '<a class="brand" href="index.html"><span class="logo">' + ICON.plane + '</span><span><b>منظومة تحركات الحجاج</b><small>موسم 1447هـ</small></span></a>' +
+    '<nav class="tabs" aria-label="التنقل الرئيسي">' + tabs.map(t => '<a class="tab' + (t[0] === page ? ' active' : '') + '" href="' + t[0] + '.html"' + (t[0] === page ? ' aria-current="page"' : '') + '>' + ICON[t[2]] + '<span class="tl">' + t[1] + '</span>' + (t[0] !== 'index' ? '<span class="badge" id="bd-' + t[0] + '" hidden></span>' : '') + '</a>').join('') + '</nav>' +
+    '<div class="tools"><span class="live" id="live"><i></i><em id="syncTxt">—</em></span>' +
+    '<button class="ibtn" id="bRef" title="تحديث الآن" aria-label="تحديث">' + ICON.refresh + '</button>' +
+    '<button class="ibtn" id="bTheme" title="الوضع الفاتح/الداكن" aria-label="تبديل السمة">' + ICON.theme + '</button>' +
+    '<button class="ibtn" id="bSet" title="الإعدادات" aria-label="الإعدادات">' + ICON.gear + '</button></div>';
+  $('#bRef').onclick = () => refresh();
+  $('#bSet').onclick = () => openSettings();
+  $('#bTheme').onclick = () => {
+    const n = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = n; try { localStorage.setItem(LS_THEME, n); } catch (e) { }
+    emit(window.__themeChanged = true);
+  };
+  updateBadges();
+}
+
+/* ---------------- نافذة الإعدادات ---------------- */
+function openSettings() {
+  const lab = (t, inner, full) => '<label' + (full ? ' class="full"' : '') + '>' + t + inner + '</label>';
+  const inp = (id, v, ph, type) => '<input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(v) + '" placeholder="' + esc(ph || '') + '" dir="ltr">';
+  let mapHtml = '';
+  ['arrival', 'departure'].forEach(k => {
+    const d = state.data[k]; if (!d || !d.headers.length) return;
+    const opts = sel => '<option value="">تلقائي' + (sel != null ? ' ← ' + esc(d.headers[sel] || '') : ' (غير مكتشف)') + '</option>' + d.headers.filter(h => h).map(h => '<option value="' + esc(h) + '"' + ((S.map[k] || {})[sel] === h ? ' selected' : '') + '>' + esc(h) + '</option>').join('');
+    mapHtml += '<h4>ربط الأعمدة — ' + (k === 'arrival' ? 'الوصول' : 'المغادرة') + ' <span class="hint">(الأعمدة المكتشفة: ' + d.headers.filter(h => h).length + ')</span></h4>';
+    const fl = Object.keys(C.FIELDS).concat('check');
+    fl.forEach(f => {
+      const cur = (S.map[k] || {})[f] || '';
+      const detected = d.map[f];
+      const o = '<option value="">تلقائي' + (detected != null ? ' ← ' + esc(d.headers[detected]) : ' (غير مكتشف)') + '</option>' + d.headers.filter(h => h).map(h => '<option value="' + esc(h) + '"' + (cur === h ? ' selected' : '') + '>' + esc(h) + '</option>').join('');
+      mapHtml += lab(f === 'check' ? 'عمود التأكيد (' + S[k].checkHeader + ')' : C.FIELDS[f].ar, '<select data-map="' + k + '|' + f + '">' + o + '</select>');
+    });
+  });
+  const ov = modal('<h3>الإعدادات</h3><div class="set">' +
+    '<h4>التزامن الثنائي (Apps Script)</h4>' +
+    lab('رابط تطبيق الويب (…/exec)', inp('sWeb', S.webapp, 'https://script.google.com/macros/s/…/exec'), true) +
+    lab('الرمز السري (TOKEN)', inp('sTok', S.token, 'نفس القيمة في Code.gs', 'password')) +
+    lab('مصدر القراءة', '<select id="sVia"><option value="csv"' + (S.readVia === 'csv' ? ' selected' : '') + '>الرابط المنشور (CSV)</option><option value="webapp"' + (S.readVia === 'webapp' ? ' selected' : '') + '>تطبيق الويب (فوري وخاص)</option></select>') +
+    '<h4>مصادر البيانات</h4>' +
+    lab('رابط CSV — الوصول', inp('sCa', S.arrival.csv), true) +
+    lab('رابط CSV — المغادرة', inp('sCd', S.departure.csv), true) +
+    '<h4>التوقيت والتنبيهات</h4>' +
+    lab('فاصل التحديث (ثوانٍ)', inp('sRef', S.refreshSec, '', 'number')) +
+    lab('ترتيب التاريخ في الجدول', '<select id="sOrd"><option value="DMY"' + (S.dateOrder === 'DMY' ? ' selected' : '') + '>يوم/شهر/سنة</option><option value="MDY"' + (S.dateOrder === 'MDY' ? ' selected' : '') + '>شهر/يوم/سنة</option></select>') +
+    lab('«حرج» قبل الرحلة بـ (ساعات)', inp('sCrit', S.criticalH, '', 'number')) +
+    lab('«قريب» قبل الرحلة بـ (ساعات)', inp('sWarn', S.warnH, '', 'number')) +
+    lab('تأخر التسكين بعد الهبوط بـ (ساعات)', inp('sLate', S.lateH, '', 'number')) +
+    mapHtml +
+    '</div><div class="act"><button class="btn gold" id="sSave">حفظ وتحديث</button><button class="btn" id="sTest">اختبار الاتصال بـ Apps Script</button><button class="btn" id="sReset">إعادة الضبط</button><button class="btn" id="sClose">إغلاق</button></div><p class="hint" id="sMsg"></p>');
+  const v = id => $('#' + id, ov).value.trim();
+  $('#sClose', ov).onclick = () => ov.close();
+  $('#sReset', ov).onclick = () => { try { localStorage.removeItem(LS_SET); } catch (e) { } location.reload(); };
+  $('#sTest', ov).onclick = async () => {
+    const m = $('#sMsg', ov), u = v('sWeb'); if (!u) { m.textContent = 'أدخل رابط تطبيق الويب أولاً'; return; }
+    m.textContent = 'جارٍ الاختبار…';
+    try { const r = await fetch(u + (u.includes('?') ? '&' : '?') + 'action=ping&token=' + encodeURIComponent(v('sTok'))); const j = await r.json(); m.textContent = j.ok ? '✓ الاتصال سليم والرمز مقبول' : '✗ ' + (j.error || 'مرفوض'); } catch (e) { m.textContent = '✗ تعذّر الاتصال: ' + e.message; }
+  };
+  $('#sSave', ov).onclick = () => {
+    S.webapp = v('sWeb'); S.token = $('#sTok', ov).value; S.readVia = v('sVia');
+    S.arrival.csv = v('sCa'); S.departure.csv = v('sCd');
+    S.refreshSec = Math.max(10, +v('sRef') || 30); S.dateOrder = v('sOrd');
+    S.criticalH = +v('sCrit') || 3; S.warnH = +v('sWarn') || 12; S.lateH = +v('sLate') || 2;
+    $$('[data-map]', ov).forEach(sel => { const [k, f] = sel.dataset.map.split('|'); S.map[k] = S.map[k] || {}; if (sel.value) S.map[k][f] = sel.value; else delete S.map[k][f]; });
+    saveSettings(); ov.close(); startAuto(); refresh(); toast('تم حفظ الإعدادات', 'ok');
+  };
+}
+
+/* ---------------- التصدير ---------------- */
+async function saveXlsx(sheets, filename) {
+  await loadLib(LIBS.xlsx);
+  const wb = XLSX.utils.book_new();
+  sheets.forEach(s => {
+    const rows = s.rows.length ? s.rows : [{ '—': 'لا توجد بيانات' }];
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const keys = Object.keys(rows[0]);
+    ws['!cols'] = keys.map(k => ({ wch: Math.min(42, Math.max(k.length + 2, ...rows.slice(0, 300).map(r => String(r[k] == null ? '' : r[k]).length + 2))) }));
+    XLSX.utils.book_append_sheet(wb, ws, s.name.slice(0, 31));
+  });
+  wb.Workbook = { Views: [{ RTL: true }] };
+  XLSX.writeFile(wb, filename);
+}
+function reportHtml(o) {
+  const th = 'style="background:#07182D;color:#E3C98A;padding:6px 8px;text-align:right;font-size:11px;border:1px solid #1b3556"';
+  const td = 'style="padding:5px 8px;border:1px solid #d9d3c3;font-size:10.5px;vertical-align:middle"';
+  return '<div dir="rtl" style="font-family:Tajawal,Tahoma,sans-serif;color:#0B1B30;background:#fff;padding:6px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #C5A059;padding-bottom:8px;margin-bottom:10px">' +
+    '<div><div style="font-size:20px;font-weight:800;color:#07182D">' + esc(o.title) + '</div><div style="color:#5A6B82;font-size:11px">' + esc(o.sub || '') + '</div></div>' +
+    '<div style="text-align:left;font-size:11px;color:#5A6B82">منظومة تحركات الحجاج 1447هـ<br>' + esc(new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { dateStyle: 'medium', timeStyle: 'short', timeZone: C.TZ_NAME }).format(new Date())) + '</div></div>' +
+    '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + (o.kpis || []).map(k => '<div style="flex:1;min-width:110px;border:1px solid #d9d3c3;border-top:3px solid ' + (k[2] || '#C5A059') + ';border-radius:6px;padding:6px 10px"><div style="font-size:10.5px;color:#5A6B82">' + esc(k[0]) + '</div><div style="font-size:19px;font-weight:800">' + esc(k[1]) + '</div></div>').join('') + '</div>' +
+    '<table style="width:100%;border-collapse:collapse"><thead><tr>' + o.head.map(h => '<th ' + th + '>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' +
+    o.rows.map((r, i) => '<tr style="page-break-inside:avoid;background:' + (i % 2 ? '#faf8f3' : '#fff') + '">' + r.map(c => '<td ' + td + '>' + (c && c.html != null ? c.html : esc(c)) + '</td>').join('') + '</tr>').join('') +
+    '</tbody></table></div>';
+}
+async function savePDF(html, filename, landscape) {
+  await loadLib(LIBS.pdf);
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-99999px;top:0;width:' + (landscape ? 1100 : 760) + 'px;background:#fff';
+  host.innerHTML = html; document.body.appendChild(host);
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    await html2pdf().set({ margin: [8, 8, 10, 8], filename, image: { type: 'jpeg', quality: .95 }, html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] } }).from(host).save();
+  } finally { host.remove(); }
+}
+const stamp = () => C.fmtDay(new Date());
+const flagImg = c => c ? '<img src="' + C.flagUrl(c.iso2, 40) + '" crossorigin="anonymous" style="width:20px;height:14px;vertical-align:middle;margin-left:5px;border:1px solid #ccc" onerror="this.style.display=\'none\'">' + esc(c.ar) : '';
+const exportRow = (kind, r, reveal) => ({
+  'الاسم': r.name, 'الجنسية': r.country ? r.country.ar : r.natRaw, 'رقم الجواز': reveal ? r.passport : mask(r.passport),
+  'الرحلة': r.flight, 'الناقل': r.airline, 'التاريخ': r.when ? C.fmtDay(r.when) : r.date, 'الوقت': r.when && !r.approx ? C.fmtTime(r.when) : r.time,
+  'الفندق': r.hotel, 'الغرفة': r.room, 'المجموعة': r.group, 'الحالة': ST_LABEL[kind][r._st] || '', [kind === 'arrival' ? 'تم التسكين' : 'تمت المغادرة']: r.done ? 'نعم' : 'لا'
+});
+
+/* =====================================================================
+   صفحة المتابعة (الوصول / المغادرة)
+   ===================================================================== */
+const KIND = {
+  arrival: { title: 'متابعة الوصول', sub: 'رصد وصول الحجاج وتأكيد التسكين في الفنادق', doneL: 'تم التسكين', openL: 'بانتظار التسكين', act: 'تأكيد التسكين', total: 'إجمالي القادمين' },
+  departure: { title: 'متابعة المغادرة', sub: 'متابعة مغادرة الفنادق وإنهاء إجراءات الجوازات قبل الرحلات', doneL: 'تمت المغادرة', openL: 'بانتظار التأكيد', act: 'تأكيد المغادرة (الفندق والجوازات)', total: 'إجمالي المغادرين' }
+};
+function initTracker(kind) {
+  const K = KIND[kind], app = $('#app');
+  const ui = { q: '', status: 'all', nat: 'all', day: 'all', flight: 'all', sortK: 'when', dir: 1, reveal: false, limit: 150, sel: new Set(), open: new Set() };
+  const qs = new URLSearchParams(location.search); if (qs.get('status')) ui.status = qs.get('status'); if (qs.get('q')) ui.q = qs.get('q');
+  let prevDanger = null, idx = new Map();
+
+  app.innerHTML = '<section class="hero"><div><h1>' + K.title + '</h1><p>' + K.sub + '</p></div><div class="hero-actions">' +
+    '<button class="btn green" id="xXls">' + ICON.xls + 'Excel</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
+    '<div id="stale"></div><div class="kpis" id="kpis"></div><div id="alertbar"></div>' +
+    '<section class="panel"><div class="panel-h"><h2>الرحلات النشطة</h2><span class="hint">اضغط رحلة لتصفية الجدول</span></div><div class="rail" id="rail"></div></section>' +
+    '<section class="panel"><div class="toolbar">' +
+    '<div class="field">' + ICON.search + '<input type="search" id="fQ" placeholder="بحث: اسم، جواز، رحلة، فندق…" value="' + esc(ui.q) + '"></div>' +
+    '<select id="fStatus"><option value="all">كل الحالات</option><option value="open">' + K.openL + '</option><option value="done">' + K.doneL + '</option><option value="danger">حرجة / متأخرة</option><option value="warn">تستدعي الانتباه</option></select>' +
+    '<select id="fNat"></select><select id="fDay"></select>' +
+    '<label class="sw"><input type="checkbox" id="fReveal"> إظهار أرقام الجوازات</label><span class="sp"></span><span class="hint" id="cnt"></span></div>' +
+    '<div class="bulk" id="bulk" hidden></div><div class="tablewrap"><table id="tbl"><thead></thead><tbody></tbody></table></div><div class="more" id="more"></div></section>';
+  $('#fStatus').value = ui.status;
+
+  const recs = () => (state.data[kind] ? state.data[kind].records : []);
+  const dateOk = r => ui.day === 'all' || (r.when && C.fmtDay(r.when) === ui.day);
+  const flightKey = r => (r.flight || '—') + '|' + (r.when ? C.fmtDay(r.when) : '');
+  function passes(r) {
+    if (ui.q) { const h = r._h || (r._h = normAr([r.name, r.passport, r.flight, r.hotel, r.room, r.group, r.phone, r.natRaw, r.country && r.country.ar].join(' '))); if (!h.includes(normAr(ui.q))) return false; }
+    if (ui.nat !== 'all' && (r.country ? r.country.iso2 : '?') !== ui.nat) return false;
+    if (!dateOk(r)) return false;
+    if (ui.flight !== 'all' && flightKey(r) !== ui.flight) return false;
+    const cls = ST[r._st].cls;
+    switch (ui.status) { case 'open': return !r.done; case 'done': return r.done; case 'danger': return cls === 'danger'; case 'warn': return cls === 'warn' || cls === 'danger'; }
+    return true;
+  }
+  const sorters = {
+    name: (a, b) => a.name.localeCompare(b.name, 'ar'), nat: (a, b) => ((a.country && a.country.ar) || 'ي').localeCompare((b.country && b.country.ar) || 'ي', 'ar'),
+    flight: (a, b) => a.flight.localeCompare(b.flight), group: (a, b) => a.group.localeCompare(b.group, 'ar'),
+    when: (a, b) => (a.when ? a.when.getTime() : 9e15) - (b.when ? b.when.getTime() : 9e15), status: (a, b) => ST[b._st].lv - ST[a._st].lv
+  };
+  const filtered = () => recs().filter(passes).sort((a, b) => ui.dir * (sorters[ui.sortK] || sorters.when)(a, b));
+
+  function columns(d) {
+    const m = d.map, has = f => m[f] != null;
+    return [
+      { id: 'sel', th: '<input type="checkbox" data-selall aria-label="تحديد الكل">', show: true },
+      { id: 'n', th: '#', show: true },
+      { id: 'name', th: 'الاسم', sort: 'name', show: has('name') },
+      { id: 'nat', th: 'الجنسية', sort: 'nat', show: has('nationality') },
+      { id: 'pp', th: 'الجواز', show: has('passport') },
+      { id: 'flight', th: 'الرحلة', sort: 'flight', show: has('flight') },
+      { id: 'when', th: kind === 'arrival' ? 'موعد الوصول' : 'موعد المغادرة', sort: 'when', show: has('date') },
+      { id: 'cd', th: 'العدّ التنازلي', show: has('date') },
+      { id: 'hotel', th: 'الفندق / الغرفة', show: has('hotel') || has('room') },
+      { id: 'group', th: 'المجموعة', sort: 'group', show: has('group') },
+      { id: 'st', th: 'الحالة', sort: 'status', show: true },
+      { id: 'act', th: '', show: true }
+    ].filter(c => c.show);
+  }
+  function cell(c, r, i) {
+    const lab = ST_LABEL[kind][r._st] || r._st, cls = ST[r._st].cls;
+    switch (c.id) {
+      case 'sel': return '<td data-l=""><input type="checkbox" data-sel="' + r.row + '"' + (ui.sel.has(r.row) ? ' checked' : '') + ' aria-label="تحديد"></td>';
+      case 'n': return '<td data-l="#" class="sub">' + (i + 1) + '</td>';
+      case 'name': return '<td data-l="الاسم"><span class="nm" data-open="' + r.row + '">' + esc(r.name || '—') + '</span>' + (r.pax > 1 ? '<div class="sub">' + r.pax + ' أفراد</div>' : '') + '</td>';
+      case 'nat': return '<td data-l="الجنسية">' + natHtml(r) + '</td>';
+      case 'pp': return '<td data-l="الجواز"><span class="pp">' + esc(ui.reveal ? r.passport : mask(r.passport)) + '</span></td>';
+      case 'flight': return '<td data-l="الرحلة"><b>' + esc(r.flight || '—') + '</b>' + (r.airline ? '<div class="sub">' + esc(r.airline) + '</div>' : '') + '</td>';
+      case 'when': return '<td data-l="الموعد">' + whenTxt(r) + '</td>';
+      case 'cd': return '<td data-l="العدّ التنازلي">' + cdHtml(r) + '</td>';
+      case 'hotel': return '<td data-l="الفندق">' + esc(r.hotel || '—') + (r.room ? '<div class="sub">غرفة ' + esc(r.room) + '</div>' : '') + '</td>';
+      case 'group': return '<td data-l="المجموعة">' + esc(r.group || '—') + '</td>';
+      case 'st': return '<td data-l="الحالة"><span class="chip ' + (r.syncing ? 'sync' : cls) + '">' + (r.syncing ? 'جارٍ المزامنة…' : esc(lab)) + '</span></td>';
+      case 'act': return '<td data-l="">' + (r.done ? '<button class="btn sm" data-act="undo" data-row="' + r.row + '"' + (r.syncing ? ' disabled' : '') + '>تراجع</button>' : '<button class="btn sm green" data-act="ok" data-row="' + r.row + '"' + (r.syncing ? ' disabled' : '') + '>' + ICON.check + (kind === 'arrival' ? 'تسكين' : 'مغادرة') + '</button>') + '</td>';
+    }
+    return '<td></td>';
+  }
+
+  function render() {
+    const d = state.data[kind], now = Date.now();
+    const stale = $('#stale');
+    if (!d) {
+      stale.innerHTML = state.err[kind] ? '<div class="stale">⚠ ' + esc(state.err[kind]) + ' <button class="btn sm" id="stSet">الإعدادات</button></div>' : '';
+      if ($('#stSet')) $('#stSet').onclick = openSettings;
+      $('#kpis').innerHTML = '<div class="empty" style="grid-column:1/-1">' + (state.err[kind] ? 'تعذّر تحميل البيانات.' : 'جارٍ تحميل البيانات…') + '</div>'; return;
+    }
+    stale.innerHTML = state.err[kind] ? '<div class="stale">⚠ تعذّر التحديث الأخير (' + esc(state.err[kind]) + ') — تُعرض آخر بيانات محفوظة.</div>' : '';
+    const R = recs(); idx = new Map(R.map(r => [r.row, r]));
+    const sm = C.summarize(R, now, S);
+
+    // مؤشرات
+    const groups = C.groupFlights(R), nextG = groups.find(g => g.when && g.when.getTime() > now && g.done < g.pax);
+    $('#kpis').innerHTML =
+      '<div class="kpi gold"><div class="l">' + K.total + '</div><div class="v">' + sm.total + '</div><div class="s">' + sm.rows + ' سجل · ' + groups.length + ' رحلة</div></div>' +
+      '<div class="kpi ok"><div class="l">' + K.doneL + '</div><div class="v">' + sm.done + '</div><div class="s"><div class="bar"><i style="width:' + sm.pct + '%"></i></div>' + sm.pct + '%</div></div>' +
+      '<div class="kpi amber"><div class="l">' + K.openL + '</div><div class="v">' + sm.pending + '</div><div class="s">تستدعي الانتباه: ' + sm.warn + '</div></div>' +
+      '<div class="kpi red click' + (sm.dangerRows ? ' pulse' : '') + '" data-kpi="danger"><div class="l">حالات حرجة / متأخرة</div><div class="v">' + sm.danger + '</div><div class="s">' + sm.dangerRows + ' سجل — اضغط للتصفية</div></div>' +
+      '<div class="kpi sky"><div class="l">أقرب رحلة</div><div class="v" style="font-size:25px;padding-top:5px">' + (nextG ? '<span class="cd" data-w="' + nextG.when.getTime() + '"></span>' : '—') + '</div><div class="s">' + (nextG ? esc(nextG.flight) + ' · ' + C.fmtTime(nextG.when) + ' · ' + nextG.pax + ' فرد' : 'لا توجد رحلات قادمة') + '</div></div>';
+
+    $('#alertbar').innerHTML = sm.dangerRows ? '<div class="alertbar" data-kpi="danger"><span class="dot"></span><b>تنبيه:</b> ' + sm.dangerRows + ' سجل في حالة حرجة أو متأخرة ويحتاج إلى إجراء فوري <span class="sp"></span><span class="hint">عرض</span></div>' : '';
+    const dk = new Set(R.filter(r => ST[r._st].cls === 'danger').map(r => pkey(r)));
+    if (prevDanger) { let n = 0; dk.forEach(k => { if (!prevDanger.has(k)) n++; }); if (n) toast('تنبيه: ' + n + ' حالة حرجة جديدة', 'err'); }
+    prevDanger = dk;
+
+    // شريط الرحلات
+    const act = groups.filter(g => g.done < g.pax).slice(0, 40);
+    $('#rail').innerHTML = act.length ? act.map(g => {
+      const lv = g.when ? (g.when.getTime() < now ? (kind === 'arrival' ? 'warn' : 'danger') : ((g.when.getTime() - now) / 36e5 <= S.criticalH ? 'danger' : ((g.when.getTime() - now) / 36e5 <= S.warnH ? 'warn' : ''))) : '';
+      return '<div class="fl ' + lv + (ui.flight === g.key ? ' on' : '') + '" data-flight="' + esc(g.key) + '"><div class="t"><span class="no">' + esc(g.flight) + '</span><span class="sub">' + (g.when ? C.fmtDayAr(g.when) : '') + '</span></div>' +
+        '<div class="m"><span>' + esc(g.airline || '') + '</span><span class="num">' + (g.when ? C.fmtTime(g.when) : '') + '</span></div>' +
+        '<div class="cd-wrap">' + (g.when ? '<span class="cd" data-w="' + g.when.getTime() + '" style="font-size:18px;font-weight:700"></span>' : '') + '</div>' +
+        '<div class="bar" style="margin-top:8px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
+        '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span><button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + 'تأكيد الكل</button></div></div>';
+    }).join('') : '<div class="empty" style="width:100%;padding:16px">لا توجد رحلات نشطة — كل الرحلات مكتملة ✓</div>';
+
+    // خيارات التصفية
+    const nats = new Map(); R.forEach(r => { const k = r.country ? r.country.iso2 : '?'; nats.set(k, (r.country ? r.country.ar : 'غير محدد')); });
+    const nv = ui.nat; $('#fNat').innerHTML = '<option value="all">كل الجنسيات</option>' + [...nats.entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar')).map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join(''); $('#fNat').value = nv;
+    const days = [...new Set(R.filter(r => r.when).map(r => C.fmtDay(r.when)))].sort();
+    const dv = ui.day; $('#fDay').innerHTML = '<option value="all">كل الأيام</option>' + days.map(k => '<option value="' + k + '">' + k.slice(5).replace('-', '/') + '</option>').join(''); $('#fDay').value = dv;
+
+    // الجدول
+    const cols = columns(d), rows = filtered();
+    $('#tbl thead').innerHTML = '<tr>' + cols.map(c => '<th' + (c.sort ? ' class="sort" data-sort="' + c.sort + '"' : '') + '>' + c.th + (c.sort && ui.sortK === c.sort ? '<span class="ar">' + (ui.dir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>').join('') + '</tr>';
+    const shown = rows.slice(0, ui.limit);
+    $('#tbl tbody').innerHTML = shown.length ? shown.map((r, i) => {
+      const cls = ST[r._st].cls;
+      let h = '<tr class="r ' + (r.done ? 'done ' : '') + (cls === 'danger' ? 'danger ' : cls === 'warn' ? 'warn ' : '') + (r.syncing ? 'syncing' : '') + '">' + cols.map(c => cell(c, r, i)).join('') + '</tr>';
+      if (ui.open.has(r.row)) h += '<tr class="detail"><td colspan="' + cols.length + '"><div class="kv">' + r.raw.map(x => '<div><b>' + esc(x[0]) + '</b>' + esc(x[1]) + '</div>').join('') + '</div></td></tr>';
+      return h;
+    }).join('') : '<tr><td colspan="' + cols.length + '"><div class="empty">لا توجد نتائج مطابقة</div></td></tr>';
+    $('#cnt').textContent = rows.length + ' من ' + R.length + ' سجل';
+    $('#more').innerHTML = rows.length > shown.length ? '<button class="btn" data-more>عرض المزيد (' + (rows.length - shown.length) + ')</button>' : '';
+    const bulk = $('#bulk'), n = ui.sel.size; bulk.hidden = !n;
+    if (n) bulk.innerHTML = '<b>' + n + ' محدد</b><button class="btn green sm" data-bulk="ok">' + K.act + '</button><button class="btn sm" data-bulk="undo">تراجع عن المحدد</button><button class="btn sm" data-bulk="clear">إلغاء التحديد</button>';
+    tick();
+  }
+
+  /* أحداث */
+  async function doWrite(list, value, label) {
+    list = list.filter(r => r.done !== value && !r.syncing); if (!list.length) return;
+    if (list.length > 1 && !(await confirmBox(label, 'سيتم تحديث ' + list.length + ' سجل في Google Sheets. متابعة؟', 'نعم، تنفيذ'))) return;
+    await writeChecks(kind, list, value);
+  }
+  app.addEventListener('click', e => {
+    const t = e.target;
+    let el;
+    if ((el = t.closest('[data-act]'))) { const r = idx.get(+el.dataset.row); if (r) doWrite([r], el.dataset.act === 'ok', K.act); return; }
+    if ((el = t.closest('[data-fok]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fok); if (g) doWrite(g.rows, true, K.act + ' — رحلة ' + g.flight); return; }
+    if ((el = t.closest('[data-flight]'))) { ui.flight = ui.flight === el.dataset.flight ? 'all' : el.dataset.flight; ui.limit = 150; render(); return; }
+    if ((el = t.closest('[data-sort]'))) { const k = el.dataset.sort; if (ui.sortK === k) ui.dir *= -1; else { ui.sortK = k; ui.dir = 1; } render(); return; }
+    if ((el = t.closest('[data-open]'))) { const k = +el.dataset.open; ui.open.has(k) ? ui.open.delete(k) : ui.open.add(k); render(); return; }
+    if ((el = t.closest('[data-kpi]'))) { ui.status = 'danger'; $('#fStatus').value = 'danger'; render(); return; }
+    if (t.closest('[data-more]')) { ui.limit += 300; render(); return; }
+    if ((el = t.closest('[data-bulk]'))) {
+      const a = el.dataset.bulk, list = [...ui.sel].map(k => idx.get(k)).filter(Boolean);
+      if (a === 'clear') { ui.sel.clear(); render(); return; }
+      doWrite(list, a === 'ok', K.act).then(() => { ui.sel.clear(); render(); }); return;
+    }
+    if (t.matches('[data-sel]')) { const k = +t.dataset.sel; t.checked ? ui.sel.add(k) : ui.sel.delete(k); render(); return; }
+    if (t.matches('[data-selall]')) { const rows = filtered().slice(0, ui.limit); rows.forEach(r => t.checked ? ui.sel.add(r.row) : ui.sel.delete(r.row)); render(); }
+  });
+  $('#fQ').oninput = e => { ui.q = e.target.value; ui.limit = 150; render(); };
+  $('#fStatus').onchange = e => { ui.status = e.target.value; render(); };
+  $('#fNat').onchange = e => { ui.nat = e.target.value; render(); };
+  $('#fDay').onchange = e => { ui.day = e.target.value; render(); };
+  $('#fReveal').onchange = e => { ui.reveal = e.target.checked; render(); };
+  $('#xPrint').onclick = () => window.print();
+  $('#xXls').onclick = async () => {
+    try { await saveXlsx([{ name: K.title, rows: filtered().map(r => exportRow(kind, r, ui.reveal)) }], 'hajj1447-' + kind + '-' + stamp() + '.xlsx'); toast('تم تصدير Excel', 'ok'); } catch (e) { toast(e.message, 'err'); }
+  };
+  $('#xPdf').onclick = async () => {
+    const rows = filtered(), sm = C.summarize(recs(), Date.now(), S); toast('جارٍ تجهيز PDF…');
+    const head = ['#', 'الاسم', 'الجنسية', 'الجواز', 'الرحلة', 'التاريخ', 'الوقت', 'الفندق / الغرفة', 'الحالة'];
+    const html = reportHtml({
+      title: 'تقرير ' + K.title, sub: rows.length + ' سجل (حسب التصفية الحالية)',
+      kpis: [[K.total, sm.total], [K.doneL, sm.done, '#006C35'], [K.openL, sm.pending, '#F5A524'], ['حرجة / متأخرة', sm.danger, '#E5484D'], ['نسبة الإنجاز', sm.pct + '%', '#0EA5E9']],
+      head, rows: rows.map((r, i) => [i + 1, r.name, { html: flagImg(r.country) || esc(r.natRaw) }, { html: '<span dir="ltr">' + esc(ui.reveal ? r.passport : mask(r.passport)) + '</span>' }, r.flight, r.when ? C.fmtDay(r.when) : r.date, r.when && !r.approx ? C.fmtTime(r.when) : r.time, (r.hotel + (r.room ? ' / ' + r.room : '')), ST_LABEL[kind][r._st]])
+    });
+    try { await savePDF(html, 'hajj1447-' + kind + '-' + stamp() + '.pdf', true); toast('تم إنشاء PDF', 'ok'); } catch (e) { toast('تعذّر إنشاء PDF: ' + e.message, 'err'); }
+  };
+  onData(render); render();
+}
+
+/* =====================================================================
+   لوحة المؤشرات التنفيذية
+   ===================================================================== */
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const charts = {};
+function chart(id, type, data, extra) {
+  const el = $('#' + id); if (!el) return;
+  if (typeof Chart === 'undefined') { el.parentNode.innerHTML = '<div class="empty">تعذّر تحميل مكتبة الرسوم (Chart.js) — تحقق من الاتصال</div>'; return; }
+  if (charts[id]) { charts[id].data = data; charts[id].update('none'); return; }
+  Chart.defaults.font.family = 'Tajawal,Tahoma,sans-serif';
+  const tc = css('--mut'), gc = 'rgba(147,166,191,.15)';
+  charts[id] = new Chart(el, {
+    type, data, options: Object.assign({
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: tc, usePointStyle: true, boxWidth: 8 } }, tooltip: { rtl: true, textDirection: 'rtl' } },
+      scales: { x: { stacked: true, ticks: { color: tc }, grid: { display: false } }, y: { stacked: true, beginAtZero: true, ticks: { color: tc, precision: 0 }, grid: { color: gc } } }
+    }, extra || {})
+  });
+}
+const byDay = R => { const m = new Map(); R.forEach(r => { if (!r.when) return; const k = C.fmtDay(r.when), o = m.get(k) || { done: 0, open: 0 }; if (r.done) o.done += r.pax; else o.open += r.pax; m.set(k, o); }); return [...m.entries()].sort((a, b) => a[0] < b[0] ? -1 : 1); };
+const ring = (pct, color, label, sub) => { const c = 2 * Math.PI * 54; return '<div class="ring"><svg viewBox="0 0 140 140"><circle cx="70" cy="70" r="54" fill="none" stroke="' + css('--line2') + '" stroke-width="12"/><circle cx="70" cy="70" r="54" fill="none" stroke="' + color + '" stroke-width="12" stroke-linecap="round" stroke-dasharray="' + (pct / 100 * c).toFixed(1) + ' ' + c.toFixed(1) + '"/></svg><div class="tx">' + pct + '%<small>' + sub + '</small></div><div class="lb">' + label + '</div></div>'; };
+
+function initDashboard() {
+  const app = $('#app');
+  app.innerHTML = '<section class="hero"><div><h1>لوحة المؤشرات <span>التنفيذية</span></h1><p>نظرة لحظية على حركة وصول ومغادرة حجاج 1447هـ</p></div><div class="hero-actions"><button class="btn green" id="xXls">' + ICON.xls + 'Excel شامل</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'تقرير PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
+    '<div id="stale"></div><div class="kpis" id="kpis"></div>' +
+    '<div class="grid2"><section class="panel"><h2>أقرب الرحلات</h2><div class="cols2"><div><h3>الوصول</h3><div class="nxt" id="nxA"></div></div><div><h3>المغادرة</h3><div class="nxt" id="nxD"></div></div></div></section>' +
+    '<section class="panel"><h2>نسب الإنجاز</h2><div class="rings" id="rings"></div></section></div>' +
+    '<div class="grid2 even"><section class="panel"><h2>الوصول حسب اليوم</h2><div class="chartbox"><canvas id="chA"></canvas></div></section><section class="panel"><h2>المغادرة حسب اليوم</h2><div class="chartbox"><canvas id="chD"></canvas></div></section></div>' +
+    '<div class="grid2"><section class="panel"><h2>حركة الرحلات خلال 24 ساعة القادمة</h2><div class="chartbox"><canvas id="chH"></canvas></div></section><section class="panel"><div class="panel-h"><h2>الجوازات حسب الجنسية</h2><span class="hint" id="natCnt"></span></div><div class="natl" id="nat"></div></section></div>' +
+    '<section class="panel"><h2>تنبيهات حرجة تحتاج إجراءً</h2><div class="nxt feed" id="feed"></div></section>';
+  let snap = null;
+
+  function nxList(kind) {
+    const d = state.data[kind], now = Date.now(); if (!d) return '<div class="empty">—</div>';
+    const g = C.groupFlights(d.records).filter(x => x.when && x.done < x.pax && x.when.getTime() > now - 36e5).slice(0, 5);
+    return g.length ? g.map(x => '<a class="nx" href="' + kind + '.html?q=' + encodeURIComponent(x.flight) + '"><span class="no">' + esc(x.flight) + '</span><span class="i">' + esc(x.airline || '') + '<small>' + C.fmtDayAr(x.when) + ' · ' + C.fmtTime(x.when) + ' · ' + x.pax + ' فرد</small></span><span class="c"><span class="cd" data-w="' + x.when.getTime() + '"></span></span></a>').join('') : '<div class="empty" style="padding:14px">لا توجد رحلات قادمة</div>';
+  }
+  function render() {
+    const A = state.data.arrival, D = state.data.departure, now = Date.now();
+    $('#stale').innerHTML = (state.err.arrival || state.err.departure) ? '<div class="stale">⚠ ' + esc(state.err.arrival || state.err.departure) + (A || D ? ' — تُعرض آخر بيانات محفوظة' : '') + ' <button class="btn sm" id="stSet">الإعدادات</button></div>' : '';
+    if ($('#stSet')) $('#stSet').onclick = openSettings;
+    if (!A && !D) { $('#kpis').innerHTML = '<div class="empty" style="grid-column:1/-1">' + (state.err.arrival || state.err.departure ? 'تعذّر تحميل البيانات.' : 'جارٍ تحميل البيانات…') + '</div>'; return; }
+    const sa = A ? C.summarize(A.records, now, S) : null, sd = D ? C.summarize(D.records, now, S) : null;
+    const z = { total: 0, done: 0, pending: 0, danger: 0, dangerRows: 0, pct: 0 };
+    const a = sa || z, d = sd || z;
+    snap = { a, d };
+    const target = (a.dangerRows || !d.dangerRows) ? 'arrival' : 'departure';
+    $('#kpis').innerHTML =
+      '<div class="kpi gold"><div class="l">إجمالي الحجاج القادمين</div><div class="v">' + a.total + '</div><div class="s">المغادرون: ' + d.total + '</div></div>' +
+      '<div class="kpi ok"><div class="l">تم التسكين</div><div class="v">' + a.done + '</div><div class="s">' + a.pct + '% من القادمين</div></div>' +
+      '<div class="kpi amber"><div class="l">بانتظار التسكين</div><div class="v">' + a.pending + '</div><div class="s">تستدعي الانتباه: ' + (sa ? sa.warn : 0) + '</div></div>' +
+      '<div class="kpi sky"><div class="l">تمت المغادرة</div><div class="v">' + d.done + '</div><div class="s">' + d.pct + '% من المغادرين</div></div>' +
+      '<div class="kpi amber"><div class="l">بانتظار المغادرة</div><div class="v">' + d.pending + '</div><div class="s">من أصل ' + d.total + '</div></div>' +
+      '<a class="kpi red click' + ((a.dangerRows + d.dangerRows) ? ' pulse' : '') + '" href="' + target + '.html?status=danger"><div class="l">تنبيهات حرجة</div><div class="v">' + (a.dangerRows + d.dangerRows) + '</div><div class="s">وصول ' + a.dangerRows + ' · مغادرة ' + d.dangerRows + '</div></a>';
+    $('#nxA').innerHTML = nxList('arrival'); $('#nxD').innerHTML = nxList('departure');
+    $('#rings').innerHTML = ring(a.pct, '#34C47A', 'التسكين', 'مُسكَّن') + ring(d.pct, '#0EA5E9', 'المغادرة', 'غادر');
+
+    const col = { ok: '#006C35', open: '#C5A059', sky: '#0EA5E9' };
+    const dA = A ? byDay(A.records) : [], dD = D ? byDay(D.records) : [];
+    const lab = ds => ds.map(x => x[0].slice(5).replace('-', '/'));
+    chart('chA', 'bar', { labels: lab(dA), datasets: [{ label: 'تم التسكين', data: dA.map(x => x[1].done), backgroundColor: col.ok, borderRadius: 4 }, { label: 'بانتظار التسكين', data: dA.map(x => x[1].open), backgroundColor: col.open, borderRadius: 4 }] });
+    chart('chD', 'bar', { labels: lab(dD), datasets: [{ label: 'تمت المغادرة', data: dD.map(x => x[1].done), backgroundColor: col.sky, borderRadius: 4 }, { label: 'بانتظار المغادرة', data: dD.map(x => x[1].open), backgroundColor: col.open, borderRadius: 4 }] });
+    const h0 = Math.floor(now / 36e5) * 36e5, hl = [], ha = new Array(24).fill(0), hd = new Array(24).fill(0);
+    for (let i = 0; i < 24; i++) hl.push(C.fmtTime(new Date(h0 + i * 36e5)));
+    const put = (R, arr) => R && R.forEach(r => { if (!r.when) return; const i = Math.floor((r.when.getTime() - h0) / 36e5); if (i >= 0 && i < 24) arr[i] += r.pax; });
+    put(A && A.records, ha); put(D && D.records, hd);
+    chart('chH', 'bar', { labels: hl, datasets: [{ label: 'وصول', data: ha, backgroundColor: col.ok, borderRadius: 4 }, { label: 'مغادرة', data: hd, backgroundColor: col.sky, borderRadius: 4 }] }, { scales: { x: { stacked: false, ticks: { color: css('--mut'), maxRotation: 0, autoSkip: true }, grid: { display: false } }, y: { stacked: false, beginAtZero: true, ticks: { color: css('--mut'), precision: 0 }, grid: { color: 'rgba(147,166,191,.15)' } } } });
+
+    // الجنسيات
+    const all = [...(A ? A.records : [])]; const seen = new Set(all.map(r => r.key).filter(Boolean));
+    (D ? D.records : []).forEach(r => { if (!r.key || !seen.has(r.key)) all.push(r); });
+    const nm = new Map(); all.forEach(r => { const k = r.country ? r.country.iso2 : '?'; const o = nm.get(k) || { c: r.country, n: 0 }; o.n += r.pax; nm.set(k, o); });
+    const arr = [...nm.values()].sort((x, y) => y.n - x.n), mx = arr.length ? arr[0].n : 1, tot = arr.reduce((s, x) => s + x.n, 0) || 1;
+    $('#natCnt').textContent = arr.length + ' جنسية · ' + tot + ' فرد';
+    $('#nat').innerHTML = arr.map(x => '<div class="nr">' + (x.c ? '<img class="flag" loading="lazy" alt="" src="' + C.flagUrl(x.c.iso2, 40) + '" onerror="this.style.visibility=\'hidden\'">' : '<span class="flag ph">؟</span>') + '<div><div class="nn"><span>' + esc(x.c ? x.c.ar : 'غير محدد') + '</span><b class="num">' + x.n + ' · ' + Math.round(x.n / tot * 100) + '%</b></div><div class="bar"><i style="width:' + (x.n / mx * 100) + '%"></i></div></div><span></span></div>').join('') || '<div class="empty">—</div>';
+
+    // التنبيهات
+    const items = []; [['arrival', A], ['departure', D]].forEach(([k, d]) => d && d.records.forEach(r => { if (ST[r._st] && ST[r._st].cls === 'danger') items.push({ k, r }); }));
+    items.sort((x, y) => ST[y.r._st].lv - ST[x.r._st].lv || (x.r.when || 0) - (y.r.when || 0));
+    $('#feed').innerHTML = items.length ? items.slice(0, 12).map(({ k, r }) => '<a class="nx" href="' + k + '.html?q=' + encodeURIComponent(r.passport || r.name) + '"><span class="no">' + esc(r.flight || '—') + '</span><span class="i">' + esc(r.name || '—') + '<small>' + (k === 'arrival' ? 'وصول' : 'مغادرة') + ' · ' + esc(r.country ? r.country.ar : r.natRaw) + '</small></span><span class="chip danger">' + esc(ST_LABEL[k][r._st]) + '</span><span class="c">' + (r.when ? '<span class="cd" data-w="' + r.when.getTime() + '"></span>' : '') + '</span></a>').join('') + (items.length > 12 ? '<div class="hint" style="padding:6px">+ ' + (items.length - 12) + ' أخرى — افتح صفحة الوصول/المغادرة وصفِّ بـ «حرجة»</div>' : '') : '<div class="empty" style="padding:18px">لا توجد تنبيهات حرجة حالياً ✓</div>';
+    tick();
+  }
+  $('#xPrint').onclick = () => window.print();
+  $('#xXls').onclick = async () => {
+    const A = state.data.arrival, D = state.data.departure; if (!A && !D) return toast('لا توجد بيانات بعد', 'warn');
+    const now = Date.now(), sheets = [];
+    const sm = snap || { a: {}, d: {} };
+    sheets.push({ name: 'ملخص', rows: [{ 'المؤشر': 'إجمالي القادمين', 'القيمة': sm.a.total }, { 'المؤشر': 'تم التسكين', 'القيمة': sm.a.done }, { 'المؤشر': 'بانتظار التسكين', 'القيمة': sm.a.pending }, { 'المؤشر': 'إجمالي المغادرين', 'القيمة': sm.d.total }, { 'المؤشر': 'تمت المغادرة', 'القيمة': sm.d.done }, { 'المؤشر': 'بانتظار المغادرة', 'القيمة': sm.d.pending }, { 'المؤشر': 'سجلات حرجة', 'القيمة': (sm.a.dangerRows || 0) + (sm.d.dangerRows || 0) }] });
+    if (A) { C.summarize(A.records, now, S); sheets.push({ name: 'الوصول', rows: A.records.map(r => exportRow('arrival', r, false)) }); }
+    if (D) { C.summarize(D.records, now, S); sheets.push({ name: 'المغادرة', rows: D.records.map(r => exportRow('departure', r, false)) }); }
+    try { await saveXlsx(sheets, 'hajj1447-dashboard-' + stamp() + '.xlsx'); toast('تم تصدير Excel (أرقام الجوازات مخفية جزئياً)', 'ok'); } catch (e) { toast(e.message, 'err'); }
+  };
+  $('#xPdf').onclick = async () => {
+    if (!snap) return toast('لا توجد بيانات بعد', 'warn'); toast('جارٍ تجهيز PDF…');
+    const { a, d } = snap, rows = [...$$('#nat .nr')].map((el, i) => [i + 1, el.querySelector('.nn span').textContent, el.querySelector('.nn b').textContent]);
+    const html = reportHtml({ title: 'التقرير التنفيذي — حجاج 1447هـ', sub: 'ملخص الوصول والمغادرة والجوازات حسب الجنسية', kpis: [['القادمون', a.total], ['تم التسكين', a.done, '#006C35'], ['بانتظار التسكين', a.pending, '#F5A524'], ['المغادرون', d.total, '#0EA5E9'], ['تمت المغادرة', d.done, '#006C35'], ['تنبيهات حرجة', (a.dangerRows || 0) + (d.dangerRows || 0), '#E5484D']], head: ['#', 'الجنسية', 'العدد / النسبة'], rows });
+    try { await savePDF(html, 'hajj1447-dashboard-' + stamp() + '.pdf', false); toast('تم إنشاء PDF', 'ok'); } catch (e) { toast('تعذّر إنشاء PDF: ' + e.message, 'err'); }
+  };
+  onData(() => { if (window.__themeChanged) { Object.keys(charts).forEach(k => { charts[k].destroy(); delete charts[k]; }); window.__themeChanged = false; } render(); });
+  render();
+}
+
+/* ---------------- الإقلاع ---------------- */
+let timer = null;
+function startAuto() {
+  clearInterval(timer);
+  timer = setInterval(() => { if (!document.hidden) refresh(); }, Math.max(10, S.refreshSec) * 1000);
+}
+function boot() {
+  let th = 'dark'; try { th = localStorage.getItem(LS_THEME) || 'dark'; } catch (e) { }
+  document.documentElement.dataset.theme = th;
+  const page = document.body.dataset.page;
+  kindsInUse = page === 'index' ? ['arrival', 'departure'] : [page];
+  renderNav(page); hydrate(kindsInUse);
+  if (page === 'index') initDashboard(); else initTracker(page);
+  setInterval(() => tick(), 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastTry > S.refreshSec * 1000) refresh(); });
+  refresh(); startAuto(); updateBadges();
+}
+document.addEventListener('DOMContentLoaded', boot);
+})();
+
+</script>
+</body>
+</html>
