@@ -20,6 +20,7 @@ const DEFAULTS = {
   criticalH: 3,          // ساعات: الرحلة "وشيكة/حرجة"
   warnH: 12,             // ساعات: الرحلة "قريبة"
   lateH: 2,              // ساعات بعد الهبوط قبل اعتبار التسكين "متأخراً"
+  transport: { arrival: true, departure: true, busMin: 4 },  // وسيلة النقل: حافلة إن كان العدد ≥ busMin (أي أكبر من 3) وإلا سيارة
   map: { arrival: {}, departure: {} }   // ربط يدوي: الحقل → اسم العمود
 };
 
@@ -232,6 +233,9 @@ const FIELDS = {
   date:        { ar: 'التاريخ',        al: ['date', 'arrivaldate', 'departuredate', 'تاريخالوصول', 'تاريخالمغادرة', 'التاريخ', 'تاريخ', 'يومالوصول', 'يومالمغادرة'] },
   time:        { ar: 'الوقت',          al: ['time', 'arrivaltime', 'departuretime', 'eta', 'etd', 'وقتالوصول', 'وقتالمغادرة', 'الوقت', 'وقت', 'الساعة', 'ساعةالوصول', 'ساعةالمغادرة'] },
   hotel:       { ar: 'الفندق',         al: ['hotel', 'accommodation', 'فندق', 'الفندق', 'السكن', 'مقرالسكن', 'اسمالفندق'] },
+  airport:     { ar: 'المطار',         al: ['airport', 'arrivalairport', 'departureairport', 'المطار', 'مطار', 'مطارالوصول', 'مطارالمغادرة', 'مطارالقدوم'] },
+  airCity:     { ar: 'مدينة المطار',   al: ['arrivalcity', 'departurecity', 'airportcity', 'مدينةالوصول', 'مدينةالمغادرة', 'مدينةالمطار', 'مدينةالقدوم', 'مدينةالنزول'] },
+  stayCity:    { ar: 'مدينة الإقامة',  al: ['staycity', 'hotelcity', 'residencecity', 'accommodationcity', 'city', 'مدينةالإقامة', 'مدينةالاقامة', 'مدينةالسكن', 'مدينةالفندق', 'المدينة'] },
   room:        { ar: 'الغرفة',         al: ['room', 'roomno', 'roomnumber', 'غرفة', 'الغرفة', 'رقمالغرفة'] },
   group:       { ar: 'المجموعة',       al: ['group', 'groupname', 'campaign', 'agent', 'مجموعة', 'المجموعة', 'الحملة', 'حملة', 'مكتب', 'المكتب', 'الوكيل'] },
   pax:         { ar: 'العدد',          al: ['pax', 'count', 'persons', 'عدد', 'العدد', 'عددالحجاج', 'عددالافراد', 'عددالأفراد'] },
@@ -274,7 +278,8 @@ function buildMapping(headers, kind, overrides, checkHeader) {
         else if (a.length >= 4 && h.includes(a)) sc = Math.max(sc, 40 + a.length);
       });
       if (!sc) return;
-      if (f === 'date' || f === 'time') {
+      if (f !== 'airCity' && f !== 'stayCity' && (h.includes('مدينه') || h.includes('city'))) sc -= 80;
+      if (f === 'date' || f === 'time' || f === 'airport' || f === 'airCity') {
         const arr = /arriv|وصول/.test(h), dep = /depart|مغادر/.test(h);
         if (kind === 'arrival') { if (arr) sc += 30; if (dep) sc -= 60; }
         else { if (dep) sc += 30; if (arr) sc -= 60; }
@@ -362,6 +367,8 @@ function toRecords(rows, kind, cfg) {
       airline: get(row, 'airline'), date: get(row, 'date'), time: get(row, 'time'),
       when: w.when, approx: w.approx,
       hotel: get(row, 'hotel'), room: get(row, 'room'), group: get(row, 'group'),
+      airport: get(row, 'airport'), airCityRaw: get(row, 'airCity'), stayCityRaw: get(row, 'stayCity'),
+      airCity: cityOf(get(row, 'airCity')) || cityOf(get(row, 'airport')), stayCity: cityOf(get(row, 'stayCity')) || cityOf(get(row, 'hotel')),
       pax: paxN > 0 ? paxN : 1, phone: get(row, 'phone'), terminal: get(row, 'terminal'),
       route: get(row, 'route'), notes: get(row, 'notes'),
       done: map.check != null ? isTrue(row[map.check]) : false,
@@ -418,18 +425,52 @@ function groupFlights(recs) {
 }
 
 
+
+/* ---------------- المدن ووسيلة النقل ---------------- */
+const CITY_DEF = {
+  makkah: { ar: 'مكة المكرمة', kw: ['مكه', 'makkah', 'makka', 'mecca', 'mekka'] },
+  madinah: { ar: 'المدينة المنورة', kw: ['المدينه', 'مدينهالمنوره', 'المنوره', 'madinah', 'medina', 'medinah', 'madina'] },
+  jeddah: { ar: 'جدة', kw: ['جده', 'jeddah', 'jedda', 'jiddah', 'jidda'] }
+};
+const CITY_CODE = { jeddah: /\bjed\b/i, madinah: /\bmed\b/i };
+const AIRPORT_KW = { jeddah: ['الملكعبدالعزيز'], madinah: ['الاميرمحمدبنعبدالعزيز'] };
+function cityOf(text) {
+  const raw = String(text == null ? '' : text); if (!raw.trim()) return null;
+  const n = normAr(raw);
+  for (const id of ['makkah', 'madinah', 'jeddah']) if (CITY_DEF[id].kw.some(k => n.includes(k))) return id;
+  for (const id of ['jeddah', 'madinah']) if (CITY_CODE[id].test(raw) || AIRPORT_KW[id].some(k => n.includes(k))) return id;
+  return null;
+}
+const TRANSPORT = { bus: { ar: 'حافلة' }, car: { ar: 'سيارة' }, train: { ar: 'قطار' } };
+// مدينة المطار × مدينة الفندق → الوسيلة. المحلي (جدة↔مكة، المدينة↔المدينة): حافلة إن كان العدد ≥ busMin وإلا سيارة. بين المدينتين: قطار للجميع.
+function transportFor(airCity, stayCity, pax, busMin) {
+  if (!airCity || !stayCity) return null;
+  const local = () => (pax >= (busMin || 4) ? 'bus' : 'car');
+  if (airCity === 'jeddah' && stayCity === 'makkah') return local();
+  if (airCity === 'jeddah' && stayCity === 'madinah') return 'train';
+  if (airCity === 'madinah' && stayCity === 'madinah') return local();
+  if (airCity === 'madinah' && stayCity === 'makkah') return 'train';
+  return null;
+}
+const cityName = (id, raw) => raw || (id && CITY_DEF[id] ? CITY_DEF[id].ar : '');
+
 /* ---------------- تجميع الحجاج: نفس الرحلة + نفس اليوم + نفس الفندق ---------------- */
 const natKey = r => r.country ? r.country.iso2 : '?' + normAr(r.natRaw);
-const groupKey = r => (r.flight || '—') + '|' + (r.when ? fmtDay(r.when) : '') + '|' + normAr(r.hotel);
+const groupKey = r => (r.flight || '—') + '|' + (r.when ? fmtDay(r.when) : '') + '|' + normAr(r.hotel) + '|' + (r.stayCity || '');
 function groupRecords(recs) {
   const m = new Map();
   for (const r of recs) {
     const k = groupKey(r); let g = m.get(k);
-    if (!g) { g = { key: k, flight: r.flight || '—', airline: r.airline, when: null, hotel: r.hotel, rows: [], pax: 0, done: 0, nats: new Map(), approx: true }; m.set(k, g); }
+    if (!g) { g = { key: k, flight: r.flight || '—', airline: r.airline, when: null, hotel: r.hotel, rows: [], pax: 0, done: 0, nats: new Map(), approx: true, airport: '', airCityRaw: '', airCity: null, stayCityRaw: '', stayCity: null }; m.set(k, g); }
     g.rows.push(r); g.pax += r.pax; if (r.done) g.done += r.pax;
     if (r.when) { g.approx = g.approx && r.approx; if (!g.when || r.when < g.when) g.when = r.when; }
     if (!g.airline && r.airline) g.airline = r.airline;
     if (!g.hotel && r.hotel) g.hotel = r.hotel;
+    if (!g.airport && r.airport) g.airport = r.airport;
+    if (!g.airCityRaw && r.airCityRaw) g.airCityRaw = r.airCityRaw;
+    if (!g.airCity && r.airCity) g.airCity = r.airCity;
+    if (!g.stayCityRaw && r.stayCityRaw) g.stayCityRaw = r.stayCityRaw;
+    if (!g.stayCity && r.stayCity) g.stayCity = r.stayCity;
     const nk = natKey(r); let n = g.nats.get(nk);
     if (!n) { n = { k: nk, c: r.country, label: r.country ? r.country.ar : (r.natRaw || 'غير محدد'), n: 0 }; g.nats.set(nk, n); }
     n.n += r.pax;
@@ -448,7 +489,7 @@ function groupRecords(recs) {
 root.HajjCore = {
   DEFAULTS, sheetIdFromLink, isPublishedLink, gvizUrl, normAr, esc, toLatinDigits, parseCSV, COUNTRIES, countryOf, flagUrl, FIELDS,
   findHeaderRow, buildMapping, parseDateParts, parseTimeParts, buildWhen, fmtDay, fmtTime, fmtDayAr, fmtCountdown,
-  isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, groupRecords, natKey, groupKey, TZ_NAME
+  isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, groupRecords, natKey, groupKey, cityOf, transportFor, TRANSPORT, CITY_DEF, cityName, TZ_NAME
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = root.HajjCore;
 })(typeof window !== 'undefined' ? window : globalThis);
