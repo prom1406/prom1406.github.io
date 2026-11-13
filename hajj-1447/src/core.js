@@ -20,6 +20,7 @@ const DEFAULTS = {
   criticalH: 3,          // ساعات: الرحلة "وشيكة/حرجة"
   warnH: 12,             // ساعات: الرحلة "قريبة"
   lateH: 2,              // ساعات بعد الهبوط قبل اعتبار التسكين "متأخراً"
+  lead: { 'makkah>jeddah': 4, 'makkah>madinah': 10, 'madinah>madinah': 4, 'madinah>jeddah': 10 },  // ساعات التحرك من الفندق قبل الإقلاع (صفحة المغادرة)
   transport: { arrival: true, departure: true, busMin: 4 },  // وسيلة النقل: حافلة إن كان العدد ≥ busMin (أي أكبر من 3) وإلا سيارة
   map: { arrival: {}, departure: {} }   // ربط يدوي: الحقل → اسم العمود
 };
@@ -235,7 +236,7 @@ const FIELDS = {
   hotel:       { ar: 'الفندق',         al: ['hotel', 'accommodation', 'فندق', 'الفندق', 'السكن', 'مقرالسكن', 'اسمالفندق'] },
   airport:     { ar: 'المطار',         al: ['airport', 'arrivalairport', 'departureairport', 'المطار', 'مطار', 'مطارالوصول', 'مطارالمغادرة', 'مطارالقدوم'] },
   airCity:     { ar: 'مدينة المطار',   al: ['arrivalcity', 'departurecity', 'airportcity', 'مدينةالوصول', 'مدينةالمغادرة', 'مدينةالمطار', 'مدينةالقدوم', 'مدينةالنزول'] },
-  stayCity:    { ar: 'مدينة الإقامة',  al: ['staycity', 'hotelcity', 'residencecity', 'accommodationcity', 'city', 'مدينةالإقامة', 'مدينةالاقامة', 'مدينةالسكن', 'مدينةالفندق', 'المدينة'] },
+  stayCity:    { ar: 'مدينة الإقامة',  al: ['staycity', 'hotelcity', 'residencecity', 'accommodationcity', 'city', 'مدينةالإقامة', 'مدينةالاقامة', 'مدينةالسكن', 'مدينةالفندق', 'المدينة', 'مدينةالوجهة', 'destinationcity', 'الوجهة', 'وجهة', 'destination'] },
   room:        { ar: 'الغرفة',         al: ['room', 'roomno', 'roomnumber', 'غرفة', 'الغرفة', 'رقمالغرفة'] },
   group:       { ar: 'المجموعة',       al: ['group', 'groupname', 'campaign', 'agent', 'مجموعة', 'المجموعة', 'الحملة', 'حملة', 'مكتب', 'المكتب', 'الوكيل'] },
   pax:         { ar: 'العدد',          al: ['pax', 'count', 'persons', 'عدد', 'العدد', 'عددالحجاج', 'عددالافراد', 'عددالأفراد'] },
@@ -279,6 +280,7 @@ function buildMapping(headers, kind, overrides, checkHeader) {
       });
       if (!sc) return;
       if (f !== 'airCity' && f !== 'stayCity' && (h.includes('مدينه') || h.includes('city'))) sc -= 80;
+      if (f === 'stayCity' && /وجهه|destination/.test(h)) sc += kind === 'arrival' ? 30 : -200;   // في المغادرة «الوجهة» وجهة الرحلة لا مدينة الفندق
       if (f === 'date' || f === 'time' || f === 'airport' || f === 'airCity') {
         const arr = /arriv|وصول/.test(h), dep = /depart|مغادر/.test(h);
         if (kind === 'arrival') { if (arr) sc += 30; if (dep) sc -= 60; }
@@ -452,6 +454,12 @@ function transportFor(airCity, stayCity, pax, busMin) {
   if (airCity === 'madinah' && stayCity === 'makkah') return 'train';
   return null;
 }
+// وقت التحرك من الفندق = وقت الإقلاع − ساعات حسب (مدينة الفندق > مدينة المطار). الصفر أو غياب القاعدة = لا وقت تحرك.
+function leadHours(stayCity, airCity, lead) { const v = lead && lead[stayCity + '>' + airCity]; return v > 0 ? +v : 0; }
+function movementTime(when, stayCity, airCity, lead) {
+  if (!when || !stayCity || !airCity) return null;
+  const h = leadHours(stayCity, airCity, lead); return h ? new Date(when.getTime() - h * 36e5) : null;
+}
 const cityName = (id, raw) => raw || (id && CITY_DEF[id] ? CITY_DEF[id].ar : '');
 
 /* ---------------- تجميع الحجاج: نفس الرحلة + نفس اليوم + نفس الفندق ---------------- */
@@ -489,7 +497,7 @@ function groupRecords(recs) {
 root.HajjCore = {
   DEFAULTS, sheetIdFromLink, isPublishedLink, gvizUrl, normAr, esc, toLatinDigits, parseCSV, COUNTRIES, countryOf, flagUrl, FIELDS,
   findHeaderRow, buildMapping, parseDateParts, parseTimeParts, buildWhen, fmtDay, fmtTime, fmtDayAr, fmtCountdown,
-  isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, groupRecords, natKey, groupKey, cityOf, transportFor, TRANSPORT, CITY_DEF, cityName, TZ_NAME
+  isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, groupRecords, natKey, groupKey, cityOf, transportFor, TRANSPORT, CITY_DEF, cityName, leadHours, movementTime, TZ_NAME
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = root.HajjCore;
 })(typeof window !== 'undefined' ? window : globalThis);
