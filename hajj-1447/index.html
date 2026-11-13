@@ -204,7 +204,7 @@ tr.detail td{background:rgba(255,255,255,.03)}
 [data-theme=light] .modal{background:#fff}
 .modal h3{margin:0 0 14px;font-size:19px;color:var(--gold2)}
 [data-theme=light] .modal h3{color:#7A5A1E}
-.modal .act{display:flex;gap:10px;justify-content:flex-start;margin-top:16px;flex-wrap:wrap}
+.modal .act{display:flex;gap:10px;justify-content:flex-start;margin-top:16px;flex-wrap:wrap;position:sticky;bottom:-21px;padding:12px 0 4px;background:inherit;border-top:1px solid var(--line2)}
 .set{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
 .set label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mut)}
 .set label.full{grid-column:1/-1}
@@ -264,11 +264,13 @@ tr.detail td{background:rgba(255,255,255,.03)}
 
 /* ---------------- الإعدادات الافتراضية ---------------- */
 const DEFAULTS = {
-  arrival:   { csv: '', checkHeader: 'Check'    },   // الصق رابط CSV من الإعدادات (لا تضعه في الكود: المستودع عام)
-  departure: { csv: '', checkHeader: 'Check_De' },
+  // ملف Google Sheets واحد بعدة صفحات — يُطلب من المستخدم عند أول دخول ثم يُحفظ في المتصفح
+  source: { link: '', arrivalTab: 'Arrival', departureTab: 'Departure' },
+  arrival:   { checkHeader: 'Check'    },
+  departure: { checkHeader: 'Check_De' },
   webapp: '',            // رابط Google Apps Script (…/exec)
   token: '',             // الرمز السري المطابق لما في Code.gs
-  readVia: 'csv',        // csv = الرابط المنشور | webapp = القراءة عبر Apps Script (فورية وخاصة)
+  readVia: 'link',       // link = قراءة الملف بالرابط | webapp = القراءة عبر Apps Script (فورية وخاصة)
   refreshSec: 30,
   dateOrder: 'DMY',      // ترتيب التاريخ في الجدول: DMY أو MDY
   tz: '+03:00',          // توقيت الرحلات (الرياض)
@@ -277,6 +279,19 @@ const DEFAULTS = {
   lateH: 2,              // ساعات بعد الهبوط قبل اعتبار التسكين "متأخراً"
   map: { arrival: {}, departure: {} }   // ربط يدوي: الحقل → اسم العمود
 };
+
+/* ---------------- رابط ملف Google Sheets ---------------- */
+// يقبل رابط التحرير/المشاركة (…/d/<ID>/…) أو المعرّف وحده. رابط «النشر على الويب» (/d/e/2PACX…) يُرفض لأنه لا يحدد الصفحات بالاسم.
+function sheetIdFromLink(link) {
+  link = String(link || '').trim(); if (!link) return '';
+  if (/\/d\/e\//.test(link)) return '';
+  const m = link.match(/\/spreadsheets\/d\/([A-Za-z0-9_-]{20,})/);
+  if (m) return m[1];
+  return /^[A-Za-z0-9_-]{30,}$/.test(link) ? link : '';
+}
+const isPublishedLink = link => /\/d\/e\/2PACX/.test(String(link || ''));
+const gvizUrl = (id, tab) => 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(tab);
+
 
 /* ---------------- أدوات النصوص ---------------- */
 const toLatinDigits = s => String(s == null ? '' : s)
@@ -660,7 +675,7 @@ function groupFlights(recs) {
 }
 
 root.HajjCore = {
-  DEFAULTS, normAr, esc, toLatinDigits, parseCSV, COUNTRIES, countryOf, flagUrl, FIELDS,
+  DEFAULTS, sheetIdFromLink, isPublishedLink, gvizUrl, normAr, esc, toLatinDigits, parseCSV, COUNTRIES, countryOf, flagUrl, FIELDS,
   findHeaderRow, buildMapping, parseDateParts, parseTimeParts, buildWhen, fmtDay, fmtTime, fmtDayAr, fmtCountdown,
   isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, TZ_NAME
 };
@@ -713,19 +728,24 @@ const pkey = r => (r.key || ('r' + r.row));
 const emit = () => state.fn.forEach(f => { try { f(); } catch (e) { console.error(e); } });
 const onData = f => state.fn.push(f);
 
-async function fetchRows(kind) {
-  if (S.readVia === 'webapp' && S.webapp) {
-    const u = S.webapp + (S.webapp.includes('?') ? '&' : '?') + 'action=read&kind=' + kind + '&token=' + encodeURIComponent(S.token) + '&t=' + Date.now();
+const tabOf = (kind, cfg) => {
+  const s = ((cfg || S).source) || {};
+  return ((kind === 'arrival' ? s.arrivalTab : s.departureTab) || '').trim() || (kind === 'arrival' ? 'Arrival' : 'Departure');
+};
+const sourceReady = () => !!(C.sheetIdFromLink(S.source.link) || (S.readVia === 'webapp' && S.webapp));
+async function fetchRows(kind, cfg) {
+  cfg = cfg || S; const tab = tabOf(kind, cfg);
+  if (cfg.readVia === 'webapp' && cfg.webapp) {
+    const u = cfg.webapp + (cfg.webapp.includes('?') ? '&' : '?') + 'action=read&kind=' + kind + '&sheet=' + encodeURIComponent(tab) + '&token=' + encodeURIComponent(cfg.token) + '&t=' + Date.now();
     const r = await fetch(u, { cache: 'no-store' }); const j = await r.json();
     if (!j.ok) throw new Error(j.error || 'خطأ في تطبيق الويب'); return j.rows;
   }
-  const base = S[kind].csv;
-  if (!base) throw new Error('لم يُضبط مصدر البيانات — افتح الإعدادات ⚙ وأدخل رابط CSV للجدول أو رابط Apps Script');
-  const u = base + (base.includes('?') ? '&' : '?') + 't=' + Date.now();
-  const r = await fetch(u, { cache: 'no-store' });
-  if (!r.ok) throw new Error('تعذّر جلب الجدول (' + r.status + ')');
+  const id = C.sheetIdFromLink(cfg.source.link);
+  if (!id) throw new Error('لم يُضبط مصدر البيانات — افتح الإعدادات ⚙ والصق رابط ملف Google Sheets');
+  const r = await fetch(C.gvizUrl(id, tab) + '&t=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) throw new Error('تعذّر فتح صفحة «' + tab + '» (' + r.status + ') — تأكد أن مشاركة الملف «أي شخص لديه الرابط: عارض»');
   const t = await r.text();
-  if (/^\s*</.test(t)) throw new Error('الرابط لا يُرجع CSV — تأكد من نشر الجدول على الويب');
+  if (/^\s*</.test(t)) throw new Error('لم يُرجع Google بيانات الصفحة «' + tab + '» — تأكد من مشاركة الرابط (عارض) ومن اسم الصفحة');
   return C.parseCSV(t);
 }
 function processRows(kind, rows) {
@@ -735,6 +755,8 @@ function processRows(kind, rows) {
     if (r.done === p.value || Date.now() - p.ts > 600000) delete pend[pkey(r)];
     else { r.done = p.value; r.syncing = true; }
   });
+  // حماية من اسم صفحة خاطئ: غياب عمود التأكيد المتوقع يعني غالباً أن الصفحة ليست المقصودة
+  res.warn = (res.records.length && res.map.check == null) ? 'لم يُعثر على عمود «' + S[kind].checkHeader + '» في صفحة «' + tabOf(kind) + '» — تأكد من اسم الصفحة في الإعدادات' : '';
   state.data[kind] = res; return res;
 }
 function updateBadges() {
@@ -767,7 +789,7 @@ function hydrate(kinds) {
 
 /* ---------------- الكتابة (Apps Script) ---------------- */
 async function writeChecks(kind, recs, value) {
-  if (!S.webapp) { toast('اضبط رابط Apps Script من الإعدادات أولاً', 'warn'); openSettings(); return false; }
+  if (!S.webapp) { toast('اضبط رابط Apps Script من الإعدادات أولاً', 'warn'); openSettings(false); return false; }
   const d = state.data[kind];
   if (d.map.check == null) { toast('لم يُعثر على عمود ' + S[kind].checkHeader + ' في الجدول', 'err'); return false; }
   recs.forEach(r => { r.done = value; r.syncing = true; state.pending[kind][pkey(r)] = { value, ts: Date.now() }; });
@@ -776,7 +798,7 @@ async function writeChecks(kind, recs, value) {
   try {
     const res = await fetch(S.webapp, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ token: S.token, kind, headerRow: d.headerRow, ops: recs.map(r => ({ row: r.row, key: r.key, keyHeader: r.keyHeader, value })) })
+      body: JSON.stringify({ token: S.token, kind, sheet: tabOf(kind), headerRow: d.headerRow, ops: recs.map(r => ({ row: r.row, key: r.key, keyHeader: r.keyHeader, value })) })
     });
     const j = await res.json();
     if (!j.ok) throw new Error(j.error || 'فشل الحفظ');
@@ -858,7 +880,7 @@ function renderNav(page) {
     '<button class="ibtn" id="bTheme" title="الوضع الفاتح/الداكن" aria-label="تبديل السمة">' + ICON.theme + '</button>' +
     '<button class="ibtn" id="bSet" title="الإعدادات" aria-label="الإعدادات">' + ICON.gear + '</button></div>';
   $('#bRef').onclick = () => refresh();
-  $('#bSet').onclick = () => openSettings();
+  $('#bSet').onclick = () => openSettings(false);
   $('#bTheme').onclick = () => {
     const n = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
     document.documentElement.dataset.theme = n; try { localStorage.setItem(LS_THEME, n); } catch (e) { }
@@ -867,31 +889,67 @@ function renderNav(page) {
   updateBadges();
 }
 
-/* ---------------- نافذة الإعدادات ---------------- */
-function openSettings() {
+/* اختبار المصدر قبل اعتماده: يتحقق من الرابط، من Apps Script (إن وُجد)، ومن كل صفحة على حدة */
+async function testSource(c) {
+  const out = [];
+  if (!c.link && !c.webapp) return [['err', 'الصق رابط ملف Google Sheets (أو رابط Apps Script).']];
+  const cfg = clone(S);
+  cfg.source = { link: c.link, arrivalTab: c.tabA, departureTab: c.tabD }; cfg.webapp = c.webapp; cfg.token = c.token; cfg.readVia = c.via;
+  const id = C.sheetIdFromLink(c.link);
+  if (c.link && !id) {
+    out.push(['err', C.isPublishedLink(c.link)
+      ? 'هذا رابط «نشر على الويب» ولا يحدد الصفحات بالاسم. استخدم رابط المشاركة العادي (…/d/معرّف-الملف/edit).'
+      : 'الرابط ليس رابط Google Sheets صالحاً.']);
+    if (c.via !== 'webapp') return out;
+  }
+  let tabs = null;
+  if (c.webapp) {
+    try {
+      const j = await (await fetch(c.webapp + (c.webapp.includes('?') ? '&' : '?') + 'action=ping&token=' + encodeURIComponent(c.token))).json();
+      if (!j.ok) throw new Error(j.error === 'unauthorized' ? 'الرمز السري غير مطابق' : (j.error || 'مرفوض'));
+      tabs = j.tabs || null;
+      out.push(['ok', 'Apps Script يعمل' + (j.name ? ' — الملف: ' + j.name : '')]);
+      if (id && j.spreadsheetId && j.spreadsheetId !== id) out.push(['err', 'رابط Apps Script مرتبط بملف آخر غير الذي أدخلت رابطه.']);
+    } catch (e) { out.push(['err', 'Apps Script: ' + (e.message || e)]); }
+  }
+  for (const [kind, tab, label] of [['arrival', c.tabA, 'الوصول'], ['departure', c.tabD, 'المغادرة']]) {
+    if (tabs && !tabs.includes(tab)) { out.push(['err', 'لا توجد صفحة باسم «' + tab + '». الصفحات الموجودة: ' + tabs.join('، ')]); continue; }
+    try {
+      const r = C.toRecords(await fetchRows(kind, cfg), kind, cfg);
+      if (!r.records.length) out.push(['err', label + ': لا توجد سجلات في صفحة «' + tab + '»']);
+      else if (r.map.check == null) out.push(['warn', label + ': ' + r.records.length + ' سجل، لكن لم يُعثر على عمود ' + cfg[kind].checkHeader + ' — تأكد من اسم الصفحة']);
+      else out.push(['ok', label + ': ' + r.records.length + ' سجل من «' + tab + '» · عمود التأكيد ' + cfg[kind].checkHeader + ' ✓']);
+    } catch (e) { out.push(['err', label + ': ' + (e.message || e)]); }
+  }
+  return out;
+}
+
+/* ---------------- نافذة الإعدادات / معالج أول دخول ---------------- */
+function openSettings(first) {
+  first = first === true;
   const lab = (t, inner, full) => '<label' + (full ? ' class="full"' : '') + '>' + t + inner + '</label>';
-  const inp = (id, v, ph, type) => '<input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(v) + '" placeholder="' + esc(ph || '') + '" dir="ltr">';
+  const inp = (id, v, ph, type, dir) => '<input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(v) + '" placeholder="' + esc(ph || '') + '" dir="' + (dir || 'ltr') + '">';
   let mapHtml = '';
   ['arrival', 'departure'].forEach(k => {
     const d = state.data[k]; if (!d || !d.headers.length) return;
-    const opts = sel => '<option value="">تلقائي' + (sel != null ? ' ← ' + esc(d.headers[sel] || '') : ' (غير مكتشف)') + '</option>' + d.headers.filter(h => h).map(h => '<option value="' + esc(h) + '"' + ((S.map[k] || {})[sel] === h ? ' selected' : '') + '>' + esc(h) + '</option>').join('');
     mapHtml += '<h4>ربط الأعمدة — ' + (k === 'arrival' ? 'الوصول' : 'المغادرة') + ' <span class="hint">(الأعمدة المكتشفة: ' + d.headers.filter(h => h).length + ')</span></h4>';
-    const fl = Object.keys(C.FIELDS).concat('check');
-    fl.forEach(f => {
-      const cur = (S.map[k] || {})[f] || '';
-      const detected = d.map[f];
-      const o = '<option value="">تلقائي' + (detected != null ? ' ← ' + esc(d.headers[detected]) : ' (غير مكتشف)') + '</option>' + d.headers.filter(h => h).map(h => '<option value="' + esc(h) + '"' + (cur === h ? ' selected' : '') + '>' + esc(h) + '</option>').join('');
+    Object.keys(C.FIELDS).concat('check').forEach(f => {
+      const cur = (S.map[k] || {})[f] || '', det = d.map[f];
+      const o = '<option value="">تلقائي' + (det != null ? ' ← ' + esc(d.headers[det]) : ' (غير مكتشف)') + '</option>' + d.headers.filter(h => h).map(h => '<option value="' + esc(h) + '"' + (cur === h ? ' selected' : '') + '>' + esc(h) + '</option>').join('');
       mapHtml += lab(f === 'check' ? 'عمود التأكيد (' + S[k].checkHeader + ')' : C.FIELDS[f].ar, '<select data-map="' + k + '|' + f + '">' + o + '</select>');
     });
   });
-  const ov = modal('<h3>الإعدادات</h3><div class="set">' +
-    '<h4>التزامن الثنائي (Apps Script)</h4>' +
+  const ov = modal('<h3>' + (first ? 'مرحباً — اربط ملف Google Sheets' : 'الإعدادات') + '</h3>' +
+    (first ? '<p class="hint">يُطلب هذا مرة واحدة فقط: الصق رابط ملف Google Sheets الذي يضم صفحتي الوصول والمغادرة، وسيبقى معتمداً في هذا المتصفح حتى تغيّره من ⚙.</p>' : '') +
+    '<div class="set"><h4>ملف Google Sheets</h4>' +
+    lab('رابط الملف', inp('sLink', S.source.link, 'https://docs.google.com/spreadsheets/d/…/edit'), true) +
+    lab('اسم صفحة الوصول', inp('sTabA', S.source.arrivalTab, 'Arrival', 'text', 'auto')) +
+    lab('اسم صفحة المغادرة', inp('sTabD', S.source.departureTab, 'Departure', 'text', 'auto')) +
+    '<p class="hint" style="grid-column:1/-1;margin:0">يجب أن يطابق الاسمان تبويبي الملف تماماً. لقراءة الملف بالرابط وحده اجعل مشاركته «أي شخص لديه الرابط: عارض»، أو فعّل Apps Script أدناه ليبقى الملف خاصاً.</p>' +
+    '<h4>التزامن الثنائي — Apps Script (للتأكيد والكتابة)</h4>' +
     lab('رابط تطبيق الويب (…/exec)', inp('sWeb', S.webapp, 'https://script.google.com/macros/s/…/exec'), true) +
     lab('الرمز السري (TOKEN)', inp('sTok', S.token, 'نفس القيمة في Code.gs', 'password')) +
-    lab('مصدر القراءة', '<select id="sVia"><option value="csv"' + (S.readVia === 'csv' ? ' selected' : '') + '>الرابط المنشور (CSV)</option><option value="webapp"' + (S.readVia === 'webapp' ? ' selected' : '') + '>تطبيق الويب (فوري وخاص)</option></select>') +
-    '<h4>مصادر البيانات</h4>' +
-    lab('رابط CSV — الوصول', inp('sCa', S.arrival.csv), true) +
-    lab('رابط CSV — المغادرة', inp('sCd', S.departure.csv), true) +
+    '<label class="sw" style="align-self:end"><input type="checkbox" id="sVia"' + (S.readVia === 'webapp' ? ' checked' : '') + '> القراءة عبر Apps Script (أدق وفورية)</label>' +
     '<h4>التوقيت والتنبيهات</h4>' +
     lab('فاصل التحديث (ثوانٍ)', inp('sRef', S.refreshSec, '', 'number')) +
     lab('ترتيب التاريخ في الجدول', '<select id="sOrd"><option value="DMY"' + (S.dateOrder === 'DMY' ? ' selected' : '') + '>يوم/شهر/سنة</option><option value="MDY"' + (S.dateOrder === 'MDY' ? ' selected' : '') + '>شهر/يوم/سنة</option></select>') +
@@ -899,23 +957,33 @@ function openSettings() {
     lab('«قريب» قبل الرحلة بـ (ساعات)', inp('sWarn', S.warnH, '', 'number')) +
     lab('تأخر التسكين بعد الهبوط بـ (ساعات)', inp('sLate', S.lateH, '', 'number')) +
     mapHtml +
-    '</div><div class="act"><button class="btn gold" id="sSave">حفظ وتحديث</button><button class="btn" id="sTest">اختبار الاتصال بـ Apps Script</button><button class="btn" id="sReset">إعادة الضبط</button><button class="btn" id="sClose">إغلاق</button></div><p class="hint" id="sMsg"></p>');
-  const v = id => $('#' + id, ov).value.trim();
+    '</div><div class="act"><button class="btn gold" id="sOk">اختبار واعتماد</button><button class="btn" id="sSaveRaw">حفظ دون اختبار</button><button class="btn" id="sReset">إعادة الضبط</button><button class="btn" id="sClose">إغلاق</button></div><div id="sMsg" class="hint" style="margin-top:10px"></div>');
+  const val = id => $('#' + id, ov).value.trim();
+  const collect = () => {
+    const webapp = val('sWeb');
+    return { link: val('sLink'), tabA: val('sTabA') || 'Arrival', tabD: val('sTabD') || 'Departure', webapp, token: $('#sTok', ov).value, via: ($('#sVia', ov).checked && webapp) ? 'webapp' : 'link' };
+  };
+  const prevLink = S.source.link;
+  const commit = c => {
+    S.source = { link: c.link, arrivalTab: c.tabA, departureTab: c.tabD };
+    S.webapp = c.webapp; S.token = c.token; S.readVia = c.via;
+    S.refreshSec = Math.max(10, +val('sRef') || 30); S.dateOrder = val('sOrd');
+    S.criticalH = +val('sCrit') || 3; S.warnH = +val('sWarn') || 12; S.lateH = +val('sLate') || 2;
+    $$('[data-map]', ov).forEach(sel => { const [k, f] = sel.dataset.map.split('|'); S.map[k] = S.map[k] || {}; if (sel.value) S.map[k][f] = sel.value; else delete S.map[k][f]; });
+    if ((S.source.link || '') !== (prevLink || '')) { ['arrival', 'departure'].forEach(k => { try { localStorage.removeItem('hajj1447.cache.' + k); } catch (e) { } state.data[k] = null; }); }
+    saveSettings(); ov.close(); startAuto(); refresh();
+  };
   $('#sClose', ov).onclick = () => ov.close();
   $('#sReset', ov).onclick = () => { try { localStorage.removeItem(LS_SET); } catch (e) { } location.reload(); };
-  $('#sTest', ov).onclick = async () => {
-    const m = $('#sMsg', ov), u = v('sWeb'); if (!u) { m.textContent = 'أدخل رابط تطبيق الويب أولاً'; return; }
-    m.textContent = 'جارٍ الاختبار…';
-    try { const r = await fetch(u + (u.includes('?') ? '&' : '?') + 'action=ping&token=' + encodeURIComponent(v('sTok'))); const j = await r.json(); m.textContent = j.ok ? '✓ الاتصال سليم والرمز مقبول' : '✗ ' + (j.error || 'مرفوض'); } catch (e) { m.textContent = '✗ تعذّر الاتصال: ' + e.message; }
+  $('#sSaveRaw', ov).onclick = () => { commit(collect()); toast('تم حفظ الإعدادات', 'ok'); };
+  $('#sOk', ov).onclick = async () => {
+    const c = collect(), m = $('#sMsg', ov); m.textContent = 'جارٍ الاختبار…';
+    const out = await testSource(c);
+    const col = { ok: 'var(--ok)', warn: 'var(--amber)', err: 'var(--red)' }, mk = { ok: '✓ ', warn: '⚠ ', err: '✗ ' };
+    m.innerHTML = out.map(([t, s]) => '<div style="color:' + col[t] + ';margin:3px 0">' + mk[t] + esc(s) + '</div>').join('');
+    if (!out.some(o => o[0] === 'err')) { commit(c); toast('تم اعتماد المصدر وسيبقى محفوظاً', 'ok'); }
   };
-  $('#sSave', ov).onclick = () => {
-    S.webapp = v('sWeb'); S.token = $('#sTok', ov).value; S.readVia = v('sVia');
-    S.arrival.csv = v('sCa'); S.departure.csv = v('sCd');
-    S.refreshSec = Math.max(10, +v('sRef') || 30); S.dateOrder = v('sOrd');
-    S.criticalH = +v('sCrit') || 3; S.warnH = +v('sWarn') || 12; S.lateH = +v('sLate') || 2;
-    $$('[data-map]', ov).forEach(sel => { const [k, f] = sel.dataset.map.split('|'); S.map[k] = S.map[k] || {}; if (sel.value) S.map[k][f] = sel.value; else delete S.map[k][f]; });
-    saveSettings(); ov.close(); startAuto(); refresh(); toast('تم حفظ الإعدادات', 'ok');
-  };
+  if (first) setTimeout(() => { const l = $('#sLink', ov); if (l) l.focus(); }, 50);
 }
 
 /* ---------------- التصدير ---------------- */
@@ -1047,10 +1115,11 @@ function initTracker(kind) {
     const stale = $('#stale');
     if (!d) {
       stale.innerHTML = state.err[kind] ? '<div class="stale">⚠ ' + esc(state.err[kind]) + ' <button class="btn sm" id="stSet">الإعدادات</button></div>' : '';
-      if ($('#stSet')) $('#stSet').onclick = openSettings;
+      if ($('#stSet')) $('#stSet').onclick = () => openSettings(false);
       $('#kpis').innerHTML = '<div class="empty" style="grid-column:1/-1">' + (state.err[kind] ? 'تعذّر تحميل البيانات.' : 'جارٍ تحميل البيانات…') + '</div>'; return;
     }
-    stale.innerHTML = state.err[kind] ? '<div class="stale">⚠ تعذّر التحديث الأخير (' + esc(state.err[kind]) + ') — تُعرض آخر بيانات محفوظة.</div>' : '';
+    stale.innerHTML = state.err[kind] ? '<div class="stale">⚠ تعذّر التحديث الأخير (' + esc(state.err[kind]) + ') — تُعرض آخر بيانات محفوظة.</div>' : (d.warn ? '<div class="stale">⚠ ' + esc(d.warn) + ' <button class="btn sm" id="stSet2">الإعدادات</button></div>' : '');
+    if ($('#stSet2')) $('#stSet2').onclick = () => openSettings(false);
     const R = recs(); idx = new Map(R.map(r => [r.row, r]));
     const sm = C.summarize(R, now, S);
 
@@ -1189,7 +1258,7 @@ function initDashboard() {
   function render() {
     const A = state.data.arrival, D = state.data.departure, now = Date.now();
     $('#stale').innerHTML = (state.err.arrival || state.err.departure) ? '<div class="stale">⚠ ' + esc(state.err.arrival || state.err.departure) + (A || D ? ' — تُعرض آخر بيانات محفوظة' : '') + ' <button class="btn sm" id="stSet">الإعدادات</button></div>' : '';
-    if ($('#stSet')) $('#stSet').onclick = openSettings;
+    if ($('#stSet')) $('#stSet').onclick = () => openSettings(false);
     if (!A && !D) { $('#kpis').innerHTML = '<div class="empty" style="grid-column:1/-1">' + (state.err.arrival || state.err.departure ? 'تعذّر تحميل البيانات.' : 'جارٍ تحميل البيانات…') + '</div>'; return; }
     const sa = A ? C.summarize(A.records, now, S) : null, sd = D ? C.summarize(D.records, now, S) : null;
     const z = { total: 0, done: 0, pending: 0, danger: 0, dangerRows: 0, pct: 0 };
@@ -1254,7 +1323,7 @@ function initDashboard() {
 /* ---------------- الإقلاع ---------------- */
 let timer = null;
 function startAuto() {
-  clearInterval(timer);
+  clearInterval(timer); if (!sourceReady()) return;
   timer = setInterval(() => { if (!document.hidden) refresh(); }, Math.max(10, S.refreshSec) * 1000);
 }
 function boot() {
@@ -1265,7 +1334,8 @@ function boot() {
   renderNav(page); hydrate(kindsInUse);
   if (page === 'index') initDashboard(); else initTracker(page);
   setInterval(() => tick(), 1000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastTry > S.refreshSec * 1000) refresh(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && sourceReady() && Date.now() - lastTry > S.refreshSec * 1000) refresh(); });
+  if (!sourceReady()) { openSettings(true); return; }
   refresh(); startAuto(); updateBadges();
 }
 document.addEventListener('DOMContentLoaded', boot);

@@ -193,7 +193,7 @@ tr.detail td{background:rgba(255,255,255,.03)}
 [data-theme=light] .modal{background:#fff}
 .modal h3{margin:0 0 14px;font-size:19px;color:var(--gold2)}
 [data-theme=light] .modal h3{color:#7A5A1E}
-.modal .act{display:flex;gap:10px;justify-content:flex-start;margin-top:16px;flex-wrap:wrap}
+.modal .act{display:flex;gap:10px;justify-content:flex-start;margin-top:16px;flex-wrap:wrap;position:sticky;bottom:-21px;padding:12px 0 4px;background:inherit;border-top:1px solid var(--line2)}
 .set{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
 .set label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--mut)}
 .set label.full{grid-column:1/-1}
