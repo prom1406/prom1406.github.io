@@ -277,6 +277,10 @@ function openSettings(first) {
     lab('«حرج» قبل الرحلة بـ (ساعات)', inp('sCrit', S.criticalH, '', 'number')) +
     lab('«قريب» قبل الرحلة بـ (ساعات)', inp('sWarn', S.warnH, '', 'number')) +
     lab('تأخر التسكين بعد الهبوط بـ (ساعات)', inp('sLate', S.lateH, '', 'number')) +
+    '<h4>وقت التحرك من الفندق قبل الإقلاع (ساعات) — صفحة المغادرة</h4>' +
+    lab('مكة ← مطار جدة', inp('sLdMJ', S.lead['makkah>jeddah'], '', 'number')) + lab('مكة ← مطار المدينة', inp('sLdMM', S.lead['makkah>madinah'], '', 'number')) +
+    lab('المدينة ← مطار المدينة', inp('sLdDM', S.lead['madinah>madinah'], '', 'number')) + lab('المدينة ← مطار جدة', inp('sLdDJ', S.lead['madinah>jeddah'], '', 'number')) +
+    '<p class="hint" style="grid-column:1/-1;margin:0">يُحسب وقت التحرك = وقت الإقلاع − هذه الساعات، ويظهر أسفل وقت الإقلاع. اترك الخانة 0 لإلغاء الحساب لتلك الوجهة.</p>' +
     '<h4>وسيلة النقل (مدينة المطار ← مدينة الفندق)</h4>' +
     '<label class="sw"><input type="checkbox" id="sTpA"' + (S.transport.arrival ? ' checked' : '') + '> تفعيل في صفحة الوصول</label>' +
     '<label class="sw"><input type="checkbox" id="sTpD"' + (S.transport.departure ? ' checked' : '') + '> تفعيل في صفحة المغادرة</label>' +
@@ -295,6 +299,7 @@ function openSettings(first) {
     S.webapp = c.webapp; S.token = c.token; S.readVia = c.via;
     S.refreshSec = Math.max(10, +val('sRef') || 30); S.dateOrder = val('sOrd');
     S.criticalH = +val('sCrit') || 3; S.warnH = +val('sWarn') || 12; S.lateH = +val('sLate') || 2;
+    { const n = id => { const v = parseFloat(val(id)); return isNaN(v) ? 0 : Math.max(0, v); }; S.lead = { 'makkah>jeddah': n('sLdMJ'), 'makkah>madinah': n('sLdMM'), 'madinah>madinah': n('sLdDM'), 'madinah>jeddah': n('sLdDJ') }; }
     S.transport = { arrival: $('#sTpA', ov).checked, departure: $('#sTpD', ov).checked, busMin: Math.max(1, +val('sBus') || 4) };
     $$('[data-map]', ov).forEach(sel => { const [k, f] = sel.dataset.map.split('|'); S.map[k] = S.map[k] || {}; if (sel.value) S.map[k][f] = sel.value; else delete S.map[k][f]; });
     if ((S.source.link || '') !== (prevLink || '')) { ['arrival', 'departure'].forEach(k => { try { localStorage.removeItem('hajj1447.cache.' + k); } catch (e) { } state.data[k] = null; }); }
@@ -351,7 +356,7 @@ async function savePDF(html, filename, landscape) {
 }
 const stamp = () => C.fmtDay(new Date());
 const flagImg = c => c ? '<img src="' + C.flagUrl(c.iso2, 40) + '" crossorigin="anonymous" style="width:20px;height:14px;vertical-align:middle;margin-left:5px;border:1px solid #ccc" onerror="this.style.display=\'none\'">' + esc(c.ar) : '';
-const exportRow = (kind, r, reveal, tp) => {
+const exportRow = (kind, r, reveal, extra) => {
   const o = {
     'الاسم': r.name, 'الجنسية': r.country ? r.country.ar : r.natRaw, 'رقم الجواز': reveal ? r.passport : mask(r.passport),
     'الرحلة': r.flight, 'الناقل': r.airline, 'المطار': r.airport, [kind === 'arrival' ? 'مدينة الوصول' : 'مدينة المغادرة']: C.cityName(r.airCity, r.airCityRaw),
@@ -359,7 +364,7 @@ const exportRow = (kind, r, reveal, tp) => {
     'الفندق': r.hotel, 'مدينة الإقامة': C.cityName(r.stayCity, r.stayCityRaw), 'الغرفة': r.room, 'المجموعة': r.group,
     'الحالة': ST_LABEL[kind][r._st] || '', [kind === 'arrival' ? 'تم التسكين' : 'تمت المغادرة']: r.done ? 'نعم' : 'لا'
   };
-  if (tp !== undefined) o['وسيلة النقل'] = tp;
+  if (extra) Object.assign(o, extra);
   return o;
 };
 
@@ -434,6 +439,10 @@ function initTracker(kind) {
   const gTransport = g => tpOn() ? C.transportFor(g.airCity, g.stayCity, g.pax, S.transport.busMin) : null;
   const tpLabel = g => { const x = gTransport(g); return x ? C.TRANSPORT[x].ar : ''; };
   const tpHtml = x => x ? '<span class="tp ' + x + '">' + ICON[x] + C.TRANSPORT[x].ar + '</span>' : '<span class="sub">—</span>';
+  const gMove = g => kind === 'departure' ? C.movementTime(g.when, g.stayCity, g.airCity, S.lead) : null;
+  const moveTxt = g => { const m = gMove(g); return m ? C.fmtDayAr(m) + ' · ' + (g.approx ? '≈' : '') + C.fmtTime(m) : ''; };
+  const mvHtml = g => moveTxt(g) ? '<div class="mv">التحرك: ' + moveTxt(g) + '</div>' : '';
+  const gExtra = g => { const o = { 'وسيلة النقل': tpLabel(g) }; if (kind === 'departure') { const m = gMove(g); o['تاريخ التحرك'] = m ? C.fmtDay(m) : ''; o['وقت التحرك'] = m && !g.approx ? C.fmtTime(m) : ''; } return o; };
   const airCityTxt = g => C.cityName(g.airCity, g.airCityRaw), stayCityTxt = g => C.cityName(g.stayCity, g.stayCityRaw);
   const twoLine = (main, sub) => (main || sub) ? (main ? '<b>' + esc(main) + '</b>' : '') + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') : '—';
   const gCd = g => g.when && g.open > 0 ? '<span class="cd" data-w="' + g.when.getTime() + '"></span>' : '<span class="sub">—</span>';
@@ -443,7 +452,7 @@ function initTracker(kind) {
     const hasHotel = d.map.hotel != null || ci.stay;
     const cols = [
       { id: 'sel', th: '<input type="checkbox" data-selall aria-label="تحديد الكل">' }, { id: 'n', th: '#' },
-      { id: 'flight', th: 'الرحلة', sort: 'flight' }, { id: 'when', th: kind === 'arrival' ? 'موعد الوصول' : 'موعد المغادرة', sort: 'when' }, { id: 'cd', th: 'العدّ التنازلي' },
+      { id: 'flight', th: 'الرحلة', sort: 'flight' }, { id: 'when', th: kind === 'arrival' ? 'موعد الوصول' : 'موعد الإقلاع / التحرك', sort: 'when' }, { id: 'cd', th: 'العدّ التنازلي' },
       ci.air && { id: 'air', th: 'المطار' }, hasHotel && { id: 'hotel', th: 'الفندق', sort: 'hotel' }, ci.tp && { id: 'tp', th: 'وسيلة النقل' }, { id: 'pax', th: 'العدد', sort: 'pax' }, { id: 'nat', th: 'الجنسيات' }, { id: 'pp', th: 'الجوازات' },
       { id: 'st', th: 'الحالة', sort: 'status' }, { id: 'act', th: '' }
     ].filter(Boolean);
@@ -452,7 +461,7 @@ function initTracker(kind) {
         case 'sel': return '<td><input type="checkbox" data-sel="' + esc(g.key) + '"' + (ui.sel.has(g.key) ? ' checked' : '') + ' aria-label="تحديد"></td>';
         case 'n': return '<td class="sub">' + (i + 1) + '</td>';
         case 'flight': return '<td><b>' + esc(g.flight) + '</b>' + (g.airline ? '<div class="sub">' + esc(g.airline) + '</div>' : '') + '</td>';
-        case 'when': return '<td>' + gWhen(g) + '</td>';
+        case 'when': return '<td>' + gWhen(g) + mvHtml(g) + '</td>';
         case 'cd': return '<td>' + gCd(g) + '</td>';
         case 'air': return '<td>' + twoLine(g.airport, airCityTxt(g)) + '</td>';
         case 'hotel': return '<td>' + twoLine(g.hotel, stayCityTxt(g)) + '</td>';
@@ -477,7 +486,7 @@ function initTracker(kind) {
       '<header><label class="chk"><input type="checkbox" data-sel="' + esc(g.key) + '"' + (ui.sel.has(g.key) ? ' checked' : '') + ' aria-label="تحديد"></label><div class="gt"><b class="no">' + esc(g.flight) + '</b>' + (g.airline ? '<div class="sub">' + esc(g.airline) + '</div>' : '') + '</div><div class="gs">' + stChip(g) + '</div></header>' +
       '<div class="gbig"><div><b class="num">' + g.pax + '</b><span>فرد</span></div><div class="gcd">' + gCd(g) + '</div></div>' +
       '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
-      '<dl class="gkv"><div><dt>الموعد</dt><dd>' + gWhen(g) + '</dd></div>' + (ci.air ? '<div><dt>' + (kind === 'arrival' ? 'مطار الوصول' : 'مطار المغادرة') + '</dt><dd>' + twoLine(g.airport, airCityTxt(g)) + '</dd></div>' : '') + ((g.hotel || ci.stay) ? '<div><dt>الفندق</dt><dd>' + twoLine(g.hotel, stayCityTxt(g)) + '</dd></div>' : '') + (ci.tp ? '<div><dt>وسيلة النقل</dt><dd>' + tpHtml(gTransport(g)) + '</dd></div>' : '') + '</dl>' +
+      '<dl class="gkv"><div><dt>' + (kind === 'arrival' ? 'الموعد' : 'الإقلاع') + '</dt><dd>' + gWhen(g) + mvHtml(g) + '</dd></div>' + (ci.air ? '<div><dt>' + (kind === 'arrival' ? 'مطار الوصول' : 'مطار المغادرة') + '</dt><dd>' + twoLine(g.airport, airCityTxt(g)) + '</dd></div>' : '') + ((g.hotel || ci.stay) ? '<div><dt>الفندق</dt><dd>' + twoLine(g.hotel, stayCityTxt(g)) + '</dd></div>' : '') + (ci.tp ? '<div><dt>وسيلة النقل</dt><dd>' + tpHtml(gTransport(g)) + '</dd></div>' : '') + '</dl>' +
       natChips(g, 4) + '<footer>' + ppBtn(g) + gAct(g) + '</footer></article>').join('') + '</div>';
   }
 
@@ -573,7 +582,7 @@ function initTracker(kind) {
     }).join('');
     const tpx = gTransport(g), pl = (a, b) => [a, b].filter(Boolean).join(' — ');
     $('#gmBody', mo).innerHTML = '<h3>' + esc(gTitle(g)) + '</h3>' +
-      ((g.airport || airCityTxt(g) || g.hotel || stayCityTxt(g) || tpx) ? '<div class="mroute">' + (pl(g.airport, airCityTxt(g)) ? '<span><em>' + (kind === 'arrival' ? 'المطار' : 'مطار المغادرة') + '</em>' + esc(pl(g.airport, airCityTxt(g))) + '</span>' : '') + (pl(g.hotel, stayCityTxt(g)) ? '<span><em>الفندق</em>' + esc(pl(g.hotel, stayCityTxt(g))) + '</span>' : '') + (tpx ? '<span><em>وسيلة النقل</em>' + tpHtml(tpx) + '</span>' : '') + '</div>' : '') +
+      ((g.airport || airCityTxt(g) || g.hotel || stayCityTxt(g) || tpx || moveTxt(g)) ? '<div class="mroute">' + (pl(g.airport, airCityTxt(g)) ? '<span><em>' + (kind === 'arrival' ? 'المطار' : 'مطار المغادرة') + '</em>' + esc(pl(g.airport, airCityTxt(g))) + '</span>' : '') + (pl(g.hotel, stayCityTxt(g)) ? '<span><em>الفندق</em>' + esc(pl(g.hotel, stayCityTxt(g))) + '</span>' : '') + (moveTxt(g) ? '<span><em>موعد التحرك من الفندق</em><b class="mvb">' + moveTxt(g) + '</b></span>' : '') + (tpx ? '<span><em>وسيلة النقل</em>' + tpHtml(tpx) + '</span>' : '') + '</div>' : '') +
       '<div class="mhead"><span>' + gWhen(g) + '</span>' + (g.open > 0 && g.when ? '<span class="cd" data-w="' + g.when.getTime() + '"></span>' : '') + '<span><b class="num">' + g.pax + '</b> فرد · مكتمل <b class="num">' + g.done + '</b></span></div>' +
       '<div class="nfilter">' + chips + '</div>' +
       '<div class="toolbar"><label class="sw"><input type="checkbox" id="mReveal"' + (ui.reveal ? ' checked' : '') + '> إظهار أرقام الجوازات</label><span class="sp"></span>' +
@@ -592,12 +601,12 @@ function initTracker(kind) {
     if ((el = t.closest('[data-mx]'))) {
       const a = el.dataset.mx; if (a === 'close') { mo.close(); return; }
       const list = modalList(g), tag = fileTag(g) + '-' + stamp();
-      if (a === 'xls') { try { await saveXlsx([{ name: 'الحجاج', rows: list.map(r => exportRow(kind, r, ui.reveal, tpLabel(g))) }], 'hajj1447-' + kind + '-' + tag + '.xlsx'); toast('تم تصدير Excel', 'ok'); } catch (x) { toast(x.message, 'err'); } }
+      if (a === 'xls') { try { await saveXlsx([{ name: 'الحجاج', rows: list.map(r => exportRow(kind, r, ui.reveal, gExtra(g))) }], 'hajj1447-' + kind + '-' + tag + '.xlsx'); toast('تم تصدير Excel', 'ok'); } catch (x) { toast(x.message, 'err'); } }
       if (a === 'pdf') {
         toast('جارٍ تجهيز PDF…'); const paxN = list.reduce((s, r) => s + r.pax, 0);
         const html = reportHtml({
           title: gTitle(g), sub: gWhen(g) + (ui.modal.nat !== 'all' ? ' · الجنسية: ' + (g.nats.get(ui.modal.nat) || {}).label : ''),
-          kpis: [['العدد', paxN]].concat(tpLabel(g) ? [['وسيلة النقل', tpLabel(g), '#C5A059']] : []).concat([[K.doneL, list.filter(r => r.done).reduce((s, r) => s + r.pax, 0), '#006C35'], ['المتبقي', list.filter(r => !r.done).reduce((s, r) => s + r.pax, 0), '#F5A524'], ['عدد الجوازات', list.length, '#0EA5E9']]),
+          kpis: [['العدد', paxN]].concat(moveTxt(g) ? [['موعد التحرك', moveTxt(g), '#E5484D']] : []).concat(tpLabel(g) ? [['وسيلة النقل', tpLabel(g), '#C5A059']] : []).concat([[K.doneL, list.filter(r => r.done).reduce((s, r) => s + r.pax, 0), '#006C35'], ['المتبقي', list.filter(r => !r.done).reduce((s, r) => s + r.pax, 0), '#F5A524'], ['عدد الجوازات', list.length, '#0EA5E9']]),
           head: ['#', 'الاسم', 'الجنسية', 'رقم الجواز', 'الغرفة', 'الحالة'],
           rows: list.map((r, i) => [i + 1, r.name, { html: flagImg(r.country) || esc(r.natRaw) }, { html: '<span dir="ltr">' + esc(ui.reveal ? r.passport : mask(r.passport)) + '</span>' }, r.room, r.done ? (kind === 'arrival' ? 'تم التسكين' : 'تمت المغادرة') : (ST_LABEL[kind][r._st] || '')])
         });
@@ -638,13 +647,13 @@ function initTracker(kind) {
   $('#fReveal').onchange = e => { ui.reveal = e.target.checked; render(); };
   $('#xPrint').onclick = () => window.print();
   const groupExport = g => ({
-    'الرحلة': g.flight, 'الناقل': g.airline, 'المطار': g.airport, [kind === 'arrival' ? 'مدينة الوصول' : 'مدينة المغادرة']: airCityTxt(g), 'التاريخ': g.when ? C.fmtDay(g.when) : '', 'الوقت': g.when && !g.approx ? C.fmtTime(g.when) : '', 'الفندق': g.hotel, 'مدينة الإقامة': stayCityTxt(g), 'وسيلة النقل': tpLabel(g),
+    'الرحلة': g.flight, 'الناقل': g.airline, 'المطار': g.airport, [kind === 'arrival' ? 'مدينة الوصول' : 'مدينة المغادرة']: airCityTxt(g), 'التاريخ': g.when ? C.fmtDay(g.when) : '', 'الوقت': g.when && !g.approx ? C.fmtTime(g.when) : '', 'الفندق': g.hotel, 'مدينة الإقامة': stayCityTxt(g), ...gExtra(g),
     'العدد': g.pax, [K.doneL]: g.done, 'المتبقي': g.pax - g.done, 'عدد الجوازات': g.rows.length, 'الجنسيات': natText(g), 'الحالة': g.open ? (ST_LABEL[kind][g.st] || '') : ST_LABEL[kind].done
   });
   $('#xXls').onclick = async () => {
     try {
       const gs = shownGroups;
-      await saveXlsx([{ name: 'المجموعات', rows: gs.map(groupExport) }, { name: 'الحجاج', rows: gs.flatMap(g => g.rows.map(r => exportRow(kind, r, ui.reveal, tpLabel(g)))) }], 'hajj1447-' + kind + '-' + stamp() + '.xlsx');
+      await saveXlsx([{ name: 'المجموعات', rows: gs.map(groupExport) }, { name: 'الحجاج', rows: gs.flatMap(g => g.rows.map(r => exportRow(kind, r, ui.reveal, gExtra(g)))) }], 'hajj1447-' + kind + '-' + stamp() + '.xlsx');
       toast('تم تصدير Excel (ورقة المجموعات + ورقة الحجاج)', 'ok');
     } catch (e) { toast(e.message, 'err'); }
   };
@@ -653,8 +662,8 @@ function initTracker(kind) {
     const html = reportHtml({
       title: 'تقرير ' + K.title, sub: gs.length + ' مجموعة (حسب التصفية الحالية)',
       kpis: [[K.total, sm.total], [K.doneL, sm.done, '#006C35'], [K.openL, sm.pending, '#F5A524'], ['حرجة / متأخرة', sm.danger, '#E5484D'], ['نسبة الإنجاز', sm.pct + '%', '#0EA5E9']],
-      head: ['#', 'الرحلة', 'الموعد', 'المطار', 'الفندق', 'النقل', 'العدد', 'الجنسيات', 'الحالة'],
-      rows: gs.map((g, i) => [i + 1, g.flight, gWhen(g), { html: esc(g.airport) + (airCityTxt(g) ? '<br><small>' + esc(airCityTxt(g)) + '</small>' : '') }, { html: esc(g.hotel) + (stayCityTxt(g) ? '<br><small>' + esc(stayCityTxt(g)) + '</small>' : '') }, tpLabel(g), g.pax, { html: g.natList.map(n => (n.c ? flagImg(n.c) : esc(n.label)) + ' (' + n.n + ')').join('&nbsp;&nbsp;') }, g.open ? (ST_LABEL[kind][g.st] || '') : ST_LABEL[kind].done])
+      head: ['#', 'الرحلة', kind === 'arrival' ? 'الموعد' : 'الإقلاع / التحرك', 'المطار', 'الفندق', 'النقل', 'العدد', 'الجنسيات', 'الحالة'],
+      rows: gs.map((g, i) => [i + 1, g.flight, { html: esc(gWhen(g)) + (moveTxt(g) ? '<br><small>التحرك: ' + esc(moveTxt(g)) + '</small>' : '') }, { html: esc(g.airport) + (airCityTxt(g) ? '<br><small>' + esc(airCityTxt(g)) + '</small>' : '') }, { html: esc(g.hotel) + (stayCityTxt(g) ? '<br><small>' + esc(stayCityTxt(g)) + '</small>' : '') }, tpLabel(g), g.pax, { html: g.natList.map(n => (n.c ? flagImg(n.c) : esc(n.label)) + ' (' + n.n + ')').join('&nbsp;&nbsp;') }, g.open ? (ST_LABEL[kind][g.st] || '') : ST_LABEL[kind].done])
     });
     try { await savePDF(html, 'hajj1447-' + kind + '-' + stamp() + '.pdf', true); toast('تم إنشاء PDF', 'ok'); } catch (e) { toast('تعذّر إنشاء PDF: ' + e.message, 'err'); }
   };
