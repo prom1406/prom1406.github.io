@@ -417,10 +417,38 @@ function groupFlights(recs) {
   return [...m.values()].sort((a, b) => (a.when ? a.when.getTime() : 9e15) - (b.when ? b.when.getTime() : 9e15));
 }
 
+
+/* ---------------- تجميع الحجاج: نفس الرحلة + نفس اليوم + نفس الفندق ---------------- */
+const natKey = r => r.country ? r.country.iso2 : '?' + normAr(r.natRaw);
+const groupKey = r => (r.flight || '—') + '|' + (r.when ? fmtDay(r.when) : '') + '|' + normAr(r.hotel);
+function groupRecords(recs) {
+  const m = new Map();
+  for (const r of recs) {
+    const k = groupKey(r); let g = m.get(k);
+    if (!g) { g = { key: k, flight: r.flight || '—', airline: r.airline, when: null, hotel: r.hotel, rows: [], pax: 0, done: 0, nats: new Map(), approx: true }; m.set(k, g); }
+    g.rows.push(r); g.pax += r.pax; if (r.done) g.done += r.pax;
+    if (r.when) { g.approx = g.approx && r.approx; if (!g.when || r.when < g.when) g.when = r.when; }
+    if (!g.airline && r.airline) g.airline = r.airline;
+    if (!g.hotel && r.hotel) g.hotel = r.hotel;
+    const nk = natKey(r); let n = g.nats.get(nk);
+    if (!n) { n = { k: nk, c: r.country, label: r.country ? r.country.ar : (r.natRaw || 'غير محدد'), n: 0 }; g.nats.set(nk, n); }
+    n.n += r.pax;
+  }
+  m.forEach(g => {
+    const open = g.rows.filter(r => !r.done);
+    g.open = open.length; g.syncing = g.rows.some(r => r.syncing); g.allSyncing = g.rows.every(r => r.syncing);
+    g.st = !open.length ? 'done' : open.reduce((a, r) => (ST[r._st] && ST[r._st].lv > ST[a].lv) ? r._st : a, open[0]._st || 'upcoming');
+    g.cls = ST[g.st].cls;
+    g.natList = [...g.nats.values()].sort((a, b) => b.n - a.n);
+    if (!g.when) g.approx = false;
+  });
+  return [...m.values()];
+}
+
 root.HajjCore = {
   DEFAULTS, sheetIdFromLink, isPublishedLink, gvizUrl, normAr, esc, toLatinDigits, parseCSV, COUNTRIES, countryOf, flagUrl, FIELDS,
   findHeaderRow, buildMapping, parseDateParts, parseTimeParts, buildWhen, fmtDay, fmtTime, fmtDayAr, fmtCountdown,
-  isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, TZ_NAME
+  isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, groupRecords, natKey, groupKey, TZ_NAME
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = root.HajjCore;
 })(typeof window !== 'undefined' ? window : globalThis);
