@@ -7,7 +7,7 @@ const C = window.HajjCore;
 const { esc, normAr, ST, ST_LABEL } = C;
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
-const LS_SET = 'hajj1447.settings', LS_THEME = 'hajj1447.theme', LS_BADGE = 'hajj1447.badges';
+const LS_VIEW = 'hajj1447.view', LS_SET = 'hajj1447.settings', LS_THEME = 'hajj1447.theme', LS_BADGE = 'hajj1447.badges';
 const LIBS = {
   xlsx: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   pdf: 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
@@ -35,6 +35,8 @@ const ICON = {
   print: ic('<path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/>'),
   search: ic('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'),
   check: ic('<path d="M20 6 9 17l-5-5"/>'),
+  table: ic('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/>'),
+  cards: ic('<rect x="3" y="3" width="7" height="8" rx="1.5"/><rect x="14" y="3" width="7" height="8" rx="1.5"/><rect x="3" y="13" width="7" height="8" rx="1.5"/><rect x="14" y="13" width="7" height="8" rx="1.5"/>'),
   eye: ic('<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')
 };
 
@@ -137,12 +139,12 @@ function toast(msg, type) {
   let c = $('.toasts'); if (!c) { c = document.createElement('div'); c.className = 'toasts'; c.setAttribute('aria-live', 'polite'); document.body.appendChild(c); }
   const t = document.createElement('div'); t.className = 'toast ' + (type || ''); t.textContent = msg; c.appendChild(t); setTimeout(() => t.remove(), 4500);
 }
-function modal(html) {
+function modal(html, onClose) {
   const ov = document.createElement('div'); ov.className = 'ov';
   ov.innerHTML = '<div class="modal" role="dialog" aria-modal="true">' + html + '</div>';
   document.body.appendChild(ov);
-  const close = () => { ov.remove(); document.removeEventListener('keydown', kd); };
-  const kd = e => { if (e.key === 'Escape') close(); };
+  const close = () => { ov.remove(); document.removeEventListener('keydown', kd); if (onClose) onClose(); };
+  const kd = e => { if (e.key === 'Escape' && ov === [...document.querySelectorAll('.ov')].pop()) close(); };
   document.addEventListener('keydown', kd);
   ov.addEventListener('mousedown', e => { if (e.target === ov) close(); });
   ov.close = close; return ov;
@@ -355,75 +357,105 @@ const KIND = {
 };
 function initTracker(kind) {
   const K = KIND[kind], app = $('#app');
-  const ui = { q: '', status: 'all', nat: 'all', day: 'all', flight: 'all', sortK: 'when', dir: 1, reveal: false, limit: 150, sel: new Set(), open: new Set() };
+  let view = null; try { view = localStorage.getItem(LS_VIEW); } catch (e) { }
+  if (view !== 'cards' && view !== 'table') view = window.matchMedia('(max-width:760px)').matches ? 'cards' : 'table';
+  const ui = { q: '', status: 'all', nat: 'all', day: 'all', flight: 'all', sortK: 'when', dir: 1, reveal: false, limit: 150, sel: new Set(), open: new Set(), view, modal: null };
   const qs = new URLSearchParams(location.search); if (qs.get('status')) ui.status = qs.get('status'); if (qs.get('q')) ui.q = qs.get('q');
-  let prevDanger = null, idx = new Map();
+  let prevDanger = null, gmap = new Map(), ridx = new Map(), mo = null, shownGroups = [];
 
   app.innerHTML = '<section class="hero"><div><h1>' + K.title + '</h1><p>' + K.sub + '</p></div><div class="hero-actions">' +
     '<button class="btn green" id="xXls">' + ICON.xls + 'Excel</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
     '<div id="stale"></div><div class="kpis" id="kpis"></div><div id="alertbar"></div>' +
-    '<section class="panel"><div class="panel-h"><h2>الرحلات النشطة</h2><span class="hint">اضغط رحلة لتصفية الجدول</span></div><div class="rail" id="rail"></div></section>' +
+    '<section class="panel"><div class="panel-h"><h2>الرحلات النشطة</h2><span class="hint">اضغط رحلة لتصفية القائمة</span></div><div class="rail" id="rail"></div></section>' +
     '<section class="panel"><div class="toolbar">' +
     '<div class="field">' + ICON.search + '<input type="search" id="fQ" placeholder="بحث: اسم، جواز، رحلة، فندق…" value="' + esc(ui.q) + '"></div>' +
     '<select id="fStatus"><option value="all">كل الحالات</option><option value="open">' + K.openL + '</option><option value="done">' + K.doneL + '</option><option value="danger">حرجة / متأخرة</option><option value="warn">تستدعي الانتباه</option></select>' +
     '<select id="fNat"></select><select id="fDay"></select>' +
-    '<label class="sw"><input type="checkbox" id="fReveal"> إظهار أرقام الجوازات</label><span class="sp"></span><span class="hint" id="cnt"></span></div>' +
-    '<div class="bulk" id="bulk" hidden></div><div class="tablewrap"><table id="tbl"><thead></thead><tbody></tbody></table></div><div class="more" id="more"></div></section>';
+    '<label class="sw"><input type="checkbox" id="fReveal"> إظهار أرقام الجوازات</label><span class="sp"></span><span class="hint" id="cnt"></span>' +
+    '<div class="seg" role="group" aria-label="طريقة العرض"><button data-view="table" title="عرض جدول">' + ICON.table + '<span>جدول</span></button><button data-view="cards" title="عرض بطاقات">' + ICON.cards + '<span>بطاقات</span></button></div></div>' +
+    '<div class="bulk" id="bulk" hidden></div><div id="list"></div><div class="more" id="more"></div></section>';
   $('#fStatus').value = ui.status;
 
   const recs = () => (state.data[kind] ? state.data[kind].records : []);
-  const dateOk = r => ui.day === 'all' || (r.when && C.fmtDay(r.when) === ui.day);
   const flightKey = r => (r.flight || '—') + '|' + (r.when ? C.fmtDay(r.when) : '');
+  const natLabel = r => r.country ? r.country.ar : (r.natRaw || 'غير محدد');
   function passes(r) {
     if (ui.q) { const h = r._h || (r._h = normAr([r.name, r.passport, r.flight, r.hotel, r.room, r.group, r.phone, r.natRaw, r.country && r.country.ar].join(' '))); if (!h.includes(normAr(ui.q))) return false; }
-    if (ui.nat !== 'all' && (r.country ? r.country.iso2 : '?') !== ui.nat) return false;
-    if (!dateOk(r)) return false;
+    if (ui.nat !== 'all' && C.natKey(r) !== ui.nat) return false;
+    if (ui.day !== 'all' && !(r.when && C.fmtDay(r.when) === ui.day)) return false;
     if (ui.flight !== 'all' && flightKey(r) !== ui.flight) return false;
-    const cls = ST[r._st].cls;
-    switch (ui.status) { case 'open': return !r.done; case 'done': return r.done; case 'danger': return cls === 'danger'; case 'warn': return cls === 'warn' || cls === 'danger'; }
     return true;
   }
-  const sorters = {
-    name: (a, b) => a.name.localeCompare(b.name, 'ar'), nat: (a, b) => ((a.country && a.country.ar) || 'ي').localeCompare((b.country && b.country.ar) || 'ي', 'ar'),
-    flight: (a, b) => a.flight.localeCompare(b.flight), group: (a, b) => a.group.localeCompare(b.group, 'ar'),
-    when: (a, b) => (a.when ? a.when.getTime() : 9e15) - (b.when ? b.when.getTime() : 9e15), status: (a, b) => ST[b._st].lv - ST[a._st].lv
-  };
-  const filtered = () => recs().filter(passes).sort((a, b) => ui.dir * (sorters[ui.sortK] || sorters.when)(a, b));
-
-  function columns(d) {
-    const m = d.map, has = f => m[f] != null;
-    return [
-      { id: 'sel', th: '<input type="checkbox" data-selall aria-label="تحديد الكل">', show: true },
-      { id: 'n', th: '#', show: true },
-      { id: 'name', th: 'الاسم', sort: 'name', show: has('name') },
-      { id: 'nat', th: 'الجنسية', sort: 'nat', show: has('nationality') },
-      { id: 'pp', th: 'الجواز', show: has('passport') },
-      { id: 'flight', th: 'الرحلة', sort: 'flight', show: has('flight') },
-      { id: 'when', th: kind === 'arrival' ? 'موعد الوصول' : 'موعد المغادرة', sort: 'when', show: has('date') },
-      { id: 'cd', th: 'العدّ التنازلي', show: has('date') },
-      { id: 'hotel', th: 'الفندق / الغرفة', show: has('hotel') || has('room') },
-      { id: 'group', th: 'المجموعة', sort: 'group', show: has('group') },
-      { id: 'st', th: 'الحالة', sort: 'status', show: true },
-      { id: 'act', th: '', show: true }
-    ].filter(c => c.show);
-  }
-  function cell(c, r, i) {
-    const lab = ST_LABEL[kind][r._st] || r._st, cls = ST[r._st].cls;
-    switch (c.id) {
-      case 'sel': return '<td data-l=""><input type="checkbox" data-sel="' + r.row + '"' + (ui.sel.has(r.row) ? ' checked' : '') + ' aria-label="تحديد"></td>';
-      case 'n': return '<td data-l="#" class="sub">' + (i + 1) + '</td>';
-      case 'name': return '<td data-l="الاسم"><span class="nm" data-open="' + r.row + '">' + esc(r.name || '—') + '</span>' + (r.pax > 1 ? '<div class="sub">' + r.pax + ' أفراد</div>' : '') + '</td>';
-      case 'nat': return '<td data-l="الجنسية">' + natHtml(r) + '</td>';
-      case 'pp': return '<td data-l="الجواز"><span class="pp">' + esc(ui.reveal ? r.passport : mask(r.passport)) + '</span></td>';
-      case 'flight': return '<td data-l="الرحلة"><b>' + esc(r.flight || '—') + '</b>' + (r.airline ? '<div class="sub">' + esc(r.airline) + '</div>' : '') + '</td>';
-      case 'when': return '<td data-l="الموعد">' + whenTxt(r) + '</td>';
-      case 'cd': return '<td data-l="العدّ التنازلي">' + cdHtml(r) + '</td>';
-      case 'hotel': return '<td data-l="الفندق">' + esc(r.hotel || '—') + (r.room ? '<div class="sub">غرفة ' + esc(r.room) + '</div>' : '') + '</td>';
-      case 'group': return '<td data-l="المجموعة">' + esc(r.group || '—') + '</td>';
-      case 'st': return '<td data-l="الحالة"><span class="chip ' + (r.syncing ? 'sync' : cls) + '">' + (r.syncing ? 'جارٍ المزامنة…' : esc(lab)) + '</span></td>';
-      case 'act': return '<td data-l="">' + (r.done ? '<button class="btn sm" data-act="undo" data-row="' + r.row + '"' + (r.syncing ? ' disabled' : '') + '>تراجع</button>' : '<button class="btn sm green" data-act="ok" data-row="' + r.row + '"' + (r.syncing ? ' disabled' : '') + '>' + ICON.check + (kind === 'arrival' ? 'تسكين' : 'مغادرة') + '</button>') + '</td>';
+  function groupPass(g) {
+    if (!g.rows.some(passes)) return false;
+    switch (ui.status) {
+      case 'open': return g.open > 0; case 'done': return g.open === 0;
+      case 'danger': return g.open > 0 && g.cls === 'danger'; case 'warn': return g.open > 0 && (g.cls === 'warn' || g.cls === 'danger');
     }
-    return '<td></td>';
+    return true;
+  }
+  const gsort = {
+    flight: (a, b) => a.flight.localeCompare(b.flight), hotel: (a, b) => (a.hotel || '').localeCompare(b.hotel || '', 'ar'), pax: (a, b) => a.pax - b.pax,
+    when: (a, b) => (a.when ? a.when.getTime() : 9e15) - (b.when ? b.when.getTime() : 9e15), status: (a, b) => ST[b.st].lv - ST[a.st].lv
+  };
+  const sortedGroups = all => all.filter(groupPass).sort((a, b) => ui.dir * (gsort[ui.sortK] || gsort.when)(a, b) || gsort.when(a, b));
+  const gWhen = g => g.when ? C.fmtDayAr(g.when) + ' · ' + (g.approx ? '≈' : '') + C.fmtTime(g.when) : '—';
+  const natText = g => g.natList.map(n => n.label + ' ' + n.n).join('، ');
+  const gTitle = g => 'رحلة ' + g.flight + (g.hotel ? ' — ' + g.hotel : '');
+  const fileTag = g => String(g.flight).replace(/[^\w؀-ۿ-]+/g, '_');
+
+  const natChips = (g, max) => {
+    const sh = g.natList.slice(0, max), rest = g.natList.length - sh.length;
+    return '<div class="nchips">' + sh.map(n => '<button class="nchip" data-grp="' + esc(g.key) + '" data-nat="' + esc(n.k) + '" title="عرض جوازات ' + esc(n.label) + '">' +
+      (n.c ? '<img class="flag" loading="lazy" alt="" src="' + C.flagUrl(n.c.iso2, 40) + '" onerror="this.style.visibility=\'hidden\'">' : '<span class="flag ph">؟</span>') + '<span>' + esc(n.label) + '</span><b class="num">' + n.n + '</b></button>').join('') +
+      (rest > 0 ? '<button class="nchip more" data-grp="' + esc(g.key) + '" title="عرض الكل">+' + rest + '</button>' : '') + '</div>';
+  };
+  const stChip = g => '<span class="chip ' + (g.syncing ? 'sync' : g.cls) + '">' + (g.syncing ? 'جارٍ المزامنة…' : esc(ST_LABEL[kind][g.st] || g.st)) + '</span>' + (g.open > 0 && g.done > 0 ? '<div class="sub num">مكتمل ' + g.done + ' من ' + g.pax + '</div>' : '');
+  const gAct = g => g.open === 0
+    ? '<button class="btn sm" data-gact="undo" data-key="' + esc(g.key) + '"' + (g.allSyncing ? ' disabled' : '') + '>تراجع</button>'
+    : '<button class="btn sm green" data-gact="ok" data-key="' + esc(g.key) + '"' + (g.allSyncing ? ' disabled' : '') + '>' + ICON.check + (kind === 'arrival' ? 'تسكين' : 'مغادرة') + (g.done ? ' المتبقي' : ' الكل') + '</button>';
+  const ppBtn = g => '<button class="btn sm sky" data-grp="' + esc(g.key) + '">' + ICON.eye + 'الجوازات (' + g.rows.length + ')</button>';
+  const gCd = g => g.when && g.open > 0 ? '<span class="cd" data-w="' + g.when.getTime() + '"></span>' : '<span class="sub">—</span>';
+
+  /* ---- جدول المجموعات ---- */
+  function tableHtml(groups, d) {
+    const hasHotel = d.map.hotel != null;
+    const cols = [
+      { id: 'sel', th: '<input type="checkbox" data-selall aria-label="تحديد الكل">' }, { id: 'n', th: '#' },
+      { id: 'flight', th: 'الرحلة', sort: 'flight' }, { id: 'when', th: kind === 'arrival' ? 'موعد الوصول' : 'موعد المغادرة', sort: 'when' }, { id: 'cd', th: 'العدّ التنازلي' },
+      hasHotel && { id: 'hotel', th: 'الفندق', sort: 'hotel' }, { id: 'pax', th: 'العدد', sort: 'pax' }, { id: 'nat', th: 'الجنسيات' }, { id: 'pp', th: 'الجوازات' },
+      { id: 'st', th: 'الحالة', sort: 'status' }, { id: 'act', th: '' }
+    ].filter(Boolean);
+    const cell = (c, g, i) => {
+      switch (c.id) {
+        case 'sel': return '<td><input type="checkbox" data-sel="' + esc(g.key) + '"' + (ui.sel.has(g.key) ? ' checked' : '') + ' aria-label="تحديد"></td>';
+        case 'n': return '<td class="sub">' + (i + 1) + '</td>';
+        case 'flight': return '<td><b>' + esc(g.flight) + '</b>' + (g.airline ? '<div class="sub">' + esc(g.airline) + '</div>' : '') + '</td>';
+        case 'when': return '<td>' + gWhen(g) + '</td>';
+        case 'cd': return '<td>' + gCd(g) + '</td>';
+        case 'hotel': return '<td>' + esc(g.hotel || '—') + '</td>';
+        case 'pax': return '<td><b class="num" style="font-size:17px">' + g.pax + '</b><div class="bar" style="width:70px;margin-top:4px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div></td>';
+        case 'nat': return '<td>' + natChips(g, 3) + '</td>';
+        case 'pp': return '<td>' + ppBtn(g) + '</td>';
+        case 'st': return '<td>' + stChip(g) + '</td>';
+        case 'act': return '<td>' + gAct(g) + '</td>';
+      }
+      return '<td></td>';
+    };
+    return '<div class="tablewrap"><table id="tbl"><thead><tr>' + cols.map(c => '<th' + (c.sort ? ' class="sort" data-sort="' + c.sort + '"' : '') + '>' + c.th + (c.sort && ui.sortK === c.sort ? '<span class="ar">' + (ui.dir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>').join('') + '</tr></thead><tbody>' +
+      (groups.length ? groups.map((g, i) => '<tr class="r ' + (g.open === 0 ? 'done ' : '') + (g.open && g.cls === 'danger' ? 'danger ' : g.open && g.cls === 'warn' ? 'warn ' : '') + (g.syncing ? 'syncing' : '') + '">' + cols.map(c => cell(c, g, i)).join('') + '</tr>').join('') :
+        '<tr><td colspan="' + cols.length + '"><div class="empty">لا توجد نتائج مطابقة</div></td></tr>') + '</tbody></table></div>';
+  }
+  /* ---- بطاقات المجموعات ---- */
+  function cardsHtml(groups) {
+    if (!groups.length) return '<div class="empty">لا توجد نتائج مطابقة</div>';
+    return '<div class="cards">' + groups.map(g =>
+      '<article class="gcard ' + (g.open === 0 ? 'done ' : '') + (g.open && g.cls === 'danger' ? 'danger ' : g.open && g.cls === 'warn' ? 'warn ' : '') + '">' +
+      '<header><label class="chk"><input type="checkbox" data-sel="' + esc(g.key) + '"' + (ui.sel.has(g.key) ? ' checked' : '') + ' aria-label="تحديد"></label><div class="gt"><b class="no">' + esc(g.flight) + '</b>' + (g.airline ? '<div class="sub">' + esc(g.airline) + '</div>' : '') + '</div><div class="gs">' + stChip(g) + '</div></header>' +
+      '<div class="gbig"><div><b class="num">' + g.pax + '</b><span>فرد</span></div><div class="gcd">' + gCd(g) + '</div></div>' +
+      '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
+      '<dl class="gkv"><div><dt>الموعد</dt><dd>' + gWhen(g) + '</dd></div>' + (g.hotel ? '<div><dt>الفندق</dt><dd>' + esc(g.hotel) + '</dd></div>' : '') + '</dl>' +
+      natChips(g, 4) + '<footer>' + ppBtn(g) + gAct(g) + '</footer></article>').join('') + '</div>';
   }
 
   function render() {
@@ -436,25 +468,26 @@ function initTracker(kind) {
     }
     stale.innerHTML = state.err[kind] ? '<div class="stale">⚠ تعذّر التحديث الأخير (' + esc(state.err[kind]) + ') — تُعرض آخر بيانات محفوظة.</div>' : (d.warn ? '<div class="stale">⚠ ' + esc(d.warn) + ' <button class="btn sm" id="stSet2">الإعدادات</button></div>' : '');
     if ($('#stSet2')) $('#stSet2').onclick = () => openSettings(false);
-    const R = recs(); idx = new Map(R.map(r => [r.row, r]));
+    const R = recs(); ridx = new Map(R.map(r => [r.row, r]));
     const sm = C.summarize(R, now, S);
+    const allGroups = C.groupRecords(R); gmap = new Map(allGroups.map(g => [g.key, g]));
+    [...ui.sel].forEach(k => { if (!gmap.has(k)) ui.sel.delete(k); });
 
     // مؤشرات
-    const groups = C.groupFlights(R), nextG = groups.find(g => g.when && g.when.getTime() > now && g.done < g.pax);
+    const fl = C.groupFlights(R), nextG = fl.find(g => g.when && g.when.getTime() > now && g.done < g.pax);
     $('#kpis').innerHTML =
-      '<div class="kpi gold"><div class="l">' + K.total + '</div><div class="v">' + sm.total + '</div><div class="s">' + sm.rows + ' سجل · ' + groups.length + ' رحلة</div></div>' +
+      '<div class="kpi gold"><div class="l">' + K.total + '</div><div class="v">' + sm.total + '</div><div class="s">' + allGroups.length + ' مجموعة · ' + fl.length + ' رحلة</div></div>' +
       '<div class="kpi ok"><div class="l">' + K.doneL + '</div><div class="v">' + sm.done + '</div><div class="s"><div class="bar"><i style="width:' + sm.pct + '%"></i></div>' + sm.pct + '%</div></div>' +
       '<div class="kpi amber"><div class="l">' + K.openL + '</div><div class="v">' + sm.pending + '</div><div class="s">تستدعي الانتباه: ' + sm.warn + '</div></div>' +
       '<div class="kpi red click' + (sm.dangerRows ? ' pulse' : '') + '" data-kpi="danger"><div class="l">حالات حرجة / متأخرة</div><div class="v">' + sm.danger + '</div><div class="s">' + sm.dangerRows + ' سجل — اضغط للتصفية</div></div>' +
       '<div class="kpi sky"><div class="l">أقرب رحلة</div><div class="v" style="font-size:25px;padding-top:5px">' + (nextG ? '<span class="cd" data-w="' + nextG.when.getTime() + '"></span>' : '—') + '</div><div class="s">' + (nextG ? esc(nextG.flight) + ' · ' + C.fmtTime(nextG.when) + ' · ' + nextG.pax + ' فرد' : 'لا توجد رحلات قادمة') + '</div></div>';
-
     $('#alertbar').innerHTML = sm.dangerRows ? '<div class="alertbar" data-kpi="danger"><span class="dot"></span><b>تنبيه:</b> ' + sm.dangerRows + ' سجل في حالة حرجة أو متأخرة ويحتاج إلى إجراء فوري <span class="sp"></span><span class="hint">عرض</span></div>' : '';
     const dk = new Set(R.filter(r => ST[r._st].cls === 'danger').map(r => pkey(r)));
     if (prevDanger) { let n = 0; dk.forEach(k => { if (!prevDanger.has(k)) n++; }); if (n) toast('تنبيه: ' + n + ' حالة حرجة جديدة', 'err'); }
     prevDanger = dk;
 
     // شريط الرحلات
-    const act = groups.filter(g => g.done < g.pax).slice(0, 40);
+    const act = fl.filter(g => g.done < g.pax).slice(0, 40);
     $('#rail').innerHTML = act.length ? act.map(g => {
       const lv = g.when ? (g.when.getTime() < now ? (kind === 'arrival' ? 'warn' : 'danger') : ((g.when.getTime() - now) / 36e5 <= S.criticalH ? 'danger' : ((g.when.getTime() - now) / 36e5 <= S.warnH ? 'warn' : ''))) : '';
       return '<div class="fl ' + lv + (ui.flight === g.key ? ' on' : '') + '" data-flight="' + esc(g.key) + '"><div class="t"><span class="no">' + esc(g.flight) + '</span><span class="sub">' + (g.when ? C.fmtDayAr(g.when) : '') + '</span></div>' +
@@ -465,51 +498,111 @@ function initTracker(kind) {
     }).join('') : '<div class="empty" style="width:100%;padding:16px">لا توجد رحلات نشطة — كل الرحلات مكتملة ✓</div>';
 
     // خيارات التصفية
-    const nats = new Map(); R.forEach(r => { const k = r.country ? r.country.iso2 : '?'; nats.set(k, (r.country ? r.country.ar : 'غير محدد')); });
-    const nv = ui.nat; $('#fNat').innerHTML = '<option value="all">كل الجنسيات</option>' + [...nats.entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar')).map(([k, v]) => '<option value="' + k + '">' + esc(v) + '</option>').join(''); $('#fNat').value = nv;
+    const nats = new Map(); R.forEach(r => nats.set(C.natKey(r), natLabel(r)));
+    const nv = ui.nat; $('#fNat').innerHTML = '<option value="all">كل الجنسيات</option>' + [...nats.entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar')).map(([k, v]) => '<option value="' + esc(k) + '">' + esc(v) + '</option>').join(''); $('#fNat').value = nv;
     const days = [...new Set(R.filter(r => r.when).map(r => C.fmtDay(r.when)))].sort();
     const dv = ui.day; $('#fDay').innerHTML = '<option value="all">كل الأيام</option>' + days.map(k => '<option value="' + k + '">' + k.slice(5).replace('-', '/') + '</option>').join(''); $('#fDay').value = dv;
+    $$('.seg [data-view]').forEach(b => { const on = b.dataset.view === ui.view; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
 
-    // الجدول
-    const cols = columns(d), rows = filtered();
-    $('#tbl thead').innerHTML = '<tr>' + cols.map(c => '<th' + (c.sort ? ' class="sort" data-sort="' + c.sort + '"' : '') + '>' + c.th + (c.sort && ui.sortK === c.sort ? '<span class="ar">' + (ui.dir > 0 ? '▲' : '▼') + '</span>' : '') + '</th>').join('') + '</tr>';
-    const shown = rows.slice(0, ui.limit);
-    $('#tbl tbody').innerHTML = shown.length ? shown.map((r, i) => {
-      const cls = ST[r._st].cls;
-      let h = '<tr class="r ' + (r.done ? 'done ' : '') + (cls === 'danger' ? 'danger ' : cls === 'warn' ? 'warn ' : '') + (r.syncing ? 'syncing' : '') + '">' + cols.map(c => cell(c, r, i)).join('') + '</tr>';
-      if (ui.open.has(r.row)) h += '<tr class="detail"><td colspan="' + cols.length + '"><div class="kv">' + r.raw.map(x => '<div><b>' + esc(x[0]) + '</b>' + esc(x[1]) + '</div>').join('') + '</div></td></tr>';
-      return h;
-    }).join('') : '<tr><td colspan="' + cols.length + '"><div class="empty">لا توجد نتائج مطابقة</div></td></tr>';
-    $('#cnt').textContent = rows.length + ' من ' + R.length + ' سجل';
-    $('#more').innerHTML = rows.length > shown.length ? '<button class="btn" data-more>عرض المزيد (' + (rows.length - shown.length) + ')</button>' : '';
+    // القائمة
+    shownGroups = sortedGroups(allGroups);
+    const shown = shownGroups.slice(0, ui.limit);
+    $('#list').innerHTML = ui.view === 'cards' ? cardsHtml(shown) : tableHtml(shown, d);
+    const px = shownGroups.reduce((s, g) => s + g.pax, 0);
+    $('#cnt').textContent = shownGroups.length + ' مجموعة · ' + px + ' فرد';
+    $('#more').innerHTML = shownGroups.length > shown.length ? '<button class="btn" data-more>عرض المزيد (' + (shownGroups.length - shown.length) + ')</button>' : '';
     const bulk = $('#bulk'), n = ui.sel.size; bulk.hidden = !n;
-    if (n) bulk.innerHTML = '<b>' + n + ' محدد</b><button class="btn green sm" data-bulk="ok">' + K.act + '</button><button class="btn sm" data-bulk="undo">تراجع عن المحدد</button><button class="btn sm" data-bulk="clear">إلغاء التحديد</button>';
+    if (n) { const pp = [...ui.sel].reduce((s, k) => s + (gmap.get(k) ? gmap.get(k).pax : 0), 0); bulk.innerHTML = '<b>' + n + ' مجموعة · ' + pp + ' فرد</b><button class="btn green sm" data-bulk="ok">' + K.act + '</button><button class="btn sm" data-bulk="undo">تراجع عن المحدد</button><button class="btn sm" data-bulk="clear">إلغاء التحديد</button>'; }
+    renderModal();
     tick();
   }
 
-  /* أحداث */
+  /* ---- نافذة جوازات المجموعة ---- */
+  function openGroup(key, nat) {
+    ui.modal = { key, nat: nat || 'all' };
+    if (mo && mo.isConnected) { renderModal(); return; }
+    mo = modal('<div id="gmBody"></div>', () => { ui.modal = null; mo = null; });
+    mo.firstChild.classList.add('wide');
+    mo.addEventListener('click', onModalClick);
+    mo.addEventListener('change', e => { if (e.target.id === 'mReveal') { ui.reveal = e.target.checked; $('#fReveal').checked = ui.reveal; render(); } });
+    renderModal();
+  }
+  const modalList = g => g.rows.filter(r => ui.modal.nat === 'all' || C.natKey(r) === ui.modal.nat);
+  function renderModal() {
+    if (!ui.modal || !mo) return;
+    const g = gmap.get(ui.modal.key); if (!g) { mo.close(); return; }
+    if (ui.modal.nat !== 'all' && !g.nats.has(ui.modal.nat)) ui.modal.nat = 'all';
+    const list = modalList(g), d = state.data[kind], hasRoom = d && d.map.room != null;
+    const openN = list.filter(r => !r.done).length, paxN = list.reduce((s, r) => s + r.pax, 0);
+    const chips = '<button class="nchip' + (ui.modal.nat === 'all' ? ' on' : '') + '" data-mn="all"><span>الكل</span><b class="num">' + g.pax + '</b></button>' +
+      g.natList.map(n => '<button class="nchip' + (ui.modal.nat === n.k ? ' on' : '') + '" data-mn="' + esc(n.k) + '">' + (n.c ? '<img class="flag" alt="" src="' + C.flagUrl(n.c.iso2, 40) + '" onerror="this.style.visibility=\'hidden\'">' : '<span class="flag ph">؟</span>') + '<span>' + esc(n.label) + '</span><b class="num">' + n.n + '</b></button>').join('');
+    const head = ['#', 'الاسم', 'الجنسية', 'رقم الجواز', hasRoom && 'الغرفة', 'الحالة', ''].filter(x => x !== false);
+    const body = list.map((r, i) => {
+      const lab = ST_LABEL[kind][r._st] || r._st, cls = ST[r._st].cls;
+      let h = '<tr class="r ' + (r.done ? 'done' : '') + '"><td class="sub">' + (i + 1) + '</td><td><span class="nm" data-open="' + r.row + '">' + esc(r.name || '—') + '</span>' + (r.pax > 1 ? '<div class="sub">' + r.pax + ' أفراد</div>' : '') + '</td><td>' + natHtml(r) + '</td>' +
+        '<td><span class="pp">' + esc(ui.reveal ? r.passport : mask(r.passport)) + '</span></td>' + (hasRoom ? '<td>' + esc(r.room || '—') + '</td>' : '') +
+        '<td><span class="chip ' + (r.syncing ? 'sync' : cls) + '">' + (r.syncing ? 'جارٍ المزامنة…' : esc(lab)) + '</span></td>' +
+        '<td>' + (r.done ? '<button class="btn sm" data-mact="undo" data-row="' + r.row + '"' + (r.syncing ? ' disabled' : '') + '>تراجع</button>' : '<button class="btn sm green" data-mact="ok" data-row="' + r.row + '"' + (r.syncing ? ' disabled' : '') + '>' + ICON.check + (kind === 'arrival' ? 'تسكين' : 'مغادرة') + '</button>') + '</td></tr>';
+      if (ui.open.has(r.row)) h += '<tr class="detail"><td colspan="' + head.length + '"><div class="kv">' + r.raw.map(x => '<div><b>' + esc(x[0]) + '</b>' + esc(x[1]) + '</div>').join('') + '</div></td></tr>';
+      return h;
+    }).join('');
+    $('#gmBody', mo).innerHTML = '<h3>' + esc(gTitle(g)) + '</h3>' +
+      '<div class="mhead"><span>' + gWhen(g) + '</span>' + (g.open > 0 && g.when ? '<span class="cd" data-w="' + g.when.getTime() + '"></span>' : '') + '<span><b class="num">' + g.pax + '</b> فرد · مكتمل <b class="num">' + g.done + '</b></span></div>' +
+      '<div class="nfilter">' + chips + '</div>' +
+      '<div class="toolbar"><label class="sw"><input type="checkbox" id="mReveal"' + (ui.reveal ? ' checked' : '') + '> إظهار أرقام الجوازات</label><span class="sp"></span>' +
+      '<button class="btn green sm" data-mx="xls">' + ICON.xls + 'Excel</button><button class="btn sky sm" data-mx="pdf">' + ICON.pdf + 'PDF</button>' +
+      (openN ? '<button class="btn gold sm" data-mall>' + ICON.check + (kind === 'arrival' ? 'تسكين المتبقي' : 'مغادرة المتبقي') + ' (' + openN + ')</button>' : '') + '<button class="btn sm" data-mx="close">إغلاق</button></div>' +
+      '<div class="tablewrap" style="max-height:52vh"><table style="min-width:640px"><thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + (body || '<tr><td colspan="' + head.length + '"><div class="empty">لا توجد سجلات</div></td></tr>') + '</tbody></table></div>' +
+      '<p class="hint" style="margin:8px 0 0">' + list.length + ' جواز · ' + paxN + ' فرد' + (ui.modal.nat !== 'all' ? ' (مصفّى حسب الجنسية)' : '') + '</p>';
+    tick();
+  }
+  async function onModalClick(e) {
+    const t = e.target, g = ui.modal && gmap.get(ui.modal.key); if (!g) return; let el;
+    if ((el = t.closest('[data-mn]'))) { ui.modal.nat = el.dataset.mn; renderModal(); return; }
+    if ((el = t.closest('[data-open]'))) { const k = +el.dataset.open; ui.open.has(k) ? ui.open.delete(k) : ui.open.add(k); renderModal(); return; }
+    if ((el = t.closest('[data-mact]'))) { const r = ridx.get(+el.dataset.row); if (r) doWrite([r], el.dataset.mact === 'ok', K.act); return; }
+    if (t.closest('[data-mall]')) { doWrite(modalList(g), true, K.act + ' — ' + gTitle(g)); return; }
+    if ((el = t.closest('[data-mx]'))) {
+      const a = el.dataset.mx; if (a === 'close') { mo.close(); return; }
+      const list = modalList(g), tag = fileTag(g) + '-' + stamp();
+      if (a === 'xls') { try { await saveXlsx([{ name: 'الحجاج', rows: list.map(r => exportRow(kind, r, ui.reveal)) }], 'hajj1447-' + kind + '-' + tag + '.xlsx'); toast('تم تصدير Excel', 'ok'); } catch (x) { toast(x.message, 'err'); } }
+      if (a === 'pdf') {
+        toast('جارٍ تجهيز PDF…'); const paxN = list.reduce((s, r) => s + r.pax, 0);
+        const html = reportHtml({
+          title: gTitle(g), sub: gWhen(g) + (ui.modal.nat !== 'all' ? ' · الجنسية: ' + (g.nats.get(ui.modal.nat) || {}).label : ''),
+          kpis: [['العدد', paxN], [K.doneL, list.filter(r => r.done).reduce((s, r) => s + r.pax, 0), '#006C35'], ['المتبقي', list.filter(r => !r.done).reduce((s, r) => s + r.pax, 0), '#F5A524'], ['عدد الجوازات', list.length, '#0EA5E9']],
+          head: ['#', 'الاسم', 'الجنسية', 'رقم الجواز', 'الغرفة', 'الحالة'],
+          rows: list.map((r, i) => [i + 1, r.name, { html: flagImg(r.country) || esc(r.natRaw) }, { html: '<span dir="ltr">' + esc(ui.reveal ? r.passport : mask(r.passport)) + '</span>' }, r.room, r.done ? (kind === 'arrival' ? 'تم التسكين' : 'تمت المغادرة') : (ST_LABEL[kind][r._st] || '')])
+        });
+        try { await savePDF(html, 'hajj1447-' + kind + '-' + tag + '.pdf', false); toast('تم إنشاء PDF', 'ok'); } catch (x) { toast('تعذّر إنشاء PDF: ' + x.message, 'err'); }
+      }
+    }
+  }
+
+  /* ---- أحداث الصفحة ---- */
   async function doWrite(list, value, label) {
     list = list.filter(r => r.done !== value && !r.syncing); if (!list.length) return;
     if (list.length > 1 && !(await confirmBox(label, 'سيتم تحديث ' + list.length + ' سجل في Google Sheets. متابعة؟', 'نعم، تنفيذ'))) return;
     await writeChecks(kind, list, value);
   }
   app.addEventListener('click', e => {
-    const t = e.target;
-    let el;
-    if ((el = t.closest('[data-act]'))) { const r = idx.get(+el.dataset.row); if (r) doWrite([r], el.dataset.act === 'ok', K.act); return; }
+    const t = e.target; let el;
+    if ((el = t.closest('[data-gact]'))) { const g = gmap.get(el.dataset.key); if (g) doWrite(g.rows, el.dataset.gact === 'ok', K.act + ' — ' + gTitle(g)); return; }
+    if ((el = t.closest('[data-grp]'))) { openGroup(el.dataset.grp, el.dataset.nat); return; }
+    if ((el = t.closest('[data-view]'))) { ui.view = el.dataset.view; try { localStorage.setItem(LS_VIEW, ui.view); } catch (x) { } render(); return; }
     if ((el = t.closest('[data-fok]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fok); if (g) doWrite(g.rows, true, K.act + ' — رحلة ' + g.flight); return; }
     if ((el = t.closest('[data-flight]'))) { ui.flight = ui.flight === el.dataset.flight ? 'all' : el.dataset.flight; ui.limit = 150; render(); return; }
     if ((el = t.closest('[data-sort]'))) { const k = el.dataset.sort; if (ui.sortK === k) ui.dir *= -1; else { ui.sortK = k; ui.dir = 1; } render(); return; }
-    if ((el = t.closest('[data-open]'))) { const k = +el.dataset.open; ui.open.has(k) ? ui.open.delete(k) : ui.open.add(k); render(); return; }
     if ((el = t.closest('[data-kpi]'))) { ui.status = 'danger'; $('#fStatus').value = 'danger'; render(); return; }
     if (t.closest('[data-more]')) { ui.limit += 300; render(); return; }
     if ((el = t.closest('[data-bulk]'))) {
-      const a = el.dataset.bulk, list = [...ui.sel].map(k => idx.get(k)).filter(Boolean);
+      const a = el.dataset.bulk;
       if (a === 'clear') { ui.sel.clear(); render(); return; }
+      const list = [...ui.sel].flatMap(k => gmap.get(k) ? gmap.get(k).rows : []);
       doWrite(list, a === 'ok', K.act).then(() => { ui.sel.clear(); render(); }); return;
     }
-    if (t.matches('[data-sel]')) { const k = +t.dataset.sel; t.checked ? ui.sel.add(k) : ui.sel.delete(k); render(); return; }
-    if (t.matches('[data-selall]')) { const rows = filtered().slice(0, ui.limit); rows.forEach(r => t.checked ? ui.sel.add(r.row) : ui.sel.delete(r.row)); render(); }
+    if (t.matches('[data-sel]')) { t.checked ? ui.sel.add(t.dataset.sel) : ui.sel.delete(t.dataset.sel); render(); return; }
+    if (t.matches('[data-selall]')) { shownGroups.slice(0, ui.limit).forEach(g => t.checked ? ui.sel.add(g.key) : ui.sel.delete(g.key)); render(); }
   });
   $('#fQ').oninput = e => { ui.q = e.target.value; ui.limit = 150; render(); };
   $('#fStatus').onchange = e => { ui.status = e.target.value; render(); };
@@ -517,16 +610,24 @@ function initTracker(kind) {
   $('#fDay').onchange = e => { ui.day = e.target.value; render(); };
   $('#fReveal').onchange = e => { ui.reveal = e.target.checked; render(); };
   $('#xPrint').onclick = () => window.print();
+  const groupExport = g => ({
+    'الرحلة': g.flight, 'الناقل': g.airline, 'التاريخ': g.when ? C.fmtDay(g.when) : '', 'الوقت': g.when && !g.approx ? C.fmtTime(g.when) : '', 'الفندق': g.hotel,
+    'العدد': g.pax, [K.doneL]: g.done, 'المتبقي': g.pax - g.done, 'عدد الجوازات': g.rows.length, 'الجنسيات': natText(g), 'الحالة': g.open ? (ST_LABEL[kind][g.st] || '') : ST_LABEL[kind].done
+  });
   $('#xXls').onclick = async () => {
-    try { await saveXlsx([{ name: K.title, rows: filtered().map(r => exportRow(kind, r, ui.reveal)) }], 'hajj1447-' + kind + '-' + stamp() + '.xlsx'); toast('تم تصدير Excel', 'ok'); } catch (e) { toast(e.message, 'err'); }
+    try {
+      const gs = shownGroups;
+      await saveXlsx([{ name: 'المجموعات', rows: gs.map(groupExport) }, { name: 'الحجاج', rows: gs.flatMap(g => g.rows.map(r => exportRow(kind, r, ui.reveal))) }], 'hajj1447-' + kind + '-' + stamp() + '.xlsx');
+      toast('تم تصدير Excel (ورقة المجموعات + ورقة الحجاج)', 'ok');
+    } catch (e) { toast(e.message, 'err'); }
   };
   $('#xPdf').onclick = async () => {
-    const rows = filtered(), sm = C.summarize(recs(), Date.now(), S); toast('جارٍ تجهيز PDF…');
-    const head = ['#', 'الاسم', 'الجنسية', 'الجواز', 'الرحلة', 'التاريخ', 'الوقت', 'الفندق / الغرفة', 'الحالة'];
+    const gs = shownGroups, sm = C.summarize(recs(), Date.now(), S); toast('جارٍ تجهيز PDF…');
     const html = reportHtml({
-      title: 'تقرير ' + K.title, sub: rows.length + ' سجل (حسب التصفية الحالية)',
+      title: 'تقرير ' + K.title, sub: gs.length + ' مجموعة (حسب التصفية الحالية)',
       kpis: [[K.total, sm.total], [K.doneL, sm.done, '#006C35'], [K.openL, sm.pending, '#F5A524'], ['حرجة / متأخرة', sm.danger, '#E5484D'], ['نسبة الإنجاز', sm.pct + '%', '#0EA5E9']],
-      head, rows: rows.map((r, i) => [i + 1, r.name, { html: flagImg(r.country) || esc(r.natRaw) }, { html: '<span dir="ltr">' + esc(ui.reveal ? r.passport : mask(r.passport)) + '</span>' }, r.flight, r.when ? C.fmtDay(r.when) : r.date, r.when && !r.approx ? C.fmtTime(r.when) : r.time, (r.hotel + (r.room ? ' / ' + r.room : '')), ST_LABEL[kind][r._st]])
+      head: ['#', 'الرحلة', 'الموعد', 'الفندق', 'العدد', 'الجنسيات', 'الحالة'],
+      rows: gs.map((g, i) => [i + 1, g.flight, gWhen(g), g.hotel, g.pax, { html: g.natList.map(n => (n.c ? flagImg(n.c) : esc(n.label)) + ' (' + n.n + ')').join('&nbsp;&nbsp;') }, g.open ? (ST_LABEL[kind][g.st] || '') : ST_LABEL[kind].done])
     });
     try { await savePDF(html, 'hajj1447-' + kind + '-' + stamp() + '.pdf', true); toast('تم إنشاء PDF', 'ok'); } catch (e) { toast('تعذّر إنشاء PDF: ' + e.message, 'err'); }
   };
