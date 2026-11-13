@@ -7,11 +7,13 @@
 
 /* ---------------- الإعدادات الافتراضية ---------------- */
 const DEFAULTS = {
-  arrival:   { csv: '', checkHeader: 'Check'    },   // الصق رابط CSV من الإعدادات (لا تضعه في الكود: المستودع عام)
-  departure: { csv: '', checkHeader: 'Check_De' },
+  // ملف Google Sheets واحد بعدة صفحات — يُطلب من المستخدم عند أول دخول ثم يُحفظ في المتصفح
+  source: { link: '', arrivalTab: 'Arrival', departureTab: 'Departure' },
+  arrival:   { checkHeader: 'Check'    },
+  departure: { checkHeader: 'Check_De' },
   webapp: '',            // رابط Google Apps Script (…/exec)
   token: '',             // الرمز السري المطابق لما في Code.gs
-  readVia: 'csv',        // csv = الرابط المنشور | webapp = القراءة عبر Apps Script (فورية وخاصة)
+  readVia: 'link',       // link = قراءة الملف بالرابط | webapp = القراءة عبر Apps Script (فورية وخاصة)
   refreshSec: 30,
   dateOrder: 'DMY',      // ترتيب التاريخ في الجدول: DMY أو MDY
   tz: '+03:00',          // توقيت الرحلات (الرياض)
@@ -20,6 +22,19 @@ const DEFAULTS = {
   lateH: 2,              // ساعات بعد الهبوط قبل اعتبار التسكين "متأخراً"
   map: { arrival: {}, departure: {} }   // ربط يدوي: الحقل → اسم العمود
 };
+
+/* ---------------- رابط ملف Google Sheets ---------------- */
+// يقبل رابط التحرير/المشاركة (…/d/<ID>/…) أو المعرّف وحده. رابط «النشر على الويب» (/d/e/2PACX…) يُرفض لأنه لا يحدد الصفحات بالاسم.
+function sheetIdFromLink(link) {
+  link = String(link || '').trim(); if (!link) return '';
+  if (/\/d\/e\//.test(link)) return '';
+  const m = link.match(/\/spreadsheets\/d\/([A-Za-z0-9_-]{20,})/);
+  if (m) return m[1];
+  return /^[A-Za-z0-9_-]{30,}$/.test(link) ? link : '';
+}
+const isPublishedLink = link => /\/d\/e\/2PACX/.test(String(link || ''));
+const gvizUrl = (id, tab) => 'https://docs.google.com/spreadsheets/d/' + id + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(tab);
+
 
 /* ---------------- أدوات النصوص ---------------- */
 const toLatinDigits = s => String(s == null ? '' : s)
@@ -403,7 +418,7 @@ function groupFlights(recs) {
 }
 
 root.HajjCore = {
-  DEFAULTS, normAr, esc, toLatinDigits, parseCSV, COUNTRIES, countryOf, flagUrl, FIELDS,
+  DEFAULTS, sheetIdFromLink, isPublishedLink, gvizUrl, normAr, esc, toLatinDigits, parseCSV, COUNTRIES, countryOf, flagUrl, FIELDS,
   findHeaderRow, buildMapping, parseDateParts, parseTimeParts, buildWhen, fmtDay, fmtTime, fmtDayAr, fmtCountdown,
   isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, TZ_NAME
 };

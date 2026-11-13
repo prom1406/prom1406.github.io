@@ -13,7 +13,8 @@ const CONFIG = {
   // اتركه فارغاً إذا أنشأت السكربت من داخل ملف الجدول: الإضافات ← Apps Script
   SPREADSHEET_ID: '',
 
-  // تحديد الورقة: gid أولاً، ثم الاسم، ثم الترتيب (0 = أول ورقة)
+  // الواجهة ترسل اسم الصفحة (الذي تكتبه في الإعدادات) فيُعتمد أولاً.
+  // وإن لم يصل اسم: gid ثم الاسم ثم الترتيب (0 = أول ورقة)
   KINDS: {
     arrival:   { gid: null,       name: 'Arrival',   index: 0, checkHeader: 'Check',    atHeader: 'Check_At'    },
     departure: { gid: 1177268743, name: 'Departure', index: 1, checkHeader: 'Check_De', atHeader: 'Check_De_At' }
@@ -29,11 +30,15 @@ const CONFIG = {
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.token !== CONFIG.TOKEN) return json_({ ok: false, error: 'unauthorized' });
-  if (p.action === 'ping') return json_({ ok: true, service: 'hajj-sync', ts: Date.now() });
+  if (p.action === 'ping') {
+    const ss = getSS_();
+    return json_({ ok: true, service: 'hajj-sync', ts: Date.now(), name: ss.getName(), spreadsheetId: ss.getId(),
+      tabs: ss.getSheets().map(function (s) { return s.getName(); }) });
+  }
   if (p.action === 'read') {
     const cfg = CONFIG.KINDS[p.kind];
     if (!cfg) return json_({ ok: false, error: 'kind غير صالح' });
-    const sh = getSheet_(p.kind);
+    const sh = getSheet_(p.kind, p.sheet);
     return json_({ ok: true, rows: sh.getDataRange().getDisplayValues(), ts: Date.now() });
   }
   return json_({ ok: true, service: 'hajj-sync' });
@@ -48,7 +53,7 @@ function doPost(e) {
     if (!cfg) return json_({ ok: false, error: 'kind غير صالح' });
     lock.waitLock(20000);
 
-    const sh = getSheet_(req.kind);
+    const sh = getSheet_(req.kind, req.sheet);
     const headerRow = Number(req.headerRow) || detectHeaderRow_(sh);
     const headers = sh.getRange(headerRow, 1, 1, sh.getLastColumn()).getDisplayValues()[0];
     const colCheck = findCol_(headers, cfg.checkHeader);
@@ -93,9 +98,14 @@ function json_(o) {
 function getSS_() {
   return CONFIG.SPREADSHEET_ID ? SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
 }
-function getSheet_(kind) {
+function getSheet_(kind, tabName) {
   const cfg = CONFIG.KINDS[kind], ss = getSS_(), all = ss.getSheets();
   let sh = null;
+  if (tabName) {                                    // الاسم القادم من إعدادات الواجهة
+    sh = ss.getSheetByName(tabName);
+    if (!sh) throw new Error('لا توجد صفحة باسم «' + tabName + '» في الملف');
+    return sh;
+  }
   if (cfg.gid != null) sh = all.filter(function (s) { return s.getSheetId() === Number(cfg.gid); })[0];
   if (!sh && cfg.name) sh = ss.getSheetByName(cfg.name);
   if (!sh) sh = all[cfg.index || 0];
