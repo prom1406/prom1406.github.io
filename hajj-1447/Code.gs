@@ -8,7 +8,7 @@
  */
 const CONFIG = {
   // غيّره إلى نص سري طويل، وضع نفس القيمة في «الإعدادات» داخل الصفحات
-  TOKEN: 'CHANGE-ME-TO-A-LONG-RANDOM-SECRET',
+  TOKEN: 'Hajj1447Xk29QpLm7733',
 
   // اتركه فارغاً إذا أنشأت السكربت من داخل ملف الجدول: الإضافات ← Apps Script
   SPREADSHEET_ID: '',
