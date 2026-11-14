@@ -3,7 +3,7 @@
 import pathlib
 
 root = pathlib.Path(__file__).parent
-src, dist = root / "src", root
+src, dist = root / "src", root / "dist"
 dist.mkdir(exist_ok=True)
 css = (src / "shared.css").read_text(encoding="utf-8")
 js = (src / "core.js").read_text(encoding="utf-8") + "\n" + (src / "ui.js").read_text(encoding="utf-8")
