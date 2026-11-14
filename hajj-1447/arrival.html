@@ -1049,6 +1049,50 @@ async function testSource(c) {
   return out;
 }
 
+/* ---------------- رابط الإعداد: نقل الإعدادات إلى أي متصفح أو جهاز ---------------- */
+// الإعدادات تُحفظ في المتصفح فقط؛ هذا الرابط يحملها (داخل الجزء بعد # فلا يصل لأي خادم) ويستوردها الجهاز الآخر عند الفتح.
+const SETUP_KEYS = ['source', 'webapp', 'token', 'readVia', 'refreshSec', 'dateOrder', 'criticalH', 'warnH', 'lateH', 'lead', 'transport', 'map'];
+const b64e = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const b64d = s => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))));
+function setupLink() {
+  const o = { v: 1 }; SETUP_KEYS.forEach(k => { o[k] = S[k]; });
+  return new URL('index.html', location.href).href.split('#')[0] + '#setup=' + b64e(JSON.stringify(o));
+}
+// تنقية صارمة: لا يُقبل إلا ما نعرفه، وبأنواع وحدود محددة، وروابط Google فقط
+function sanitizeSetup(o) {
+  if (!o || typeof o !== 'object' || o.v !== 1) throw new Error('نسخة رابط غير مدعومة');
+  const str = (v, max) => typeof v === 'string' ? v.trim().slice(0, max) : '';
+  const num = (v, d, lo, hi) => { v = +v; return isFinite(v) && v >= lo && v <= hi ? v : d; };
+  const src = o.source && typeof o.source === 'object' ? o.source : {};
+  const link = str(src.link, 400);
+  if (link && !/^https:\/\/docs\.google\.com\/spreadsheets\//.test(link)) throw new Error('رابط الملف ليس رابط Google Sheets');
+  const web = str(o.webapp, 400);
+  if (web && !/^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec$/.test(web)) throw new Error('رابط Apps Script غير صالح');
+  const ld = o.lead && typeof o.lead === 'object' ? o.lead : {}, tp = o.transport && typeof o.transport === 'object' ? o.transport : {};
+  const out = {
+    source: { link, arrivalTab: str(src.arrivalTab, 80) || 'Arrival', departureTab: str(src.departureTab, 80) || 'Departure' },
+    webapp: web, token: str(o.token, 300), readVia: (o.readVia === 'webapp' && web) ? 'webapp' : 'link',
+    refreshSec: num(o.refreshSec, 30, 10, 3600), dateOrder: o.dateOrder === 'MDY' ? 'MDY' : 'DMY',
+    criticalH: num(o.criticalH, 3, 0.1, 100), warnH: num(o.warnH, 12, 0.1, 200), lateH: num(o.lateH, 2, 0.1, 100),
+    lead: {}, transport: { arrival: tp.arrival !== false, departure: tp.departure !== false, busMin: num(tp.busMin, 4, 1, 100) }, map: { arrival: {}, departure: {} }
+  };
+  ['makkah>jeddah', 'makkah>madinah', 'madinah>madinah', 'madinah>jeddah'].forEach(k => { out.lead[k] = num(ld[k], C.DEFAULTS.lead[k], 0, 72); });
+  const ok = new Set(Object.keys(C.FIELDS).concat('check'));
+  ['arrival', 'departure'].forEach(k => { const m = o.map && o.map[k]; if (m && typeof m === 'object') Object.keys(m).forEach(f => { if (ok.has(f) && typeof m[f] === 'string') out.map[k][f] = m[f].slice(0, 120); }); });
+  return out;
+}
+async function importSetup() {
+  const m = /^#setup=([A-Za-z0-9_-]+)$/.exec(location.hash); if (!m) return false;
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { }   // امسح الرمز من شريط العنوان فوراً
+  let cfg; try { cfg = sanitizeSetup(JSON.parse(b64d(m[1]))); } catch (e) { toast('رابط الإعداد غير صالح: ' + (e.message || 'تالف'), 'err'); return false; }
+  const id = C.sheetIdFromLink(cfg.source.link), had = !!(S.source.link || S.webapp);
+  const ok = await confirmBox('استيراد إعدادات المنظومة',
+    'سيُحفظ في هذا المتصفح: ' + (id ? 'ملف Google Sheets (…' + id.slice(-6) + ') بصفحتي «' + cfg.source.arrivalTab + '» و«' + cfg.source.departureTab + '»' : 'بلا ملف') + (cfg.webapp ? '، وتطبيق ويب للكتابة مع رمزه السري' : '') + (had ? '. سيستبدل ذلك إعداداتك الحالية' : '') + '. استورد فقط إن كان الرابط من جهة تثق بها.', 'استيراد');
+  if (!ok) return false;
+  if ((S.source.link || '') !== cfg.source.link) ['arrival', 'departure'].forEach(k => { try { localStorage.removeItem('hajj1447.cache.' + k); } catch (e) { } });
+  S = merge(clone(C.DEFAULTS), cfg); saveSettings(); toast('تم استيراد الإعدادات وحفظها في هذا المتصفح', 'ok'); return true;
+}
+
 /* ---------------- نافذة الإعدادات / معالج أول دخول ---------------- */
 function openSettings(first) {
   first = first === true;
@@ -1091,6 +1135,8 @@ function openSettings(first) {
     lab('أقل عدد أفراد لاستخدام الحافلة (الأقل = سيارة)', inp('sBus', S.transport.busMin, '', 'number')) +
     '<p class="hint" style="grid-column:1/-1;margin:0">جدة ← مكة وكذلك المدينة ← المدينة: حافلة أو سيارة حسب العدد. بين المدينتين (جدة ← المدينة، المدينة ← مكة): قطار للجميع.</p>' +
     mapHtml +
+    (sourceReady() ? '<h4>نقل الإعدادات إلى جهاز أو متصفح آخر</h4><p class="hint" style="grid-column:1/-1;margin:0">افتح «رابط الإعداد» على أي جهاز فتُحفظ الإعدادات هناك تلقائياً بعد تأكيدك. يعكس آخر إعدادات محفوظة، ويحتوي الرمز السري فأرسله لنفسك أو لموثوق فقط ولا تنشره.</p>' +
+      '<div class="full" style="grid-column:1/-1;display:flex;gap:8px"><input id="sShare" readonly dir="ltr" style="flex:1" value="' + esc(setupLink()) + '"><button class="btn sky" type="button" id="sCopy">نسخ الرابط</button></div>' : '') +
     '</div><div class="act"><button class="btn gold" id="sOk">اختبار واعتماد</button><button class="btn" id="sSaveRaw">حفظ دون اختبار</button><button class="btn" id="sReset">إعادة الضبط</button><button class="btn" id="sClose">إغلاق</button></div><div id="sMsg" class="hint" style="margin-top:10px"></div>');
   const val = id => $('#' + id, ov).value.trim();
   const collect = () => {
@@ -1109,6 +1155,14 @@ function openSettings(first) {
     if ((S.source.link || '') !== (prevLink || '')) { ['arrival', 'departure'].forEach(k => { try { localStorage.removeItem('hajj1447.cache.' + k); } catch (e) { } state.data[k] = null; }); }
     saveSettings(); ov.close(); startAuto(); refresh();
   };
+  if ($('#sCopy', ov)) {
+    $('#sShare', ov).onfocus = e => e.target.select();
+    $('#sCopy', ov).onclick = async () => {
+      const inp = $('#sShare', ov), link = inp.value;
+      try { await navigator.clipboard.writeText(link); toast('تم نسخ رابط الإعداد', 'ok'); }
+      catch (e) { inp.focus(); inp.select(); try { document.execCommand('copy') ? toast('تم نسخ رابط الإعداد', 'ok') : toast('حدّد الرابط وانسخه يدوياً', 'warn'); } catch (x) { toast('حدّد الرابط وانسخه يدوياً', 'warn'); } }
+    };
+  }
   $('#sClose', ov).onclick = () => ov.close();
   $('#sReset', ov).onclick = () => { try { localStorage.removeItem(LS_SET); } catch (e) { } location.reload(); };
   $('#sSaveRaw', ov).onclick = () => { commit(collect()); toast('تم حفظ الإعدادات', 'ok'); };
@@ -1583,7 +1637,8 @@ function startAuto() {
   clearInterval(timer); if (!sourceReady()) return;
   timer = setInterval(() => { if (!document.hidden) refresh(); }, Math.max(10, S.refreshSec) * 1000);
 }
-function boot() {
+async function boot() {
+  await importSetup();
   let th = 'dark'; try { th = localStorage.getItem(LS_THEME) || 'dark'; } catch (e) { }
   document.documentElement.dataset.theme = th;
   const page = document.body.dataset.page;
