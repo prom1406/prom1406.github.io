@@ -337,7 +337,7 @@ function openSettings(first) {
   const val = id => $('#' + id, ov).value.trim();
   const collect = () => {
     const webapp = val('sWeb');
-    return { link: val('sLink'), tabA: val('sTabA') || 'Arrival', tabD: val('sTabD') || 'Departure', webapp, token: $('#sTok', ov).value, via: ($('#sVia', ov).checked && webapp) ? 'webapp' : 'link' };
+    return { link: val('sLink'), tabA: val('sTabA') || 'Arrival', tabD: val('sTabD') || 'Departure', webapp, token: $('#sTok', ov).value.trim(), via: ($('#sVia', ov).checked && webapp) ? 'webapp' : 'link' };
   };
   const prevLink = S.source.link;
   const commit = c => {
