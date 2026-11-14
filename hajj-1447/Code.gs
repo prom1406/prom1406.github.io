@@ -8,7 +8,7 @@
  */
 const CONFIG = {
   // غيّره إلى نص سري طويل، وضع نفس القيمة في «الإعدادات» داخل الصفحات
-  TOKEN: 'hnjngjhfjmghkhjgkhjfkjgkllhjkgljkghljf',
+  TOKEN: 'CHANGE-ME-TO-A-LONG-RANDOM-SECRET',
 
   // اتركه فارغاً إذا أنشأت السكربت من داخل ملف الجدول: الإضافات ← Apps Script
   SPREADSHEET_ID: '',
@@ -16,13 +16,13 @@ const CONFIG = {
   // الواجهة ترسل اسم الصفحة (الذي تكتبه في الإعدادات) فيُعتمد أولاً.
   // وإن لم يصل اسم: gid ثم الاسم ثم الترتيب (0 = أول ورقة)
   KINDS: {
-    arrival:   { gid: null,       name: 'Arrival',   index: 0, checkHeader: 'Check',    atHeader: 'Check_At'    },
-    departure: { gid: 1177268743, name: 'Departure', index: 1, checkHeader: 'Check_De', atHeader: 'Check_De_At' }
+    arrival:   { gid: null,       name: 'Arrival',   index: 0, checkHeader: 'Check',    atHeader: 'Check_At',    textOn: 'تم التسكين'   },
+    departure: { gid: 1177268743, name: 'Departure', index: 1, checkHeader: 'Check_De', atHeader: 'Check_De_At', textOn: 'تمت المغادرة' }
   },
 
-  // 'boolean' → يكتب TRUE/FALSE (مناسب لخانات الاختيار) | 'text' → يكتب TEXT_ON / TEXT_OFF
-  WRITE_AS: 'boolean',
-  TEXT_ON: 'تم',
+  // 'text' → يكتب نص التأكيد (textOn لكل ورقة: «تم التسكين» / «تمت المغادرة») وعند التراجع يفرّغ الخلية
+  // 'boolean' → يكتب TRUE/FALSE (مناسب لخانات الاختيار)
+  WRITE_AS: 'text',
   TEXT_OFF: ''
 };
 
@@ -75,7 +75,7 @@ function doPost(e) {
         }
         if (row <= headerRow || row > sh.getMaxRows()) throw new Error('رقم صف غير صالح');
         const on = op.value === true;
-        sh.getRange(row, colCheck + 1).setValue(CONFIG.WRITE_AS === 'text' ? (on ? CONFIG.TEXT_ON : CONFIG.TEXT_OFF) : on);
+        sh.getRange(row, colCheck + 1).setValue(CONFIG.WRITE_AS === 'text' ? (on ? (cfg.textOn || 'تم') : CONFIG.TEXT_OFF) : on);
         if (colAt >= 0) sh.getRange(row, colAt + 1).setValue(on ? new Date() : '');
         return { ok: true, row: row };
       } catch (err) {
