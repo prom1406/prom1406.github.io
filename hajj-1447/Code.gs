@@ -8,7 +8,7 @@
  */
 const CONFIG = {
   // غيّره إلى نص سري طويل، وضع نفس القيمة في «الإعدادات» داخل الصفحات
-  TOKEN: 'Hajj1447Xk29QpLm7733',
+  TOKEN: 'CHANGE-ME-TO-A-LONG-RANDOM-SECRET',
 
   // اتركه فارغاً إذا أنشأت السكربت من داخل ملف الجدول: الإضافات ← Apps Script
   SPREADSHEET_ID: '',
@@ -32,7 +32,7 @@ function doGet(e) {
   if (p.token !== CONFIG.TOKEN) return json_({ ok: false, error: 'unauthorized' });
   if (p.action === 'ping') {
     const ss = getSS_();
-    return json_({ ok: true, service: 'hajj-sync', ts: Date.now(), name: ss.getName(), spreadsheetId: ss.getId(),
+    return json_({ ok: true, service: 'hajj-sync', v: 2, ts: Date.now(), name: ss.getName(), spreadsheetId: ss.getId(),
       tabs: ss.getSheets().map(function (s) { return s.getName(); }) });
   }
   if (p.action === 'read') {
@@ -41,23 +41,39 @@ function doGet(e) {
     const sh = getSheet_(p.kind, p.sheet);
     return json_({ ok: true, rows: sh.getDataRange().getDisplayValues(), ts: Date.now() });
   }
-  return json_({ ok: true, service: 'hajj-sync' });
+  if (p.action === 'write') return doGetWrite_(p);
+  return json_({ ok: true, service: 'hajj-sync', v: 2 });
+}
+
+// الكتابة عبر GET (تعمل مع كل النشرات) — الطلب مُرمَّز base64url في المعامل p
+function doGetWrite_(p) {
+  try {
+    const req = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(String(p.p || ''))).getDataAsString('UTF-8'));
+    req.token = p.token;
+    return json_(write_(req));
+  } catch (err) {
+    return json_({ ok: false, error: String(err.message || err) });
+  }
 }
 
 function doPost(e) {
+  try { return json_(write_(JSON.parse(e.postData.contents))); }
+  catch (err) { return json_({ ok: false, error: String(err.message || err) }); }
+}
+
+function write_(req) {
   const lock = LockService.getScriptLock();
   try {
-    const req = JSON.parse(e.postData.contents);
-    if (req.token !== CONFIG.TOKEN) return json_({ ok: false, error: 'unauthorized' });
+    if (req.token !== CONFIG.TOKEN) return { ok: false, error: 'unauthorized' };
     const cfg = CONFIG.KINDS[req.kind];
-    if (!cfg) return json_({ ok: false, error: 'kind غير صالح' });
+    if (!cfg) return { ok: false, error: 'kind غير صالح' };
     lock.waitLock(20000);
 
     const sh = getSheet_(req.kind, req.sheet);
     const headerRow = Number(req.headerRow) || detectHeaderRow_(sh);
     const headers = sh.getRange(headerRow, 1, 1, sh.getLastColumn()).getDisplayValues()[0];
     const colCheck = findCol_(headers, cfg.checkHeader);
-    if (colCheck < 0) return json_({ ok: false, error: 'العمود ' + cfg.checkHeader + ' غير موجود في الورقة' });
+    if (colCheck < 0) return { ok: false, error: 'العمود ' + cfg.checkHeader + ' غير موجود في الورقة' };
     const colAt = cfg.atHeader ? findCol_(headers, cfg.atHeader) : -1;
 
     const keyCache = {};
@@ -83,9 +99,9 @@ function doPost(e) {
       }
     });
     SpreadsheetApp.flush();
-    return json_({ ok: true, results: results });
+    return { ok: true, results: results, v: 2 };
   } catch (err) {
-    return json_({ ok: false, error: String(err.message || err) });
+    return { ok: false, error: String(err.message || err) };
   } finally {
     try { lock.releaseLock(); } catch (x) { }
   }
