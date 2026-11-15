@@ -534,10 +534,10 @@ const FIELDS = {
   airline:     { ar: 'الناقل',         al: ['airline', 'carrier', 'الناقل', 'شركةالطيران', 'الطيران', 'الخطوط'] },
   date:        { ar: 'التاريخ',        al: ['date', 'arrivaldate', 'departuredate', 'تاريخالوصول', 'تاريخالمغادرة', 'التاريخ', 'تاريخ', 'يومالوصول', 'يومالمغادرة'] },
   time:        { ar: 'الوقت',          al: ['time', 'arrivaltime', 'departuretime', 'eta', 'etd', 'وقتالوصول', 'وقتالمغادرة', 'الوقت', 'وقت', 'الساعة', 'ساعةالوصول', 'ساعةالمغادرة'] },
-  hotel:       { ar: 'الفندق',         al: ['hotel', 'accommodation', 'فندق', 'الفندق', 'السكن', 'مقرالسكن', 'اسمالفندق'] },
+  hotel:       { ar: 'الفندق',         al: ['destinationhotel', 'destination_hotel', 'desthotel', 'hotelname', 'tohotel', 'fromhotel', 'arrivalhotel', 'departurehotel', 'hotel', 'accommodation', 'فندق', 'الفندق', 'فندقالوجهة', 'السكن', 'مقرالسكن', 'اسمالفندق'] },
   airport:     { ar: 'المطار',         al: ['airport', 'arrivalairport', 'departureairport', 'المطار', 'مطار', 'مطارالوصول', 'مطارالمغادرة', 'مطارالقدوم'] },
   airCity:     { ar: 'مدينة المطار',   al: ['arrivalcity', 'departurecity', 'airportcity', 'مدينةالوصول', 'مدينةالمغادرة', 'مدينةالمطار', 'مدينةالقدوم', 'مدينةالنزول'] },
-  stayCity:    { ar: 'مدينة الإقامة',  al: ['staycity', 'hotelcity', 'residencecity', 'accommodationcity', 'city', 'مدينةالإقامة', 'مدينةالاقامة', 'مدينةالسكن', 'مدينةالفندق', 'المدينة', 'مدينةالوجهة', 'destinationcity', 'الوجهة', 'وجهة', 'destination'] },
+  stayCity:    { ar: 'مدينة الإقامة',  al: ['staycity', 'hotelcity', 'residencecity', 'accommodationcity', 'city', 'مدينةالإقامة', 'مدينةالاقامة', 'مدينةالسكن', 'مدينةالفندق', 'المدينة', 'مدينةالوجهة', 'destinationcity', 'origincity', 'fromcity', 'pickupcity', 'الوجهة', 'وجهة', 'destination'] },
   room:        { ar: 'الغرفة',         al: ['room', 'roomno', 'roomnumber', 'غرفة', 'الغرفة', 'رقمالغرفة'] },
   group:       { ar: 'المجموعة',       al: ['group', 'groupname', 'campaign', 'agent', 'مجموعة', 'المجموعة', 'الحملة', 'حملة', 'مكتب', 'المكتب', 'الوكيل'] },
   pax:         { ar: 'العدد',          al: ['pax', 'count', 'persons', 'عدد', 'العدد', 'عددالحجاج', 'عددالافراد', 'عددالأفراد'] },
@@ -581,6 +581,7 @@ function buildMapping(headers, kind, overrides, checkHeader) {
       });
       if (!sc) return;
       if (f !== 'airCity' && f !== 'stayCity' && (h.includes('مدينه') || h.includes('city'))) sc -= 80;
+      if (f === 'stayCity' && /hotel|فندق/.test(h) && !/city|مدينه/.test(h)) sc -= 150;           // «Destination_Hotel» اسم فندق لا مدينة
       if (f === 'stayCity' && /وجهه|destination/.test(h)) sc += kind === 'arrival' ? 30 : -200;   // في المغادرة «الوجهة» وجهة الرحلة لا مدينة الفندق
       if (f === 'date' || f === 'time' || f === 'airport' || f === 'airCity') {
         const arr = /arriv|وصول/.test(h), dep = /depart|مغادر/.test(h);
