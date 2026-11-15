@@ -124,7 +124,8 @@ function clean_(o) {
     passCol: { arrival: pcol_(pc.arrival), departure: pcol_(pc.departure) },
     updatedAt: Date.now()
   };
-  ['makkah>jeddah', 'makkah>madinah', 'madinah>madinah', 'madinah>jeddah'].forEach(function (k) { out.lead[k] = num_(ld[k], 0, 0, 72); });
+  const LEAD0 = { 'makkah>jeddah': 4, 'makkah>madinah': 10, 'madinah>madinah': 4, 'madinah>jeddah': 10 };
+  Object.keys(LEAD0).forEach(function (k) { out.lead[k] = num_(ld[k], LEAD0[k], 0, 72); });
   ['arrival', 'departure'].forEach(function (k) {
     const m = (o.map && o.map[k]) || {};
     Object.keys(m).slice(0, 40).forEach(function (f) { if (/^[a-zA-Z]{1,20}$/.test(f) && typeof m[f] === 'string') out.map[k][f] = m[f].slice(0, 120); });
