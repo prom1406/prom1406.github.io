@@ -297,6 +297,7 @@ tr.detail td{background:rgba(255,255,255,.03)}
 <body data-page="departure">
 <header id="nav"></header>
 <main id="app"></main>
+<script src="config.js"></script>
 <script>
 /* =====================================================================
    منظومة تحركات الحجاج 1447هـ — الطبقة الأساسية (منطق بحت بلا DOM)
@@ -811,7 +812,7 @@ const C = window.HajjCore;
 const { esc, normAr, ST, ST_LABEL } = C;
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
-const LS_VIEW = 'hajj1447.view', LS_SET = 'hajj1447.settings', LS_THEME = 'hajj1447.theme', LS_BADGE = 'hajj1447.badges';
+const LS_VIEW = 'hajj1447.view', LS_CONN = 'hajj1447.conn', LS_PUB = 'hajj1447.pub', LS_THEME = 'hajj1447.theme', LS_BADGE = 'hajj1447.badges';
 const LIBS = {
   xlsx: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   pdf: 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
@@ -820,8 +821,28 @@ const LIBS = {
 /* ---------------- الإعدادات ---------------- */
 const clone = o => JSON.parse(JSON.stringify(o));
 function merge(a, b) { for (const k in b) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k])) a[k] = merge(a[k] && typeof a[k] === 'object' ? a[k] : {}, b[k]); else a[k] = b[k]; } return a; }
-let S; try { S = merge(clone(C.DEFAULTS), JSON.parse(localStorage.getItem(LS_SET) || '{}')); } catch (e) { S = clone(C.DEFAULTS); }
-const saveSettings = () => { try { localStorage.setItem(LS_SET, JSON.stringify(S)); } catch (e) { } };
+const WEB_RE = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec$/;
+// الاتصال المحفوظ في هذا المتصفح: رابط الخادم (عام) وجلسة المالك فقط. الإعدادات نفسها تأتي من الخادم.
+const CONN = { webapp: '', session: '' };
+try { Object.assign(CONN, JSON.parse(localStorage.getItem(LS_CONN) || '{}')); } catch (e) { }
+const saveConn = () => { try { localStorage.setItem(LS_CONN, JSON.stringify({ webapp: CONN.webapp, session: CONN.session })); } catch (e) { } };
+const REMOTE = { configured: false, owner: false, email: '', error: '', locked: false };
+let S = clone(C.DEFAULTS);
+function applyRemote(st) { S = merge(clone(C.DEFAULTS), st || {}); S.webapp = CONN.webapp; S.readVia = 'webapp'; }
+function isMasked() { return !REMOTE.owner && !(S.perms && S.perms.showPassports); }
+async function api(action, extra, payload) {
+  if (!CONN.webapp) throw new Error('لم يُضبط رابط الخادم');
+  const q = new URLSearchParams(); q.set('action', action);
+  if (CONN.session) q.set('s', CONN.session);
+  Object.keys(extra || {}).forEach(k => q.set(k, extra[k]));
+  if (payload !== undefined) q.set('p', b64e(JSON.stringify(payload)));
+  q.set('t', Date.now());
+  let txt;
+  try { txt = await (await fetch(CONN.webapp + (CONN.webapp.includes('?') ? '&' : '?') + q.toString(), { cache: 'no-store' })).text(); }
+  catch (e) { throw new Error('تعذّر الاتصال بالخادم — تحقق من الإنترنت'); }
+  try { return JSON.parse(txt); }
+  catch (e) { throw new Error('ردّ غير متوقع من الخادم («' + txt.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50) + '») — تأكد من رابط Apps Script ومن نشر أحدث Code.gs'); }
+}
 
 /* ---------------- الأيقونات ---------------- */
 const ic = (p, x) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"' + (x || '') + '>' + p + '</svg>';
@@ -849,7 +870,7 @@ const ICON = {
 
 /* ---------------- الحالة والمزامنة ---------------- */
 const state = { data: { arrival: null, departure: null }, sync: { arrival: 0, departure: 0 }, err: {}, pending: { arrival: {}, departure: {} }, fn: [] };
-const pkey = r => (r.key || ('r' + r.row));
+const pkey = r => (isMasked() ? 'r' + r.row : (r.key || ('r' + r.row)));
 const emit = () => state.fn.forEach(f => { try { f(); } catch (e) { console.error(e); } });
 const onData = f => state.fn.push(f);
 
@@ -857,21 +878,11 @@ const tabOf = (kind, cfg) => {
   const s = ((cfg || S).source) || {};
   return ((kind === 'arrival' ? s.arrivalTab : s.departureTab) || '').trim() || (kind === 'arrival' ? 'Arrival' : 'Departure');
 };
-const sourceReady = () => !!(C.sheetIdFromLink(S.source.link) || (S.readVia === 'webapp' && S.webapp));
-async function fetchRows(kind, cfg) {
-  cfg = cfg || S; const tab = tabOf(kind, cfg);
-  if (cfg.readVia === 'webapp' && cfg.webapp) {
-    const u = cfg.webapp + (cfg.webapp.includes('?') ? '&' : '?') + 'action=read&kind=' + kind + '&sheet=' + encodeURIComponent(tab) + '&token=' + encodeURIComponent(cfg.token) + '&t=' + Date.now();
-    const r = await fetch(u, { cache: 'no-store' }); const j = await r.json();
-    if (!j.ok) throw new Error(j.error || 'خطأ في تطبيق الويب'); return j.rows;
-  }
-  const id = C.sheetIdFromLink(cfg.source.link);
-  if (!id) throw new Error('لم يُضبط مصدر البيانات — افتح الإعدادات ⚙ والصق رابط ملف Google Sheets');
-  const r = await fetch(C.gvizUrl(id, tab) + '&t=' + Date.now(), { cache: 'no-store' });
-  if (!r.ok) throw new Error('تعذّر فتح صفحة «' + tab + '» (' + r.status + ') — تأكد أن مشاركة الملف «أي شخص لديه الرابط: عارض»');
-  const t = await r.text();
-  if (/^\s*</.test(t)) throw new Error('لم يُرجع Google بيانات الصفحة «' + tab + '» — تأكد من مشاركة الرابط (عارض) ومن اسم الصفحة');
-  return C.parseCSV(t);
+const sourceReady = () => !!(CONN.webapp && REMOTE.configured);
+async function fetchRows(kind) {
+  const j = await api('read', { kind });
+  if (!j.ok) { const e = new Error(j.error === 'not_configured' ? 'المنظومة لم تُهيّأ بعد — يحتاج المالك إلى ضبط الإعدادات' : (j.error || 'خطأ في تطبيق الويب')); if (j.error === 'not_configured') e.code = 'nc'; throw e; }
+  return j.rows;
 }
 function processRows(kind, rows) {
   const res = C.toRecords(rows, kind, S), pend = state.pending[kind];
@@ -895,13 +906,27 @@ async function loadKind(kind) {
     const rows = await fetchRows(kind); processRows(kind, rows);
     state.sync[kind] = Date.now(); state.err[kind] = null;
     try { localStorage.setItem('hajj1447.cache.' + kind, JSON.stringify({ ts: Date.now(), rows })); } catch (e) { }
-  } catch (e) { state.err[kind] = e.message || String(e); }
+  } catch (e) {
+    state.err[kind] = e.message || String(e);
+    if (e.code === 'nc') { REMOTE.configured = false; state.data[kind] = null; try { localStorage.removeItem('hajj1447.cache.' + kind); } catch (x) { } }   // حذف المالك الإعدادات: لا تبقى بيانات معروضة
+  }
 }
 let kindsInUse = [], lastTry = 0;
+// الزائر: التقط أي تغيير أجراه المالك في الإعدادات دون إعادة تحميل الصفحة
+async function syncPublic() {
+  if (REMOTE.owner || !CONN.webapp) return;
+  try {
+    const j = await api('public'); if (!j.ok) return;
+    REMOTE.configured = !!j.configured;
+    if (!j.configured) { clearCaches(); return; }
+    if (j.settings && j.settings.updatedAt !== S.updatedAt) { applyRemote(j.settings); try { localStorage.setItem(LS_PUB, JSON.stringify({ configured: true, settings: j.settings })); } catch (e) { } }
+  } catch (e) { }
+}
 async function refresh(kinds) {
   kinds = kinds || kindsInUse; lastTry = Date.now();
   const live = $('#live'), btn = $('#bRef');
   if (live) live.className = 'live load'; if (btn) btn.classList.add('spin');
+  await syncPublic();
   await Promise.all(kinds.map(loadKind));
   if (btn) btn.classList.remove('spin');
   updateBadges(); emit(); tick(true);
@@ -914,7 +939,7 @@ function hydrate(kinds) {
 
 /* ---------------- الكتابة (Apps Script) ---------------- */
 async function writeChecks(kind, recs, value) {
-  if (!S.webapp) { toast('اضبط رابط Apps Script من الإعدادات أولاً', 'warn'); openSettings(false); return false; }
+  if (!CONN.webapp) { toast('لم يُضبط رابط الخادم', 'warn'); return false; }
   const d = state.data[kind];
   if (d.map.check == null) { toast('لم يُعثر على عمود ' + S[kind].checkHeader + ' في الجدول', 'err'); return false; }
   recs.forEach(r => { r.done = value; r.syncing = true; state.pending[kind][pkey(r)] = { value, ts: Date.now() }; });
@@ -927,10 +952,8 @@ async function writeChecks(kind, recs, value) {
     for (let i = 0; i < recs.length; i += CH) {
       const part = recs.slice(i, i + CH);
       const payload = { kind, sheet: tabOf(kind), headerRow: d.headerRow, ops: part.map(r => ({ row: r.row, key: r.key, keyHeader: r.keyHeader, value })) };
-      const u = S.webapp + (S.webapp.includes('?') ? '&' : '?') + 'action=write&token=' + encodeURIComponent(S.token) + '&p=' + b64e(JSON.stringify(payload)) + '&t=' + Date.now();
-      const txt = await (await fetch(u)).text();
-      let j; try { j = JSON.parse(txt); } catch (_) { throw new Error('ردّ غير متوقع من Apps Script («' + txt.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50) + '») — الصق رابط النشر الصحيح وأحدث Code.gs'); }
-      if (!j.ok) throw new Error(j.error === 'unauthorized' ? 'الرمز السري غير مطابق' : (j.error || 'فشل الحفظ'));
+      const j = await api('write', {}, payload);
+      if (!j.ok) throw new Error(j.error === 'not_configured' ? 'المنظومة لم تُهيّأ بعد' : (j.error || 'فشل الحفظ'));
       if (!Array.isArray(j.results)) throw new Error('الكود المنشور قديم: ألصق أحدث Code.gs ثم نشر ← إدارة عمليات النشر ← ✏ ← إصدار جديد');
       results.push(...j.results); doneN = i + part.length;
     }
@@ -1022,90 +1045,88 @@ function renderNav(page) {
   updateBadges();
 }
 
-/* اختبار المصدر قبل اعتماده: يتحقق من الرابط، من Apps Script (إن وُجد)، ومن كل صفحة على حدة */
-async function testSource(c) {
-  const out = [];
-  if (!c.link && !c.webapp) return [['err', 'الصق رابط ملف Google Sheets (أو رابط Apps Script).']];
-  const cfg = clone(S);
-  cfg.source = { link: c.link, arrivalTab: c.tabA, departureTab: c.tabD }; cfg.webapp = c.webapp; cfg.token = c.token; cfg.readVia = c.via;
-  const id = C.sheetIdFromLink(c.link);
-  if (c.link && !id) {
-    out.push(['err', C.isPublishedLink(c.link)
-      ? 'هذا رابط «نشر على الويب» ولا يحدد الصفحات بالاسم. استخدم رابط المشاركة العادي (…/d/معرّف-الملف/edit).'
-      : 'الرابط ليس رابط Google Sheets صالحاً.']);
-    if (c.via !== 'webapp') return out;
-  }
-  let tabs = null;
-  if (c.webapp) {
-    try {
-      const j = await (await fetch(c.webapp + (c.webapp.includes('?') ? '&' : '?') + 'action=ping&token=' + encodeURIComponent(c.token))).json();
-      if (!j.ok) throw new Error(j.error === 'unauthorized' ? 'الرمز السري غير مطابق' : (j.error || 'مرفوض'));
-      tabs = j.tabs || null;
-      out.push(['ok', 'Apps Script يعمل' + (j.name ? ' — الملف: ' + j.name : '')]);
-      if (id && j.spreadsheetId && j.spreadsheetId !== id) out.push(['err', 'رابط Apps Script مرتبط بملف آخر غير الذي أدخلت رابطه.']);
-    } catch (e) { out.push(['err', 'Apps Script: ' + (e.message || e)]); }
-  }
-  for (const [kind, tab, label] of [['arrival', c.tabA, 'الوصول'], ['departure', c.tabD, 'المغادرة']]) {
-    if (tabs && !tabs.includes(tab)) { out.push(['err', 'لا توجد صفحة باسم «' + tab + '». الصفحات الموجودة: ' + tabs.join('، ')]); continue; }
-    try {
-      const r = C.toRecords(await fetchRows(kind, cfg), kind, cfg);
-      if (!r.records.length) out.push(['err', label + ': لا توجد سجلات في صفحة «' + tab + '»']);
-      else if (r.map.check == null) out.push(['warn', label + ': ' + r.records.length + ' سجل، لكن لم يُعثر على عمود ' + cfg[kind].checkHeader + ' — تأكد من اسم الصفحة']);
-      else out.push(['ok', label + ': ' + r.records.length + ' سجل من «' + tab + '» · عمود التأكيد ' + cfg[kind].checkHeader + ' ✓']);
-    } catch (e) { out.push(['err', label + ': ' + (e.message || e)]); }
-  }
-  return out;
-}
-
-/* ---------------- رابط الإعداد: نقل الإعدادات إلى أي متصفح أو جهاز ---------------- */
-// الإعدادات تُحفظ في المتصفح فقط؛ هذا الرابط يحملها (داخل الجزء بعد # فلا يصل لأي خادم) ويستوردها الجهاز الآخر عند الفتح.
-const SETUP_KEYS = ['source', 'webapp', 'token', 'readVia', 'refreshSec', 'dateOrder', 'criticalH', 'warnH', 'lateH', 'lead', 'transport', 'map'];
+/* ---------------- الاتصال بالخادم، دخول المالك، روابط الزوار ---------------- */
 const b64e = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const b64d = s => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))));
-function setupLink() {
-  const o = { v: 1 }; SETUP_KEYS.forEach(k => { o[k] = S[k]; });
-  return new URL('index.html', location.href).href.split('#')[0] + '#setup=' + b64e(JSON.stringify(o));
+const clearCaches = () => { try { ['arrival', 'departure'].forEach(k => localStorage.removeItem('hajj1447.cache.' + k)); localStorage.removeItem(LS_BADGE); localStorage.removeItem(LS_PUB); } catch (e) { } };
+const siteBase = () => new URL('index.html', location.href).href.split('#')[0];
+const visitorLink = () => siteBase() + '#w=' + b64e(CONN.webapp);
+const serverTail = () => { const m = /\/s\/([^/]+)\/exec/.exec(CONN.webapp || ''); return m ? '…' + m[1].slice(-8) : '—'; };
+
+// رابط الزوار: #w=<رابط الخادم>. لا يحمل أي سر، لكنه يغيّر الخادم الذي يتصل به المتصفح، فيُطلب التأكيد إن كان مختلفاً عن المحفوظ.
+async function handleHash() {
+  const m = /^#w=([A-Za-z0-9_-]+)$/.exec(location.hash); if (!m) return;
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { }
+  let url; try { url = b64d(m[1]); } catch (e) { url = ''; }
+  if (!WEB_RE.test(url)) { toast('رابط الدعوة غير صالح', 'err'); return; }
+  if (url === CONN.webapp) return;
+  if (CONN.webapp && !(await confirmBox('تغيير خادم المنظومة', 'هذا الرابط سيوجّه هذا المتصفح إلى خادم آخر (…' + url.split('/s/')[1].slice(-8) + ') بدل الحالي (' + serverTail() + '). تابع فقط إن كان من جهة تثق بها، ولا تُدخل كلمة مرور المالك إن لم تكن متأكداً.', 'تغيير الخادم'))) return;
+  CONN.webapp = url; CONN.session = ''; clearCaches(); saveConn();
 }
-// تنقية صارمة: لا يُقبل إلا ما نعرفه، وبأنواع وحدود محددة، وروابط Google فقط
-function sanitizeSetup(o) {
-  if (!o || typeof o !== 'object' || o.v !== 1) throw new Error('نسخة رابط غير مدعومة');
-  const str = (v, max) => typeof v === 'string' ? v.trim().slice(0, max) : '';
-  const num = (v, d, lo, hi) => { v = +v; return isFinite(v) && v >= lo && v <= hi ? v : d; };
-  const src = o.source && typeof o.source === 'object' ? o.source : {};
-  const link = str(src.link, 400);
-  if (link && !/^https:\/\/docs\.google\.com\/spreadsheets\//.test(link)) throw new Error('رابط الملف ليس رابط Google Sheets');
-  const web = str(o.webapp, 400);
-  if (web && !/^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec$/.test(web)) throw new Error('رابط Apps Script غير صالح');
-  const ld = o.lead && typeof o.lead === 'object' ? o.lead : {}, tp = o.transport && typeof o.transport === 'object' ? o.transport : {};
-  const out = {
-    source: { link, arrivalTab: str(src.arrivalTab, 80) || 'Arrival', departureTab: str(src.departureTab, 80) || 'Departure' },
-    webapp: web, token: str(o.token, 300), readVia: (o.readVia === 'webapp' && web) ? 'webapp' : 'link',
-    refreshSec: num(o.refreshSec, 30, 10, 3600), dateOrder: o.dateOrder === 'MDY' ? 'MDY' : 'DMY',
-    criticalH: num(o.criticalH, 3, 0.1, 100), warnH: num(o.warnH, 12, 0.1, 200), lateH: num(o.lateH, 2, 0.1, 100),
-    lead: {}, transport: { arrival: tp.arrival !== false, departure: tp.departure !== false, busMin: num(tp.busMin, 4, 1, 100) }, map: { arrival: {}, departure: {} }
-  };
-  ['makkah>jeddah', 'makkah>madinah', 'madinah>madinah', 'madinah>jeddah'].forEach(k => { out.lead[k] = num(ld[k], C.DEFAULTS.lead[k], 0, 72); });
-  const ok = new Set(Object.keys(C.FIELDS).concat('check'));
-  ['arrival', 'departure'].forEach(k => { const m = o.map && o.map[k]; if (m && typeof m === 'object') Object.keys(m).forEach(f => { if (ok.has(f) && typeof m[f] === 'string') out.map[k][f] = m[f].slice(0, 120); }); });
-  return out;
-}
-async function importSetup() {
-  const m = /^#setup=([A-Za-z0-9_-]+)$/.exec(location.hash); if (!m) return false;
-  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { }   // امسح الرمز من شريط العنوان فوراً
-  let cfg; try { cfg = sanitizeSetup(JSON.parse(b64d(m[1]))); } catch (e) { toast('رابط الإعداد غير صالح: ' + (e.message || 'تالف'), 'err'); return false; }
-  const id = C.sheetIdFromLink(cfg.source.link), had = !!(S.source.link || S.webapp);
-  const ok = await confirmBox('استيراد إعدادات المنظومة',
-    'سيُحفظ في هذا المتصفح: ' + (id ? 'ملف Google Sheets (…' + id.slice(-6) + ') بصفحتي «' + cfg.source.arrivalTab + '» و«' + cfg.source.departureTab + '»' : 'بلا ملف') + (cfg.webapp ? '، وتطبيق ويب للكتابة مع رمزه السري' : '') + (had ? '. سيستبدل ذلك إعداداتك الحالية' : '') + '. استورد فقط إن كان الرابط من جهة تثق بها.', 'استيراد');
-  if (!ok) return false;
-  if ((S.source.link || '') !== cfg.source.link) ['arrival', 'departure'].forEach(k => { try { localStorage.removeItem('hajj1447.cache.' + k); } catch (e) { } });
-  S = merge(clone(C.DEFAULTS), cfg); saveSettings(); toast('تم استيراد الإعدادات وحفظها في هذا المتصفح', 'ok'); return true;
+async function initConnection() {
+  const fixed = window.HAJJ_CONFIG && window.HAJJ_CONFIG.webapp;           // مثبّت من ملف config.js على الموقع (الأقوى)
+  if (typeof fixed === 'string' && WEB_RE.test(fixed)) {
+    REMOTE.locked = true;
+    if (CONN.webapp !== fixed) { CONN.webapp = fixed; CONN.session = ''; clearCaches(); saveConn(); }
+  } else await handleHash();
+  if (!CONN.webapp) return;
+  try {
+    const j = await api('public');
+    if (!j.ok) throw new Error(j.error || 'خطأ في الخادم');
+    REMOTE.configured = !!j.configured; applyRemote(j.settings);
+    try { localStorage.setItem(LS_PUB, JSON.stringify({ configured: REMOTE.configured, settings: j.settings })); } catch (e) { }
+    if (CONN.session) {
+      const w = await api('whoami');
+      if (w.ok && w.owner) {
+        const g = await api('owner_get');
+        if (g.ok) { REMOTE.owner = true; REMOTE.email = g.email || ''; if (g.settings) { S = merge(clone(C.DEFAULTS), g.settings); S.webapp = CONN.webapp; S.readVia = 'webapp'; } }
+      } else { CONN.session = ''; saveConn(); }
+    }
+  } catch (e) {
+    REMOTE.error = e.message || String(e);
+    try { const c = JSON.parse(localStorage.getItem(LS_PUB) || 'null'); if (c && c.configured) { REMOTE.configured = true; applyRemote(c.settings); } } catch (x) { }   // دون اتصال: آخر إعدادات عامة محفوظة
+  }
 }
 
-/* ---------------- نافذة الإعدادات / معالج أول دخول ---------------- */
+// أول دخول بلا رابط خادم: يلصقه المالك مرة واحدة (الزائر يصله رابط الدعوة جاهزاً)
+function openConnect() {
+  const ov = modal('<h3>ربط المنظومة بالخادم</h3><p class="hint">الصق رابط تطبيق الويب (…/exec) الذي حصلت عليه من Apps Script. إن كنت زائراً فاطلب من المالك «رابط الزوار» وافتحه مباشرة.</p>' +
+    '<div class="set"><label class="full">رابط تطبيق الويب<input id="cUrl" dir="ltr" placeholder="https://script.google.com/macros/s/…/exec"></label></div>' +
+    '<div class="act"><button class="btn gold" id="cOk">اتصال</button><button class="btn" id="cX">إغلاق</button></div><div id="cMsg" class="hint" style="margin-top:10px"></div>');
+  $('#cX', ov).onclick = () => ov.close();
+  $('#cOk', ov).onclick = () => {
+    const u = $('#cUrl', ov).value.trim();
+    if (!WEB_RE.test(u)) { $('#cMsg', ov).innerHTML = '<div style="color:var(--red)">✗ الرابط غير صالح: يجب أن يبدأ بـ https://script.google.com/ وينتهي بـ /exec</div>'; return; }
+    CONN.webapp = u; CONN.session = ''; clearCaches(); saveConn(); location.reload();
+  };
+  setTimeout(() => { const i = $('#cUrl', ov); if (i) i.focus(); }, 50);
+}
+
+function openLogin() {
+  const ov = modal('<h3>دخول المالك</h3><p class="hint">لتعديل الإعدادات فقط. الزوار لا يحتاجون إلى دخول.</p>' +
+    '<div class="set"><label class="full">البريد الإلكتروني<input id="lEm" type="email" dir="ltr" autocomplete="username"></label>' +
+    '<label class="full">كلمة المرور<input id="lPw" type="password" dir="ltr" autocomplete="current-password"></label></div>' +
+    '<p class="hint">الخادم: <span dir="ltr">' + esc(serverTail()) + '</span> — تأكد أن آخر الرمز يطابق رابط النشر الذي تملكه قبل إدخال كلمة المرور.</p>' +
+    '<div class="act"><button class="btn gold" id="lOk">دخول</button><button class="btn" id="lX">إغلاق</button></div><div id="lMsg" class="hint" style="margin-top:10px"></div>');
+  const go = async () => {
+    const m = $('#lMsg', ov), b = $('#lOk', ov); b.disabled = true; m.textContent = 'جارٍ التحقق…';
+    try {
+      const j = await api('login', {}, { email: $('#lEm', ov).value.trim(), password: $('#lPw', ov).value });
+      if (!j.ok) throw new Error(j.error || 'تعذّر الدخول');
+      CONN.session = j.session; saveConn(); clearCaches(); location.reload();
+    } catch (e) { m.innerHTML = '<div style="color:var(--red)">✗ ' + esc(e.message || e) + '</div>'; b.disabled = false; }
+  };
+  $('#lOk', ov).onclick = go; $('#lX', ov).onclick = () => ov.close();
+  ov.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  setTimeout(() => { const i = $('#lEm', ov); if (i) i.focus(); }, 50);
+}
+
+/* ---------------- لوحة المالك (الإعدادات) ---------------- */
 function openSettings(first) {
+  if (!REMOTE.owner) { openLogin(); return; }
   first = first === true;
   const lab = (t, inner, full) => '<label' + (full ? ' class="full"' : '') + '>' + t + inner + '</label>';
-  const inp = (id, v, ph, type, dir) => '<input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(v) + '" placeholder="' + esc(ph || '') + '" dir="' + (dir || 'ltr') + '">';
+  const inp = (id, v, ph, type, dir) => '<input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(v == null ? '' : v) + '" placeholder="' + esc(ph || '') + '" dir="' + (dir || 'ltr') + '">';
   let mapHtml = '';
   ['arrival', 'departure'].forEach(k => {
     const d = state.data[k]; if (!d || !d.headers.length) return;
@@ -1116,17 +1137,16 @@ function openSettings(first) {
       mapHtml += lab(f === 'check' ? 'عمود التأكيد (' + S[k].checkHeader + ')' : C.FIELDS[f].ar, '<select data-map="' + k + '|' + f + '">' + o + '</select>');
     });
   });
-  const ov = modal('<h3>' + (first ? 'مرحباً — اربط ملف Google Sheets' : 'الإعدادات') + '</h3>' +
-    (first ? '<p class="hint">يُطلب هذا مرة واحدة فقط: الصق رابط ملف Google Sheets الذي يضم صفحتي الوصول والمغادرة، وسيبقى معتمداً في هذا المتصفح حتى تغيّره من ⚙.</p>' : '') +
+  const ov = modal('<h3>' + (first ? 'مرحباً — اربط ملف Google Sheets' : 'لوحة المالك والإعدادات') + '</h3>' +
+    '<p class="hint">مسجَّل الدخول: <span dir="ltr">' + esc(REMOTE.email) + '</span> · ما تحفظه هنا يراه كل من يفتح الموقع (عدا رابط الملف). <button class="btn sm" id="sOut" type="button">تسجيل الخروج</button></p>' +
     '<div class="set"><h4>ملف Google Sheets</h4>' +
     lab('رابط الملف', inp('sLink', S.source.link, 'https://docs.google.com/spreadsheets/d/…/edit'), true) +
     lab('اسم صفحة الوصول', inp('sTabA', S.source.arrivalTab, 'Arrival', 'text', 'auto')) +
     lab('اسم صفحة المغادرة', inp('sTabD', S.source.departureTab, 'Departure', 'text', 'auto')) +
-    '<p class="hint" style="grid-column:1/-1;margin:0">يجب أن يطابق الاسمان تبويبي الملف تماماً. لقراءة الملف بالرابط وحده اجعل مشاركته «أي شخص لديه الرابط: عارض»، أو فعّل Apps Script أدناه ليبقى الملف خاصاً.</p>' +
-    '<h4>التزامن الثنائي — Apps Script (للتأكيد والكتابة)</h4>' +
-    lab('رابط تطبيق الويب (…/exec)', inp('sWeb', S.webapp, 'https://script.google.com/macros/s/…/exec'), true) +
-    lab('الرمز السري (TOKEN)', inp('sTok', S.token, 'نفس القيمة في Code.gs', 'password')) +
-    '<label class="sw" style="align-self:end"><input type="checkbox" id="sVia"' + (S.readVia === 'webapp' ? ' checked' : '') + '> القراءة عبر Apps Script (أدق وفورية)</label>' +
+    '<p class="hint" style="grid-column:1/-1;margin:0">يجب أن يطابق الاسمان تبويبي الملف تماماً. تُقرأ البيانات عبر السكربت، فلا حاجة لمشاركة الملف علناً. إن تركت الرابط فارغاً استُخدم الملف المربوط بالسكربت.</p>' +
+    '<h4>صلاحيات الزوار</h4>' +
+    '<label class="sw" style="grid-column:1/-1"><input type="checkbox" id="sShowPP"' + (S.perms && S.perms.showPassports ? ' checked' : '') + '> السماح للزوار برؤية أرقام الجوازات كاملة (الأصل: مقنّعة ••••1234)</label>' +
+    '<p class="hint" style="grid-column:1/-1;margin:0">الزائر يرى البيانات ويؤكد التسكين والمغادرة ويصدّر، ولا يرى الإعدادات ولا رابط الملف. الإخفاء يتم في الخادم قبل وصول البيانات للمتصفح.</p>' +
     '<h4>التوقيت والتنبيهات</h4>' +
     lab('فاصل التحديث (ثوانٍ)', inp('sRef', S.refreshSec, '', 'number')) +
     lab('ترتيب التاريخ في الجدول', '<select id="sOrd"><option value="DMY"' + (S.dateOrder === 'DMY' ? ' selected' : '') + '>يوم/شهر/سنة</option><option value="MDY"' + (S.dateOrder === 'MDY' ? ' selected' : '') + '>شهر/يوم/سنة</option></select>') +
@@ -1136,50 +1156,63 @@ function openSettings(first) {
     '<h4>وقت التحرك من الفندق قبل الإقلاع (ساعات) — صفحة المغادرة</h4>' +
     lab('مكة ← مطار جدة', inp('sLdMJ', S.lead['makkah>jeddah'], '', 'number')) + lab('مكة ← مطار المدينة', inp('sLdMM', S.lead['makkah>madinah'], '', 'number')) +
     lab('المدينة ← مطار المدينة', inp('sLdDM', S.lead['madinah>madinah'], '', 'number')) + lab('المدينة ← مطار جدة', inp('sLdDJ', S.lead['madinah>jeddah'], '', 'number')) +
-    '<p class="hint" style="grid-column:1/-1;margin:0">يُحسب وقت التحرك = وقت الإقلاع − هذه الساعات، ويظهر أسفل وقت الإقلاع. اترك الخانة 0 لإلغاء الحساب لتلك الوجهة.</p>' +
+    '<p class="hint" style="grid-column:1/-1;margin:0">يُحسب وقت التحرك = وقت الإقلاع − هذه الساعات. اترك الخانة 0 لإلغاء الحساب لتلك الوجهة.</p>' +
     '<h4>وسيلة النقل (مدينة المطار ← مدينة الفندق)</h4>' +
     '<label class="sw"><input type="checkbox" id="sTpA"' + (S.transport.arrival ? ' checked' : '') + '> تفعيل في صفحة الوصول</label>' +
     '<label class="sw"><input type="checkbox" id="sTpD"' + (S.transport.departure ? ' checked' : '') + '> تفعيل في صفحة المغادرة</label>' +
     lab('أقل عدد أفراد لاستخدام الحافلة (الأقل = سيارة)', inp('sBus', S.transport.busMin, '', 'number')) +
-    '<p class="hint" style="grid-column:1/-1;margin:0">جدة ← مكة وكذلك المدينة ← المدينة: حافلة أو سيارة حسب العدد. بين المدينتين (جدة ← المدينة، المدينة ← مكة): قطار للجميع.</p>' +
     mapHtml +
-    (sourceReady() ? '<h4>نقل الإعدادات إلى جهاز أو متصفح آخر</h4><p class="hint" style="grid-column:1/-1;margin:0">افتح «رابط الإعداد» على أي جهاز فتُحفظ الإعدادات هناك تلقائياً بعد تأكيدك. يعكس آخر إعدادات محفوظة، ويحتوي الرمز السري فأرسله لنفسك أو لموثوق فقط ولا تنشره.</p>' +
-      '<div class="full" style="grid-column:1/-1;display:flex;gap:8px"><input id="sShare" readonly dir="ltr" style="flex:1" value="' + esc(setupLink()) + '"><button class="btn sky" type="button" id="sCopy">نسخ الرابط</button></div>' : '') +
-    '</div><div class="act"><button class="btn gold" id="sOk">اختبار واعتماد</button><button class="btn" id="sSaveRaw">حفظ دون اختبار</button><button class="btn" id="sReset">إعادة الضبط</button><button class="btn" id="sClose">إغلاق</button></div><div id="sMsg" class="hint" style="margin-top:10px"></div>');
+    '<h4>رابط الزوار</h4><p class="hint" style="grid-column:1/-1;margin:0">أرسله لأي شخص: يفتح الموقع ويرى ما سمحت به. لا يحمل أي سر.</p>' +
+    '<div class="full" style="grid-column:1/-1;display:flex;gap:8px"><input id="sShare" readonly dir="ltr" style="flex:1" value="' + esc(visitorLink()) + '"><button class="btn sky" type="button" id="sCopy">نسخ الرابط</button></div>' +
+    '<p class="hint" style="grid-column:1/-1;margin:0">لتثبيته لكل الزوار دون رابط خاص: أنشئ ملفاً اسمه <b>config.js</b> بجانب صفحات الموقع في GitHub بهذا المحتوى:</p>' +
+    '<input class="full" style="grid-column:1/-1" readonly dir="ltr" id="sCfg" value="' + esc('window.HAJJ_CONFIG = { webapp: "' + CONN.webapp + '" };') + '">' +
+    '<h4>حذف</h4>' +
+    '<div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="sWipe" style="color:var(--red)">حذف كل الإعدادات من الخادم</button>' +
+    (REMOTE.locked ? '' : '<button class="btn" type="button" id="sUnlink" style="color:var(--red)">فصل هذا المتصفح عن الخادم</button>') + '</div>' +
+    '<p class="hint" style="grid-column:1/-1;margin:0">الحذف يمسح الإعدادات ورابط الملف فيرى الزوار «لم تُهيّأ بعد». ولقطع الخادم كلياً: أرشِف نشر السكربت من Apps Script ← إدارة عمليات النشر.</p>' +
+    '</div><div class="act"><button class="btn gold" id="sOk">حفظ واعتماد</button><button class="btn" id="sClose">إغلاق</button></div><div id="sMsg" class="hint" style="margin-top:10px"></div>');
   const val = id => $('#' + id, ov).value.trim();
+  const passIdx = (k, map) => { const d = state.data[k]; if (d) { const h = (map[k] || {}).passport; const i = h ? d.headers.indexOf(h) : d.map.passport; if (i != null && i >= 0) return i; } return (S.passCol || {})[k]; };
   const collect = () => {
-    const webapp = val('sWeb');
-    return { link: val('sLink'), tabA: val('sTabA') || 'Arrival', tabD: val('sTabD') || 'Departure', webapp, token: $('#sTok', ov).value.trim(), via: ($('#sVia', ov).checked && webapp) ? 'webapp' : 'link' };
-  };
-  const prevLink = S.source.link;
-  const commit = c => {
-    S.source = { link: c.link, arrivalTab: c.tabA, departureTab: c.tabD };
-    S.webapp = c.webapp; S.token = c.token; S.readVia = c.via;
-    S.refreshSec = Math.max(10, +val('sRef') || 30); S.dateOrder = val('sOrd');
-    S.criticalH = +val('sCrit') || 3; S.warnH = +val('sWarn') || 12; S.lateH = +val('sLate') || 2;
-    { const n = id => { const v = parseFloat(val(id)); return isNaN(v) ? 0 : Math.max(0, v); }; S.lead = { 'makkah>jeddah': n('sLdMJ'), 'makkah>madinah': n('sLdMM'), 'madinah>madinah': n('sLdDM'), 'madinah>jeddah': n('sLdDJ') }; }
-    S.transport = { arrival: $('#sTpA', ov).checked, departure: $('#sTpD', ov).checked, busMin: Math.max(1, +val('sBus') || 4) };
-    $$('[data-map]', ov).forEach(sel => { const [k, f] = sel.dataset.map.split('|'); S.map[k] = S.map[k] || {}; if (sel.value) S.map[k][f] = sel.value; else delete S.map[k][f]; });
-    if ((S.source.link || '') !== (prevLink || '')) { ['arrival', 'departure'].forEach(k => { try { localStorage.removeItem('hajj1447.cache.' + k); } catch (e) { } state.data[k] = null; }); }
-    saveSettings(); ov.close(); startAuto(); refresh();
-  };
-  if ($('#sCopy', ov)) {
-    $('#sShare', ov).onfocus = e => e.target.select();
-    $('#sCopy', ov).onclick = async () => {
-      const inp = $('#sShare', ov), link = inp.value;
-      try { await navigator.clipboard.writeText(link); toast('تم نسخ رابط الإعداد', 'ok'); }
-      catch (e) { inp.focus(); inp.select(); try { document.execCommand('copy') ? toast('تم نسخ رابط الإعداد', 'ok') : toast('حدّد الرابط وانسخه يدوياً', 'warn'); } catch (x) { toast('حدّد الرابط وانسخه يدوياً', 'warn'); } }
+    const map = clone(S.map || { arrival: {}, departure: {} }); map.arrival = map.arrival || {}; map.departure = map.departure || {};
+    $$('[data-map]', ov).forEach(sel => { const [k, f] = sel.dataset.map.split('|'); if (sel.value) map[k][f] = sel.value; else delete map[k][f]; });
+    const n = id => { const v = parseFloat(val(id)); return isNaN(v) ? 0 : Math.max(0, v); };
+    return {
+      source: { link: val('sLink'), arrivalTab: val('sTabA') || 'Arrival', departureTab: val('sTabD') || 'Departure' },
+      refreshSec: Math.max(10, +val('sRef') || 30), dateOrder: val('sOrd'),
+      criticalH: +val('sCrit') || 3, warnH: +val('sWarn') || 12, lateH: +val('sLate') || 2,
+      lead: { 'makkah>jeddah': n('sLdMJ'), 'makkah>madinah': n('sLdMM'), 'madinah>madinah': n('sLdDM'), 'madinah>jeddah': n('sLdDJ') },
+      transport: { arrival: $('#sTpA', ov).checked, departure: $('#sTpD', ov).checked, busMin: Math.max(1, +val('sBus') || 4) },
+      map, perms: { showPassports: $('#sShowPP', ov).checked },
+      passCol: { arrival: passIdx('arrival', map), departure: passIdx('departure', map) }
     };
-  }
+  };
+  const copyOf = (btn, inpEl) => async () => {
+    try { await navigator.clipboard.writeText(inpEl.value); toast('تم النسخ', 'ok'); }
+    catch (e) { inpEl.focus(); inpEl.select(); try { document.execCommand('copy') ? toast('تم النسخ', 'ok') : toast('حدّد النص وانسخه يدوياً', 'warn'); } catch (x) { toast('حدّد النص وانسخه يدوياً', 'warn'); } }
+  };
+  $('#sShare', ov).onfocus = e => e.target.select(); $('#sCfg', ov).onfocus = e => e.target.select();
+  $('#sCopy', ov).onclick = copyOf($('#sCopy', ov), $('#sShare', ov));
   $('#sClose', ov).onclick = () => ov.close();
-  $('#sReset', ov).onclick = () => { try { localStorage.removeItem(LS_SET); } catch (e) { } location.reload(); };
-  $('#sSaveRaw', ov).onclick = () => { commit(collect()); toast('تم حفظ الإعدادات', 'ok'); };
+  $('#sOut', ov).onclick = async () => { try { await api('logout'); } catch (e) { } CONN.session = ''; saveConn(); clearCaches(); location.reload(); };
+  $('#sWipe', ov).onclick = async () => {
+    if (!(await confirmBox('حذف كل الإعدادات', 'سيُحذف من الخادم رابط الملف وكل الإعدادات، ولن يرى الزوار أي بيانات حتى تُهيّئ المنظومة من جديد. لا يمكن التراجع.', 'نعم، احذف'))) return;
+    try { const j = await api('owner_reset'); if (!j.ok) throw new Error(j.error); clearCaches(); toast('تم حذف الإعدادات', 'ok'); setTimeout(() => location.reload(), 600); } catch (e) { toast('تعذّر الحذف: ' + (e.message || e), 'err'); }
+  };
+  if ($('#sUnlink', ov)) $('#sUnlink', ov).onclick = async () => {
+    if (!(await confirmBox('فصل هذا المتصفح', 'سيُنسى رابط الخادم وجلستك في هذا المتصفح فقط. تبقى الإعدادات على الخادم.', 'فصل'))) return;
+    try { await api('logout'); } catch (e) { } CONN.webapp = ''; CONN.session = ''; saveConn(); clearCaches(); location.reload();
+  };
   $('#sOk', ov).onclick = async () => {
-    const c = collect(), m = $('#sMsg', ov); m.textContent = 'جارٍ الاختبار…';
-    const out = await testSource(c);
-    const col = { ok: 'var(--ok)', warn: 'var(--amber)', err: 'var(--red)' }, mk = { ok: '✓ ', warn: '⚠ ', err: '✗ ' };
-    m.innerHTML = out.map(([t, s]) => '<div style="color:' + col[t] + ';margin:3px 0">' + mk[t] + esc(s) + '</div>').join('');
-    if (!out.some(o => o[0] === 'err')) { commit(c); toast('تم اعتماد المصدر وسيبقى محفوظاً', 'ok'); }
+    const m = $('#sMsg', ov), b = $('#sOk', ov); b.disabled = true; m.textContent = 'جارٍ الحفظ والتحقق من الملف…';
+    try {
+      const prev = JSON.stringify(S.source), p = collect();
+      const j = await api('owner_save', {}, p);
+      if (!j.ok) throw new Error(j.error || 'تعذّر الحفظ');
+      S = merge(clone(C.DEFAULTS), j.settings); S.webapp = CONN.webapp; S.readVia = 'webapp'; REMOTE.configured = true;
+      if (JSON.stringify(S.source) !== prev) ['arrival', 'departure'].forEach(k => { try { localStorage.removeItem('hajj1447.cache.' + k); } catch (e) { } state.data[k] = null; kindsInUse.forEach(x => { state.err[x] = null; }); });
+      ov.close(); startAuto(); await refresh(); toast('تم الحفظ — تظهر هذه الإعدادات الآن لكل الزوار', 'ok');
+    } catch (e) { m.innerHTML = '<div style="color:var(--red)">✗ ' + esc(e.message || e) + '</div>'; b.disabled = false; }
   };
   if (first) setTimeout(() => { const l = $('#sLink', ov); if (l) l.focus(); }, 50);
 }
@@ -1257,7 +1290,7 @@ function initTracker(kind) {
     '<div class="field">' + ICON.search + '<input type="search" id="fQ" placeholder="بحث: اسم، جواز، رحلة، فندق…" value="' + esc(ui.q) + '"></div>' +
     '<select id="fStatus"><option value="all">كل الحالات</option><option value="open">' + K.openL + '</option><option value="done">' + K.doneL + '</option><option value="danger">حرجة / متأخرة</option><option value="warn">تستدعي الانتباه</option></select>' +
     '<select id="fNat"></select><select id="fDay"></select>' +
-    '<label class="sw"><input type="checkbox" id="fReveal"> إظهار أرقام الجوازات</label><span class="sp"></span><span class="hint" id="cnt"></span>' +
+    '<label class="sw'+(isMasked()?'" hidden data-x="':'')+'"><input type="checkbox" id="fReveal"> إظهار أرقام الجوازات</label><span class="sp"></span><span class="hint" id="cnt"></span>' +
     '<div class="seg" role="group" aria-label="طريقة العرض"><button data-view="table" title="عرض جدول">' + ICON.table + '<span>جدول</span></button><button data-view="cards" title="عرض بطاقات">' + ICON.cards + '<span>بطاقات</span></button></div></div>' +
     '<div class="bulk" id="bulk" hidden></div><div id="list"></div><div class="more" id="more"></div></section>';
   $('#fStatus').value = ui.status;
@@ -1362,6 +1395,7 @@ function initTracker(kind) {
     if (!d) {
       stale.innerHTML = state.err[kind] ? '<div class="stale">⚠ ' + esc(state.err[kind]) + ' <button class="btn sm" id="stSet">الإعدادات</button></div>' : '';
       if ($('#stSet')) $('#stSet').onclick = () => openSettings(false);
+      ['#list', '#more', '#bulk', '#alertbar'].forEach(id => { const e = $(id); if (e) { e.innerHTML = ''; if (id === '#bulk') e.hidden = true; } }); if ($('#cnt')) $('#cnt').textContent = '';
       $('#kpis').innerHTML = '<div class="empty" style="grid-column:1/-1">' + (state.err[kind] ? 'تعذّر تحميل البيانات.' : 'جارٍ تحميل البيانات…') + '</div>'; return;
     }
     stale.innerHTML = state.err[kind] ? '<div class="stale">⚠ تعذّر التحديث الأخير (' + esc(state.err[kind]) + ') — تُعرض آخر بيانات محفوظة.</div>' : (d.warn ? '<div class="stale">⚠ ' + esc(d.warn) + ' <button class="btn sm" id="stSet2">الإعدادات</button></div>' : '');
@@ -1451,7 +1485,7 @@ function initTracker(kind) {
       ((g.airport || airCityTxt(g) || g.hotel || stayCityTxt(g) || tpx || moveTxt(g)) ? '<div class="mroute">' + (pl(g.airport, airCityTxt(g)) ? '<span><em>' + (kind === 'arrival' ? 'المطار' : 'مطار المغادرة') + '</em>' + esc(pl(g.airport, airCityTxt(g))) + '</span>' : '') + (pl(g.hotel, stayCityTxt(g)) ? '<span><em>الفندق</em>' + esc(pl(g.hotel, stayCityTxt(g))) + '</span>' : '') + (moveTxt(g) ? '<span><em>موعد التحرك من الفندق</em><b class="mvb">' + moveTxt(g) + '</b></span>' : '') + (tpx ? '<span><em>وسيلة النقل</em>' + tpHtml(tpx) + '</span>' : '') + '</div>' : '') +
       '<div class="mhead"><span>' + gWhen(g) + '</span>' + (g.open > 0 && g.when ? '<span class="cd" data-w="' + g.when.getTime() + '"></span>' : '') + '<span><b class="num">' + g.pax + '</b> فرد · مكتمل <b class="num">' + g.done + '</b></span></div>' +
       '<div class="nfilter">' + chips + '</div>' +
-      '<div class="toolbar"><label class="sw"><input type="checkbox" id="mReveal"' + (ui.reveal ? ' checked' : '') + '> إظهار أرقام الجوازات</label><span class="sp"></span>' +
+      '<div class="toolbar"><label class="sw"' + (isMasked() ? ' hidden' : '') + '><input type="checkbox" id="mReveal"' + (ui.reveal ? ' checked' : '') + '> إظهار أرقام الجوازات</label><span class="sp"></span>' +
       '<button class="btn green sm" data-mx="xls">' + ICON.xls + 'Excel</button><button class="btn sky sm" data-mx="pdf">' + ICON.pdf + 'PDF</button>' +
       (openN ? '<button class="btn gold sm" data-mall>' + ICON.check + (kind === 'arrival' ? 'تسكين المتبقي' : 'مغادرة المتبقي') + ' (' + openN + ')</button>' : '') + '<button class="btn sm" data-mx="close">إغلاق</button></div>' +
       '<div class="tablewrap" style="max-height:52vh"><table style="min-width:640px"><thead><tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' + (body || '<tr><td colspan="' + head.length + '"><div class="empty">لا توجد سجلات</div></td></tr>') + '</tbody></table></div>' +
@@ -1578,7 +1612,7 @@ function initDashboard() {
     const A = state.data.arrival, D = state.data.departure, now = Date.now();
     $('#stale').innerHTML = (state.err.arrival || state.err.departure) ? '<div class="stale">⚠ ' + esc(state.err.arrival || state.err.departure) + (A || D ? ' — تُعرض آخر بيانات محفوظة' : '') + ' <button class="btn sm" id="stSet">الإعدادات</button></div>' : '';
     if ($('#stSet')) $('#stSet').onclick = () => openSettings(false);
-    if (!A && !D) { $('#kpis').innerHTML = '<div class="empty" style="grid-column:1/-1">' + (state.err.arrival || state.err.departure ? 'تعذّر تحميل البيانات.' : 'جارٍ تحميل البيانات…') + '</div>'; return; }
+    if (!A && !D) { ['#rings', '#nxA', '#nxD', '#nat', '#natCnt', '#feed'].forEach(id => { const e = $(id); if (e) e.innerHTML = ''; }); $('#kpis').innerHTML = '<div class="empty" style="grid-column:1/-1">' + (state.err.arrival || state.err.departure ? 'تعذّر تحميل البيانات.' : 'جارٍ تحميل البيانات…') + '</div>'; return; }
     const sa = A ? C.summarize(A.records, now, S) : null, sd = D ? C.summarize(D.records, now, S) : null;
     const z = { total: 0, done: 0, pending: 0, danger: 0, dangerRows: 0, pct: 0 };
     const a = sa || z, d = sd || z;
@@ -1646,16 +1680,22 @@ function startAuto() {
   timer = setInterval(() => { if (!document.hidden) refresh(); }, Math.max(10, S.refreshSec) * 1000);
 }
 async function boot() {
-  await importSetup();
   let th = 'dark'; try { th = localStorage.getItem(LS_THEME) || 'dark'; } catch (e) { }
   document.documentElement.dataset.theme = th;
   const page = document.body.dataset.page;
   kindsInUse = page === 'index' ? ['arrival', 'departure'] : [page];
-  renderNav(page); hydrate(kindsInUse);
+  await initConnection();
+  renderNav(page); if (REMOTE.configured) hydrate(kindsInUse); else if (!REMOTE.error) clearCaches();
   if (page === 'index') initDashboard(); else initTracker(page);
   setInterval(() => tick(), 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && sourceReady() && Date.now() - lastTry > S.refreshSec * 1000) refresh(); });
-  if (!sourceReady()) { openSettings(true); return; }
+  if (!CONN.webapp) { openConnect(); return; }
+  if (!REMOTE.configured) {
+    const msg = REMOTE.error || 'المنظومة لم تُهيّأ بعد — يحتاج المالك إلى ضبط الإعدادات';
+    kindsInUse.forEach(k => { state.err[k] = msg; }); emit();
+    if (REMOTE.owner) openSettings(true);
+    return;
+  }
   refresh(); startAuto(); updateBadges();
 }
 document.addEventListener('DOMContentLoaded', boot);
