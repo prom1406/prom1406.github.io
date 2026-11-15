@@ -30,6 +30,7 @@ TPL = """<!doctype html>
 <body data-page="{page}">
 <header id="nav"></header>
 <main id="app"></main>
+<script src="config.js"></script>
 <script>
 {js}
 </script>
