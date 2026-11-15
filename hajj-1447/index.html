@@ -921,13 +921,21 @@ async function writeChecks(kind, recs, value) {
   recs.forEach(r => { r.done = value; r.syncing = true; state.pending[kind][pkey(r)] = { value, ts: Date.now() }; });
   emit();
   const revert = rs => rs.forEach(r => { delete state.pending[kind][pkey(r)]; r.done = !value; r.syncing = false; });
+  let doneN = 0;
   try {
-    const res = await fetch(S.webapp, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ token: S.token, kind, sheet: tabOf(kind), headerRow: d.headerRow, ops: recs.map(r => ({ row: r.row, key: r.key, keyHeader: r.keyHeader, value })) })
-    });
-    const j = await res.json();
-    if (!j.ok) throw new Error(j.error || 'فشل الحفظ');
+    // الكتابة عبر GET على دفعات صغيرة (تعمل مع أي نشر لـ Apps Script وتتجنب مشاكل POST وإعادة التوجيه)
+    const CH = 10, results = [];
+    for (let i = 0; i < recs.length; i += CH) {
+      const part = recs.slice(i, i + CH);
+      const payload = { kind, sheet: tabOf(kind), headerRow: d.headerRow, ops: part.map(r => ({ row: r.row, key: r.key, keyHeader: r.keyHeader, value })) };
+      const u = S.webapp + (S.webapp.includes('?') ? '&' : '?') + 'action=write&token=' + encodeURIComponent(S.token) + '&p=' + b64e(JSON.stringify(payload)) + '&t=' + Date.now();
+      const txt = await (await fetch(u)).text();
+      let j; try { j = JSON.parse(txt); } catch (_) { throw new Error('ردّ غير متوقع من Apps Script («' + txt.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50) + '») — الصق رابط النشر الصحيح وأحدث Code.gs'); }
+      if (!j.ok) throw new Error(j.error === 'unauthorized' ? 'الرمز السري غير مطابق' : (j.error || 'فشل الحفظ'));
+      if (!Array.isArray(j.results)) throw new Error('الكود المنشور قديم: ألصق أحدث Code.gs ثم نشر ← إدارة عمليات النشر ← ✏ ← إصدار جديد');
+      results.push(...j.results); doneN = i + part.length;
+    }
+    const j = { results };
     const bad = [];
     (j.results || []).forEach((x, i) => { if (!x.ok) bad.push([recs[i], x.error]); });
     revert(bad.map(b => b[0]));
@@ -938,7 +946,7 @@ async function writeChecks(kind, recs, value) {
     setTimeout(() => refresh([kind]), 2500); setTimeout(() => refresh([kind]), 9000);
     return true;
   } catch (e) {
-    revert(recs); emit(); toast('فشل الحفظ: ' + (e.message || e), 'err'); return false;
+    revert(recs.slice(doneN)); emit(); toast('فشل الحفظ: ' + (e.message || e), 'err'); return false;
   }
 }
 
