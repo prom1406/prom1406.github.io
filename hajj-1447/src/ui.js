@@ -469,18 +469,71 @@ const KIND = {
   arrival: { title: 'متابعة الوصول', sub: 'رصد وصول الحجاج وتأكيد التسكين في الفنادق', doneL: 'تم التسكين', openL: 'بانتظار التسكين', act: 'تأكيد التسكين', total: 'إجمالي القادمين' },
   departure: { title: 'متابعة المغادرة', sub: 'متابعة مغادرة الفنادق وإنهاء إجراءات الجوازات قبل الرحلات', doneL: 'تمت المغادرة', openL: 'بانتظار التأكيد', act: 'تأكيد المغادرة (الفندق والجوازات)', total: 'إجمالي المغادرين' }
 };
+// أقسام الرحلات: الوصول بحسب موعد الوصول، والمغادرة بحسب موعد التحرك من الفندق (وإلا الإقلاع)
+const SEC_DEFS = {
+  arrival: [
+    { id: 'cur', cls: 'now', t: 'رحلات حالية', s: 'من نصف ساعة قبل الوصول إلى نصف ساعة بعده' },
+    { id: 'arr', cls: 'done', t: 'رحلات وصلت', s: 'مضى على وصولها أكثر من نصف ساعة — الأحدث أولاً' },
+    { id: 'soon', cls: 'soon', t: 'قريبة الوصول', s: 'تصل بعد أكثر من نصف ساعة — الأقرب أولاً' }
+  ],
+  departure: [
+    { id: 'cur', cls: 'now', t: 'تتحرك الآن', s: 'من نصف ساعة قبل التحرك إلى نصف ساعة بعده' },
+    { id: 'arr', cls: 'done', t: 'تحرّكت', s: 'مضى على موعد تحركها أكثر من نصف ساعة — الأحدث أولاً' },
+    { id: 'soon', cls: 'soon', t: 'قريبة التحرك', s: 'تتحرك بعد أكثر من نصف ساعة — الأقرب أولاً' }
+  ]
+};
+const SEC_N = 5, SEC_MAX = 60, SEC_MS = 30 * 60000;
 function initTracker(kind) {
   const K = KIND[kind], app = $('#app');
   let view = null; try { view = localStorage.getItem(LS_VIEW); } catch (e) { }
   if (view !== 'cards' && view !== 'table') view = window.matchMedia('(max-width:760px)').matches ? 'cards' : 'table';
-  const ui = { q: '', status: 'all', nat: 'all', day: 'all', flight: 'all', sortK: 'when', dir: 1, reveal: false, limit: 150, sel: new Set(), open: new Set(), view, modal: null };
+  const ui = { q: '', status: 'all', nat: 'all', day: 'all', flight: 'all', sec: null, sortK: 'when', dir: 1, reveal: false, limit: 150, sel: new Set(), open: new Set(), view, modal: null };
   const qs = new URLSearchParams(location.search); if (qs.get('status')) ui.status = qs.get('status'); if (qs.get('q')) ui.q = qs.get('q');
-  let prevDanger = null, gmap = new Map(), ridx = new Map(), mo = null, shownGroups = [];
+  let prevDanger = null, gmap = new Map(), ridx = new Map(), mo = null, shownGroups = [], lastFl = null;
+  // موعد المرجع للرحلة: الوصول، أو في المغادرة أبكر موعد تحرك بين سجلاتها (وإلا الإقلاع)
+  const refOf = g => {
+    if (kind !== 'departure') return g.when;
+    let m = null; g.rows.forEach(r => { const t = C.movementTime(r.when, r.stayCity, r.airCity, S.lead); if (t && (!m || t < m)) m = t; });
+    return m || g.when;
+  };
+  const flCard = (g, now, ref) => {
+    const t = ref ? ref.getTime() : null, h = t ? (t - now) / 36e5 : null;
+    const lv = t ? (t < now ? 'warn' : (h <= S.criticalH ? 'danger' : (h <= S.warnH ? 'warn' : ''))) : '';
+    const full = g.done >= g.pax, dep = kind === 'departure';
+    return '<div class="fl ' + (full ? 'full' : lv) + (ui.flight === g.key ? ' on' : '') + '" data-flight="' + esc(g.key) + '"><div class="t"><span class="no">' + esc(g.flight) + '</span><span class="sub">' + (ref ? C.fmtDayAr(ref) : '') + '</span></div>' +
+      '<div class="m"><span>' + (dep ? 'التحرك' : esc(g.airline || '')) + '</span><span class="num">' + (ref ? C.fmtTime(ref) : '') + '</span></div>' +
+      (dep && g.when ? '<div class="m"><span>الإقلاع</span><span class="num">' + C.fmtTime(g.when) + '</span></div>' : '') +
+      '<div class="cd-wrap">' + (ref ? '<span class="cd" data-w="' + t + '" style="font-size:18px;font-weight:700"></span>' : '') + '</div>' +
+      '<div class="bar" style="margin-top:8px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
+      '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span>' + (full ? '<span class="okmark">✓ مكتمل</span>' : '<button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + (dep ? 'مغادرة الكل' : 'تأكيد الكل') + '</button>') + '</div></div>';
+  };
+  // أقسام مختصرة بأعلى الصفحة؛ الضغط على قسم يعرض رحلاته (خمس كحد أقصى) أسفله، والجدول كما هو
+  function drawRail(fl, now) {
+    lastFl = fl;
+    const defs = SEC_DEFS[kind], T = fl.map(g => ({ g, ref: refOf(g) })).filter(x => x.ref), w = x => x.ref.getTime();
+    const lists = {
+      cur: T.filter(x => Math.abs(w(x) - now) <= SEC_MS).sort((a, b) => w(a) - w(b)),
+      arr: T.filter(x => now - w(x) > SEC_MS).sort((a, b) => w(b) - w(a)),
+      soon: T.filter(x => w(x) - now > SEC_MS).sort((a, b) => w(a) - w(b))
+    };
+    $('#secTiles').innerHTML = defs.map(x => {
+      const l = lists[x.id], f = l[0];
+      return '<button type="button" class="stile ' + x.cls + (ui.sec === x.id ? ' on' : '') + '" data-sec="' + x.id + '" aria-expanded="' + (ui.sec === x.id) + '"><span class="st">' + x.t + '</span><span class="sn">' + l.length + '</span>' +
+        '<span class="ss">' + (f ? '<b>' + esc(f.g.flight) + '</b> <span class="cd" data-w="' + w(f) + '"></span>' : '—') + '</span></button>';
+    }).join('');
+    const pn = $('#secPanel'), cur = defs.find(x => x.id === ui.sec);
+    if (!cur) { pn.hidden = true; pn.innerHTML = ''; return; }
+    const l = lists[cur.id];
+    pn.hidden = false;
+    pn.innerHTML = '<div class="sec ' + cur.cls + '"><div class="sec-h"><b>' + cur.t + '</b><span class="cnt">' + l.length + '</span><span class="hint">' + cur.s + ' · اضغط رحلة لتصفية الجدول' + (l.length > SEC_N ? ' · اسحب يميناً لعرض البقية ›' : '') + '</span></div>' +
+      '<div class="rail">' + (l.length ? l.slice(0, SEC_MAX).map(x => flCard(x.g, now, x.ref)).join('') : '<div class="empty" style="width:100%;padding:12px">لا توجد رحلات في هذا القسم</div>') + '</div></div>';
+  }
+  setInterval(() => { if (lastFl) drawRail(lastFl, Date.now()); }, 20000);   // تنتقل الرحلات بين الأقسام مع الوقت
 
   app.innerHTML = '<section class="hero"><div><h1>' + K.title + '</h1><p>' + K.sub + '</p></div><div class="hero-actions">' +
     '<button class="btn green" id="xXls">' + ICON.xls + 'Excel</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
     '<div id="stale"></div><div class="kpis" id="kpis"></div><div id="alertbar"></div>' +
-    '<section class="panel"><div class="panel-h"><h2>الرحلات النشطة</h2><span class="hint">اضغط رحلة لتصفية القائمة</span></div><div class="rail" id="rail"></div></section>' +
+    '<section class="secs"><div class="sectiles" id="secTiles"></div><div class="secpanel panel" id="secPanel" hidden></div></section>' +
     '<section class="panel"><div id="tphint"></div><div class="toolbar">' +
     '<div class="field">' + ICON.search + '<input type="search" id="fQ" placeholder="بحث: اسم، جواز، رحلة، فندق…" value="' + esc(ui.q) + '"></div>' +
     '<select id="fStatus"><option value="all">كل الحالات</option><option value="open">' + K.openL + '</option><option value="done">' + K.doneL + '</option><option value="danger">حرجة / متأخرة</option><option value="warn">تستدعي الانتباه</option></select>' +
@@ -614,15 +667,7 @@ function initTracker(kind) {
     prevDanger = dk;
 
     // شريط الرحلات
-    const act = fl.filter(g => g.done < g.pax).slice(0, 40);
-    $('#rail').innerHTML = act.length ? act.map(g => {
-      const lv = g.when ? (g.when.getTime() < now ? (kind === 'arrival' ? 'warn' : 'danger') : ((g.when.getTime() - now) / 36e5 <= S.criticalH ? 'danger' : ((g.when.getTime() - now) / 36e5 <= S.warnH ? 'warn' : ''))) : '';
-      return '<div class="fl ' + lv + (ui.flight === g.key ? ' on' : '') + '" data-flight="' + esc(g.key) + '"><div class="t"><span class="no">' + esc(g.flight) + '</span><span class="sub">' + (g.when ? C.fmtDayAr(g.when) : '') + '</span></div>' +
-        '<div class="m"><span>' + esc(g.airline || '') + '</span><span class="num">' + (g.when ? C.fmtTime(g.when) : '') + '</span></div>' +
-        '<div class="cd-wrap">' + (g.when ? '<span class="cd" data-w="' + g.when.getTime() + '" style="font-size:18px;font-weight:700"></span>' : '') + '</div>' +
-        '<div class="bar" style="margin-top:8px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
-        '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span><button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + 'تأكيد الكل</button></div></div>';
-    }).join('') : '<div class="empty" style="width:100%;padding:16px">لا توجد رحلات نشطة — كل الرحلات مكتملة ✓</div>';
+    drawRail(fl, now);
 
     // خيارات التصفية
     const nats = new Map(); R.forEach(r => nats.set(C.natKey(r), natLabel(r)));
@@ -722,6 +767,7 @@ function initTracker(kind) {
     if ((el = t.closest('[data-grp]'))) { openGroup(el.dataset.grp, el.dataset.nat); return; }
     if ((el = t.closest('[data-view]'))) { ui.view = el.dataset.view; try { localStorage.setItem(LS_VIEW, ui.view); } catch (x) { } render(); return; }
     if ((el = t.closest('[data-fok]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fok); if (g) doWrite(g.rows, true, K.act + ' — رحلة ' + g.flight); return; }
+    if ((el = t.closest('[data-sec]'))) { ui.sec = ui.sec === el.dataset.sec ? null : el.dataset.sec; if (lastFl) drawRail(lastFl, Date.now()); tick(); return; }
     if ((el = t.closest('[data-flight]'))) { ui.flight = ui.flight === el.dataset.flight ? 'all' : el.dataset.flight; ui.limit = 150; render(); return; }
     if ((el = t.closest('[data-sort]'))) { const k = el.dataset.sort; if (ui.sortK === k) ui.dir *= -1; else { ui.sortK = k; ui.dir = 1; } render(); return; }
     if ((el = t.closest('[data-kpi]'))) { ui.status = 'danger'; $('#fStatus').value = 'danger'; render(); return; }
