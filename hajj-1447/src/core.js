@@ -370,7 +370,7 @@ function toRecords(rows, kind, cfg) {
       airline: get(row, 'airline'), date: get(row, 'date'), time: get(row, 'time'),
       when: w.when, approx: w.approx,
       hotel: get(row, 'hotel'), room: get(row, 'room'), group: get(row, 'group'),
-      airport: get(row, 'airport'), airCityRaw: get(row, 'airCity'), stayCityRaw: get(row, 'stayCity'),
+      airport: airportName(get(row, 'airport')), airCityRaw: get(row, 'airCity'), stayCityRaw: get(row, 'stayCity'),
       airCity: cityOf(get(row, 'airCity')) || cityOf(get(row, 'airport')), stayCity: cityOf(get(row, 'stayCity')) || cityOf(get(row, 'hotel')),
       pax: paxN > 0 ? paxN : 1, phone: get(row, 'phone'), terminal: get(row, 'terminal'),
       route: get(row, 'route'), notes: get(row, 'notes'),
@@ -461,7 +461,15 @@ function movementTime(when, stayCity, airCity, lead) {
   if (!when || !stayCity || !airCity) return null;
   const h = leadHours(stayCity, airCity, lead); return h ? new Date(when.getTime() - h * 36e5) : null;
 }
-const cityName = (id, raw) => raw || (id && CITY_DEF[id] ? CITY_DEF[id].ar : '');
+const cityName = (id, raw) => (id && CITY_DEF[id] ? CITY_DEF[id].ar : (raw || ''));
+// توحيد أسماء المطارات المعروفة (JED / MED / الأسماء الإنجليزية) إلى العربية؛ غير المعروف يبقى كما هو
+const AIRPORT_AR = { jeddah: 'مطار الملك عبدالعزيز الدولي', madinah: 'مطار الأمير محمد بن عبدالعزيز الدولي' };
+function airportName(raw) {
+  const t = String(raw == null ? '' : raw).trim(); if (!t) return '';
+  if (/(^|[^a-z])jed([^a-z]|$)|jeddah|jiddah|king\s*abdul\s*aziz|الملك\s*عبد\s*العزيز/i.test(t)) return AIRPORT_AR.jeddah;
+  if (/(^|[^a-z])med([^a-z]|$)|madinah|medina|prince\s*mohammad|الأمير\s*محمد|الامير\s*محمد/i.test(t)) return AIRPORT_AR.madinah;
+  return t;
+}
 
 /* ---------------- تجميع الحجاج: نفس الرحلة + نفس اليوم + نفس الفندق ---------------- */
 const natKey = r => r.country ? r.country.iso2 : '?' + normAr(r.natRaw);
@@ -498,7 +506,7 @@ function groupRecords(recs) {
 root.HajjCore = {
   DEFAULTS, sheetIdFromLink, isPublishedLink, gvizUrl, normAr, esc, toLatinDigits, parseCSV, COUNTRIES, countryOf, flagUrl, FIELDS,
   findHeaderRow, buildMapping, parseDateParts, parseTimeParts, buildWhen, fmtDay, fmtTime, fmtDayAr, fmtCountdown,
-  isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, groupRecords, natKey, groupKey, cityOf, transportFor, TRANSPORT, CITY_DEF, cityName, leadHours, movementTime, TZ_NAME
+  isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, groupRecords, natKey, groupKey, cityOf, transportFor, TRANSPORT, CITY_DEF, FIELDS, cityName, airportName, leadHours, movementTime, TZ_NAME
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = root.HajjCore;
 })(typeof window !== 'undefined' ? window : globalThis);

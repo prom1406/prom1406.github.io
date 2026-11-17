@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#07182D">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="حجاج 1447"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="icon.svg"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>لوحة المؤشرات التنفيذية — حجاج 1447هـ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -316,6 +318,44 @@ tr.detail td{background:rgba(255,255,255,.03)}
 .mv{margin-top:3px;color:var(--gold2);font-size:12.5px;font-weight:700}
 [data-theme=light] .mv{color:#8A6A2A}
 .mvb{color:var(--gold2)}[data-theme=light] .mvb{color:#8A6A2A}
+
+/* ---- الدور والتراجع ---- */
+.pill{font:inherit;font-size:12px;font-weight:700;padding:5px 11px;border-radius:99px;border:1px solid var(--line2);background:var(--card2);color:inherit;cursor:pointer;white-space:nowrap}
+.pill.owner{border-color:var(--gold);color:var(--gold)}.pill.sup{border-color:var(--green,#2fbf71);color:var(--green,#2fbf71)}
+.toast{display:flex;align-items:center;gap:12px}.toast .tact{font:inherit;font-weight:700;cursor:pointer;border:1px solid currentColor;background:transparent;color:inherit;border-radius:8px;padding:3px 12px}
+body.ro [data-gact],body.ro [data-fok],body.ro [data-mact],body.ro [data-mall],body.ro [data-bulk],body.ro [data-sel],body.ro [data-selall]{display:none!important}
+@media(max-width:700px){.pill{max-width:110px;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;font-size:11px}}
+
+/* ---- مرشحات سريعة ودلالات ---- */
+.qchips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:thin;flex:1 0 100%}
+.qc{font:inherit;font-size:13px;font-weight:700;padding:6px 14px;border-radius:99px;border:1px solid var(--line2);background:var(--card2);color:inherit;cursor:pointer;white-space:nowrap;flex:none}
+.qc.on{background:var(--gold);border-color:var(--gold);color:#1a1405}.qc.link{margin-inline-start:auto;font-weight:600}
+#bBell.on{background:var(--gold);color:#1a1405}
+.lgs{display:grid;gap:8px;margin-top:10px}
+@media(max-width:760px){
+  .btn.sm,.qc,.pill{min-height:40px}.qc{padding:8px 14px}
+  .bulk{position:sticky;bottom:64px;z-index:30;box-shadow:0 -6px 18px rgba(0,0,0,.35)}
+  td input[type=checkbox],[data-sel],[data-selall]{width:22px;height:22px}
+}
+
+.cities{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.city{background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:12px 14px}.city h3{margin:0 0 8px;font-size:15px;color:var(--gold)}
+.cr{display:flex;align-items:baseline;gap:8px;margin:4px 0}.cr span{flex:1;color:var(--mut)}.cr b{font-size:20px}.cr small{color:var(--mut)}
+
+.qual h4{margin:14px 0 6px;color:var(--gold)}.qrow{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;padding:6px 10px;border-radius:8px;background:var(--card2);margin:4px 0}
+.qrow>span{flex:1}.qrow.bad b{color:var(--red)}.qrow.ok{opacity:.75}.qrow small{flex:1 0 100%;color:var(--mut)}
+@media print{.qchips,#bBell,#bLegend,.pill,#bulk{display:none!important}}
+
+/* ---- حالة النقل والملاحظات ---- */
+.ntag{margin-top:6px;padding:6px 9px;border-radius:9px;background:var(--card2);border:1px solid var(--line2);font-size:12.5px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;max-width:260px}
+.ntag b{font-weight:800}.ntag small{color:var(--mut);margin-inline-start:auto}
+.ntag.vehicle{border-color:#0EA5E9;color:#7dd3fc}.ntag.enroute{border-color:#34C47A;color:#86efac}.ntag.delayed{border-color:#f5a524;color:#fcd34d}.ntag.issue{border-color:#ef4444;color:#fca5a5}
+.ntag span{color:var(--ink,inherit)}
+.nsel{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.nsel .qc{cursor:pointer}
+.fl .flag{color:#f5a524;font-size:13px}
+textarea#nTx{width:100%;font:inherit;border-radius:10px;padding:8px;background:var(--card2);color:inherit;border:1px solid var(--line2)}
+.bk{border:1px dashed var(--line2);border-radius:10px;padding:10px}
+body.ro [data-gnote]{display:none!important}
 
 </style>
 </head>
@@ -696,7 +736,7 @@ function toRecords(rows, kind, cfg) {
       airline: get(row, 'airline'), date: get(row, 'date'), time: get(row, 'time'),
       when: w.when, approx: w.approx,
       hotel: get(row, 'hotel'), room: get(row, 'room'), group: get(row, 'group'),
-      airport: get(row, 'airport'), airCityRaw: get(row, 'airCity'), stayCityRaw: get(row, 'stayCity'),
+      airport: airportName(get(row, 'airport')), airCityRaw: get(row, 'airCity'), stayCityRaw: get(row, 'stayCity'),
       airCity: cityOf(get(row, 'airCity')) || cityOf(get(row, 'airport')), stayCity: cityOf(get(row, 'stayCity')) || cityOf(get(row, 'hotel')),
       pax: paxN > 0 ? paxN : 1, phone: get(row, 'phone'), terminal: get(row, 'terminal'),
       route: get(row, 'route'), notes: get(row, 'notes'),
@@ -787,7 +827,15 @@ function movementTime(when, stayCity, airCity, lead) {
   if (!when || !stayCity || !airCity) return null;
   const h = leadHours(stayCity, airCity, lead); return h ? new Date(when.getTime() - h * 36e5) : null;
 }
-const cityName = (id, raw) => raw || (id && CITY_DEF[id] ? CITY_DEF[id].ar : '');
+const cityName = (id, raw) => (id && CITY_DEF[id] ? CITY_DEF[id].ar : (raw || ''));
+// توحيد أسماء المطارات المعروفة (JED / MED / الأسماء الإنجليزية) إلى العربية؛ غير المعروف يبقى كما هو
+const AIRPORT_AR = { jeddah: 'مطار الملك عبدالعزيز الدولي', madinah: 'مطار الأمير محمد بن عبدالعزيز الدولي' };
+function airportName(raw) {
+  const t = String(raw == null ? '' : raw).trim(); if (!t) return '';
+  if (/(^|[^a-z])jed([^a-z]|$)|jeddah|jiddah|king\s*abdul\s*aziz|الملك\s*عبد\s*العزيز/i.test(t)) return AIRPORT_AR.jeddah;
+  if (/(^|[^a-z])med([^a-z]|$)|madinah|medina|prince\s*mohammad|الأمير\s*محمد|الامير\s*محمد/i.test(t)) return AIRPORT_AR.madinah;
+  return t;
+}
 
 /* ---------------- تجميع الحجاج: نفس الرحلة + نفس اليوم + نفس الفندق ---------------- */
 const natKey = r => r.country ? r.country.iso2 : '?' + normAr(r.natRaw);
@@ -824,7 +872,7 @@ function groupRecords(recs) {
 root.HajjCore = {
   DEFAULTS, sheetIdFromLink, isPublishedLink, gvizUrl, normAr, esc, toLatinDigits, parseCSV, COUNTRIES, countryOf, flagUrl, FIELDS,
   findHeaderRow, buildMapping, parseDateParts, parseTimeParts, buildWhen, fmtDay, fmtTime, fmtDayAr, fmtCountdown,
-  isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, groupRecords, natKey, groupKey, cityOf, transportFor, TRANSPORT, CITY_DEF, cityName, leadHours, movementTime, TZ_NAME
+  isTrue, toRecords, ST, ST_LABEL, statusOf, summarize, groupFlights, groupRecords, natKey, groupKey, cityOf, transportFor, TRANSPORT, CITY_DEF, FIELDS, cityName, airportName, leadHours, movementTime, TZ_NAME
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = root.HajjCore;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -895,7 +943,7 @@ const ICON = {
 };
 
 /* ---------------- الحالة والمزامنة ---------------- */
-const state = { data: { arrival: null, departure: null }, sync: { arrival: 0, departure: 0 }, err: {}, pending: { arrival: {}, departure: {} }, fn: [] };
+const state = { notes: { arrival: {}, departure: {} }, data: { arrival: null, departure: null }, sync: { arrival: 0, departure: 0 }, err: {}, pending: { arrival: {}, departure: {} }, fn: [] };
 const pkey = r => (isMasked() ? 'r' + r.row : (r.key || ('r' + r.row)));
 const emit = () => state.fn.forEach(f => { try { f(); } catch (e) { console.error(e); } });
 const onData = f => state.fn.push(f);
@@ -938,6 +986,14 @@ async function loadKind(kind) {
   }
 }
 let kindsInUse = [], lastTry = 0;
+// ملاحظات المجموعات وحالة النقل (تُحفظ في تبويب Notes بالملف)
+async function loadNotes(kind) {
+  try {
+    const j = await api('notes_get', { kind }); if (!j.ok) return;
+    const m = {}; (j.items || []).forEach(x => { m[x.key] = x; }); state.notes[kind] = m;
+    try { localStorage.setItem('hajj1447.notes.' + kind, JSON.stringify(m)); } catch (e) { }
+  } catch (e) { }
+}
 // الزائر: التقط أي تغيير أجراه المالك في الإعدادات دون إعادة تحميل الصفحة
 async function syncPublic() {
   if (REMOTE.owner || !CONN.webapp) return;
@@ -953,21 +1009,91 @@ async function refresh(kinds) {
   const live = $('#live'), btn = $('#bRef');
   if (live) live.className = 'live load'; if (btn) btn.classList.add('spin');
   await syncPublic();
-  await Promise.all(kinds.map(loadKind));
+  await Promise.all(kinds.map(loadKind).concat(kinds.map(loadNotes)));
   if (btn) btn.classList.remove('spin');
   updateBadges(); emit(); tick(true);
 }
 function hydrate(kinds) {
   kinds.forEach(k => {
+    try { state.notes[k] = JSON.parse(localStorage.getItem('hajj1447.notes.' + k) || '{}') || {}; } catch (e) { }
     try { const c = JSON.parse(localStorage.getItem('hajj1447.cache.' + k) || 'null'); if (c && c.rows) { processRows(k, c.rows); state.sync[k] = c.ts; state.cached = true; } } catch (e) { }
   });
 }
 
+/* ---------------- الهوية والصلاحيات ---------------- */
+const LS_BY = 'hajj1447.by', SS_PIN = 'hajj1447.pin';
+const lsGet = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+const lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) { } };
+const ssGet = k => { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } };
+const ssSet = (k, v) => { try { v ? sessionStorage.setItem(k, v) : sessionStorage.removeItem(k); } catch (e) { } };
+const confirmMode = () => (S.perms && S.perms.confirm) || 'all';
+const canConfirm = () => REMOTE.owner || confirmMode() !== 'off';
+function roleInfo() {
+  if (REMOTE.owner) return { t: 'المالك', c: 'owner', d: 'تعدّل الإعدادات وتؤكد دون قيود.' };
+  const m = confirmMode();
+  if (m === 'off') return { t: 'زائر · عرض فقط', c: 'view', d: 'يمكنك مشاهدة البيانات وتصديرها دون تأكيد التسكين أو المغادرة.' };
+  if (m === 'pin') return ssGet(SS_PIN) ? { t: 'مشرف · عرض + تأكيد', c: 'sup', d: 'أدخلت رمز المشرف، فيمكنك التأكيد في هذه الجلسة.' } : { t: 'زائر · التأكيد برمز', c: 'view', d: 'المشاهدة مفتوحة، والتأكيد يتطلب رمز المشرف (يُطلب عند أول تأكيد).' };
+  return { t: 'زائر · عرض + تأكيد', c: 'view', d: 'يمكنك مشاهدة البيانات وتأكيد التسكين والمغادرة، ويُسجَّل اسمك مع كل تأكيد.' };
+}
+function updateRole() {
+  const b = $('#bRole'); document.body.classList.toggle('ro', !canConfirm());
+  if (!b) return; const r = roleInfo(); b.textContent = r.t; b.className = 'pill ' + r.c; b.title = r.d;
+}
+// الاسم (للزائر) ورمز المشرف عند الحاجة؛ تعيد null عند الإلغاء أو المنع
+async function ensureAuth() {
+  if (!canConfirm()) { toast('الموقع بوضع العرض فقط — لا يمكن التأكيد', 'warn'); return null; }
+  let by = REMOTE.owner ? 'المالك' : lsGet(LS_BY);
+  if (!by) { by = await askText('اسمك', 'يُسجَّل اسمك مع كل تأكيد في الجدول وفي سجل العمليات.', 'الاسم'); if (!by) return null; lsSet(LS_BY, by); }
+  let pin = '';
+  if (!REMOTE.owner && confirmMode() === 'pin') {
+    pin = ssGet(SS_PIN);
+    if (!pin) { pin = await askText('رمز المشرف', 'أدخل رمز المشرف لتأكيد التسكين أو المغادرة.', 'الرمز', true); if (!pin) return null; ssSet(SS_PIN, pin); updateRole(); }
+  }
+  return { by, pin };
+}
+function openQuality() {
+  const kinds = ['arrival', 'departure'].filter(k => state.data[k]);
+  if (!kinds.length) { toast('لا توجد بيانات محمّلة بعد', 'warn'); return; }
+  const lab = { arrival: 'الوصول', departure: 'المغادرة' }; let body = '';
+  kinds.forEach(k => {
+    const d = state.data[k], R = d.records, bad = f => R.filter(f), rowsOf = a => a.slice(0, 8).map(r => r.row).join('، ') + (a.length > 8 ? ' …' : '');
+    const cnt = new Map(); R.forEach(r => { if (r.passport) cnt.set(r.passport, (cnt.get(r.passport) || 0) + 1); });
+    const dups = R.filter(r => r.passport && cnt.get(r.passport) > 1);
+    const issues = [['بلا فندق', bad(r => !r.hotel)], ['مدينة الإقامة غير معروفة', bad(r => !r.stayCity)], ['بلا تاريخ/وقت صالح', bad(r => !r.when)], ['بلا رقم رحلة', bad(r => !r.flight)], ['جواز مكرر', dups], ['بلا رقم جواز', bad(r => !r.passport)]];
+    const unm = Object.keys(C.FIELDS).filter(f => d.map[f] == null && ['name', 'passport', 'flight', 'date', 'time', 'hotel'].includes(f)).map(f => C.FIELDS[f].ar);
+    const used = new Set(Object.values(d.map).filter(v => v != null)), loose = d.headers.map((h, i) => [h, i]).filter(([h, i]) => h && !used.has(i)).map(x => x[0]);
+    body += '<h4>' + lab[k] + ' (' + R.length + ' سجل)</h4>' + issues.map(([t, a]) => '<div class="qrow ' + (a.length ? 'bad' : 'ok') + '"><span>' + (a.length ? '⚠' : '✓') + ' ' + t + '</span><b>' + a.length + '</b>' + (a.length ? '<small>صفوف: ' + rowsOf(a) + '</small>' : '') + '</div>').join('') +
+      (unm.length ? '<div class="qrow bad"><span>⚠ أعمدة أساسية غير مربوطة</span><small>' + esc(unm.join('، ')) + '</small></div>' : '') +
+      (loose.length ? '<div class="qrow"><span>أعمدة غير مستخدمة</span><small>' + esc(loose.join('، ')) + '</small></div>' : '');
+  });
+  const ov = modal('<h3>فحص جودة البيانات</h3><div class="qual">' + body + '</div><div class="act"><button class="btn" data-n>إغلاق</button></div>'); ov.querySelector('[data-n]').onclick = () => ov.close();
+}
+function openRole() {
+  const r = roleInfo(), pinMode = !REMOTE.owner && confirmMode() === 'pin';
+  const ov = modal('<h3>' + esc(r.t) + '</h3><p>' + esc(r.d) + '</p>' +
+    (REMOTE.owner ? '' : '<div class="set"><label class="full">اسمك (يُسجَّل مع كل تأكيد)<input id="rNm" maxlength="40" value="' + esc(lsGet(LS_BY)) + '"></label>' +
+      (pinMode ? '<label class="full">رمز المشرف<input id="rPin" type="password" autocomplete="off" dir="ltr" placeholder="' + (ssGet(SS_PIN) ? '•••• (مُدخل)' : 'غير مُدخل') + '"></label>' : '') + '</div>') +
+    '<div class="act">' + (REMOTE.owner ? '' : '<button class="btn green" id="rOk">حفظ</button>') + (pinMode && ssGet(SS_PIN) ? '<button class="btn" id="rForget">نسيان الرمز</button>' : '') + '<button class="btn" id="rX">إغلاق</button></div>' +
+    (REMOTE.owner ? '' : '<p class="hint" style="margin-top:10px">للإعدادات والتحكم الكامل: زر ⚙ ثم دخول المالك.</p>'));
+  $('#rX', ov).onclick = () => ov.close();
+  if ($('#rOk', ov)) $('#rOk', ov).onclick = () => { lsSet(LS_BY, $('#rNm', ov).value.trim()); if ($('#rPin', ov) && $('#rPin', ov).value.trim()) ssSet(SS_PIN, $('#rPin', ov).value.trim()); updateRole(); ov.close(); toast('تم الحفظ', 'ok'); };
+  if ($('#rForget', ov)) $('#rForget', ov).onclick = () => { ssSet(SS_PIN, ''); updateRole(); ov.close(); toast('نُسي الرمز', 'ok'); };
+}
+// وصف مختصر لما سيُحدَّث: الرحلات والفنادق
+const ctxOf = recs => {
+  const u = f => [...new Set(recs.map(f).filter(Boolean))];
+  const fl = u(r => r.flight), ho = u(r => r.hotel);
+  const cut = (a, n) => a.slice(0, n).join('، ') + (a.length > n ? ' +' + (a.length - n) : '');
+  return [fl.length ? 'رحلة ' + cut(fl, 3) : '', ho.length ? 'فندق ' + cut(ho, 2) : ''].filter(Boolean).join(' | ');
+};
+const fmtAge = ms => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? s + ' ث' : s < 3600 ? Math.floor(s / 60) + ' د' : Math.floor(s / 3600) + ' س'; };
+
 /* ---------------- الكتابة (Apps Script) ---------------- */
-async function writeChecks(kind, recs, value) {
+async function writeChecks(kind, recs, value, isUndo) {
   if (!CONN.webapp) { toast('لم يُضبط رابط الخادم', 'warn'); return false; }
   const d = state.data[kind];
   if (d.map.check == null) { toast('لم يُعثر على عمود ' + S[kind].checkHeader + ' في الجدول', 'err'); return false; }
+  const auth = await ensureAuth(); if (!auth) return false;
   recs.forEach(r => { r.done = value; r.syncing = true; state.pending[kind][pkey(r)] = { value, ts: Date.now() }; });
   emit();
   const revert = rs => rs.forEach(r => { delete state.pending[kind][pkey(r)]; r.done = !value; r.syncing = false; });
@@ -977,9 +1103,12 @@ async function writeChecks(kind, recs, value) {
     const CH = 10, results = [];
     for (let i = 0; i < recs.length; i += CH) {
       const part = recs.slice(i, i + CH);
-      const payload = { kind, sheet: tabOf(kind), headerRow: d.headerRow, ops: part.map(r => ({ row: r.row, key: r.key, keyHeader: r.keyHeader, value })) };
+      const payload = { kind, sheet: tabOf(kind), headerRow: d.headerRow, ops: part.map(r => ({ row: r.row, key: r.key, keyHeader: r.keyHeader, value })), by: auth.by, pin: auth.pin, ctx: ctxOf(part) };
       const j = await api('write', {}, payload);
-      if (!j.ok) throw new Error(j.error === 'not_configured' ? 'المنظومة لم تُهيّأ بعد' : (j.error || 'فشل الحفظ'));
+      if (!j.ok) {
+        if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); }
+        throw new Error({ not_configured: 'المنظومة لم تُهيّأ بعد', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ');
+      }
       if (!Array.isArray(j.results)) throw new Error('الكود المنشور قديم: ألصق أحدث Code.gs ثم نشر ← إدارة عمليات النشر ← ✏ ← إصدار جديد');
       results.push(...j.results); doneN = i + part.length;
     }
@@ -989,7 +1118,10 @@ async function writeChecks(kind, recs, value) {
     revert(bad.map(b => b[0]));
     if (bad.length) toast('تعذّر حفظ ' + bad.length + ' سجل: ' + bad[0][1], 'err');
     const okN = recs.length - bad.length;
-    if (okN) toast((value ? 'تم حفظ ' : 'تم التراجع عن ') + okN + ' سجل في Google Sheets', 'ok');
+    if (okN) {
+      const okRecs = recs.filter(r => !bad.some(b => b[0] === r));
+      toast((value ? 'تم حفظ ' : 'تم التراجع عن ') + okN + ' سجل', 'ok', isUndo ? null : { label: 'تراجع', fn: () => writeChecks(kind, okRecs, !value, true) });
+    }
     emit();
     setTimeout(() => refresh([kind]), 2500); setTimeout(() => refresh([kind]), 9000);
     return true;
@@ -999,9 +1131,22 @@ async function writeChecks(kind, recs, value) {
 }
 
 /* ---------------- مكوّنات الواجهة ---------------- */
-function toast(msg, type) {
+function toast(msg, type, action) {
   let c = $('.toasts'); if (!c) { c = document.createElement('div'); c.className = 'toasts'; c.setAttribute('aria-live', 'polite'); document.body.appendChild(c); }
-  const t = document.createElement('div'); t.className = 'toast ' + (type || ''); t.textContent = msg; c.appendChild(t); setTimeout(() => t.remove(), 4500);
+  const t = document.createElement('div'); t.className = 'toast ' + (type || ''); const m = document.createElement('span'); m.textContent = msg; t.appendChild(m);
+  if (action) { const b = document.createElement('button'); b.type = 'button'; b.className = 'tact'; b.textContent = action.label; b.onclick = () => { t.remove(); action.fn(); }; t.appendChild(b); }
+  c.appendChild(t); setTimeout(() => t.remove(), action ? 10000 : 4500);
+}
+// سؤال نصي قصير (الاسم / رمز المشرف)
+function askText(title, msg, label, secret) {
+  return new Promise(res => {
+    let done = false; const fin = v => { if (!done) { done = true; res(v); } };
+    const ov = modal('<h3>' + esc(title) + '</h3><p>' + esc(msg) + '</p><div class="set"><label class="full">' + esc(label) + '<input id="aTx" ' + (secret ? 'type="password" autocomplete="off" dir="ltr"' : 'type="text" maxlength="40"') + '></label></div><div class="act"><button class="btn green" data-y>متابعة</button><button class="btn" data-n>إلغاء</button></div>', () => fin(null));
+    const go = () => { const v = $('#aTx', ov).value.trim(); if (!v) { $('#aTx', ov).focus(); return; } fin(v); ov.close(); };
+    ov.querySelector('[data-y]').onclick = go; ov.querySelector('[data-n]').onclick = () => ov.close();
+    ov.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    setTimeout(() => $('#aTx', ov).focus(), 50);
+  });
 }
 function modal(html, onClose) {
   const ov = document.createElement('div'); ov.className = 'ov';
@@ -1048,7 +1193,10 @@ function tick(force) {
   const last = Math.max(state.sync.arrival || 0, state.sync.departure || 0);
   const err = kindsInUse.some(k => state.err[k]);
   if (!$('#bRef').classList.contains('spin')) live.className = 'live' + (err ? ' err' : '');
-  txt.textContent = err ? 'تعذّر التحديث' : (last ? 'آخر تحديث ' + new Intl.DateTimeFormat('en-GB', { timeZone: C.TZ_NAME, hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(last) : 'جارٍ التحميل…');
+  updateRole();
+  const hasData = kindsInUse.some(k => state.data[k]);
+  txt.textContent = err ? (hasData && last ? 'غير متصل · محفوظة قبل ' + fmtAge(now - last) : 'تعذّر التحديث') : (last ? 'محدّث قبل ' + fmtAge(now - last) : 'جارٍ التحميل…');
+  txt.title = last ? 'آخر تحديث ' + new Intl.DateTimeFormat('en-GB', { timeZone: C.TZ_NAME, hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(last) : '';
 }
 
 /* ---------------- شريط التنقل ---------------- */
@@ -1057,18 +1205,19 @@ function renderNav(page) {
   const nav = $('#nav'); nav.className = 'nav';
   nav.innerHTML = '<a class="brand" href="index.html"><span class="logo">' + ICON.plane + '</span><span><b>منظومة تحركات الحجاج</b><small>موسم 1447هـ</small></span></a>' +
     '<nav class="tabs" aria-label="التنقل الرئيسي">' + tabs.map(t => '<a class="tab' + (t[0] === page ? ' active' : '') + '" href="' + t[0] + '.html"' + (t[0] === page ? ' aria-current="page"' : '') + '>' + ICON[t[2]] + '<span class="tl">' + t[1] + '</span>' + (t[0] !== 'index' ? '<span class="badge" id="bd-' + t[0] + '" hidden></span>' : '') + '</a>').join('') + '</nav>' +
-    '<div class="tools"><span class="live" id="live"><i></i><em id="syncTxt">—</em></span>' +
+    '<div class="tools"><button class="pill view" id="bRole" type="button"></button><span class="live" id="live"><i></i><em id="syncTxt">—</em></span>' +
     '<button class="ibtn" id="bRef" title="تحديث الآن" aria-label="تحديث">' + ICON.refresh + '</button>' +
     '<button class="ibtn" id="bTheme" title="الوضع الفاتح/الداكن" aria-label="تبديل السمة">' + ICON.theme + '</button>' +
     '<button class="ibtn" id="bSet" title="الإعدادات" aria-label="الإعدادات">' + ICON.gear + '</button></div>';
   $('#bRef').onclick = () => refresh();
   $('#bSet').onclick = () => openSettings(false);
+  $('#bRole').onclick = () => openRole();
   $('#bTheme').onclick = () => {
     const n = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
     document.documentElement.dataset.theme = n; try { localStorage.setItem(LS_THEME, n); } catch (e) { }
     emit(window.__themeChanged = true);
   };
-  updateBadges();
+  updateBadges(); updateRole();
 }
 
 /* ---------------- الاتصال بالخادم، دخول المالك، روابط الزوار ---------------- */
@@ -1172,7 +1321,12 @@ function openSettings(first) {
     '<p class="hint" style="grid-column:1/-1;margin:0">يجب أن يطابق الاسمان تبويبي الملف تماماً. تُقرأ البيانات عبر السكربت، فلا حاجة لمشاركة الملف علناً. إن تركت الرابط فارغاً استُخدم الملف المربوط بالسكربت.</p>' +
     '<h4>صلاحيات الزوار</h4>' +
     '<label class="sw" style="grid-column:1/-1"><input type="checkbox" id="sShowPP"' + (S.perms && S.perms.showPassports ? ' checked' : '') + '> السماح للزوار برؤية أرقام الجوازات كاملة (الأصل: مقنّعة ••••1234)</label>' +
-    '<p class="hint" style="grid-column:1/-1;margin:0">الزائر يرى البيانات ويؤكد التسكين والمغادرة ويصدّر، ولا يرى الإعدادات ولا رابط الملف. الإخفاء يتم في الخادم قبل وصول البيانات للمتصفح.</p>' +
+    lab('من يستطيع تأكيد التسكين/المغادرة؟', '<select id="sConf"><option value="all"' + (confirmMode() === 'all' ? ' selected' : '') + '>كل الزوار (يُسجَّل اسم المؤكِّد)</option><option value="pin"' + (confirmMode() === 'pin' ? ' selected' : '') + '>من يملك رمز المشرف فقط</option><option value="off"' + (confirmMode() === 'off' ? ' selected' : '') + '>لا أحد — عرض فقط</option></select>') +
+    lab('رمز المشرف (اتركه فارغاً للإبقاء على الحالي)', '<input id="sPin" type="password" autocomplete="new-password" dir="ltr" placeholder="' + (S.pinSet ? '•••• (محدد)' : 'غير محدد') + '">') +
+    (S.pinSet ? '<label class="sw"><input type="checkbox" id="sPinClr"> إزالة رمز المشرف</label>' : '') +
+    '<p class="hint" style="grid-column:1/-1;margin:0">الزائر يرى البيانات ويصدّر، ولا يرى الإعدادات ولا رابط الملف. الإخفاء يتم في الخادم قبل وصول البيانات للمتصفح. كل تأكيد يُسجَّل في عمود Check_By وفي صفحة Log بالملف.</p>' +
+    '<div style="grid-column:1/-1"><button class="btn" type="button" id="sQual">فحص جودة البيانات</button></div>' +
+    '<div style="grid-column:1/-1" class="bk"><b>النسخ الاحتياطي</b><div class="hint" id="sBkInfo">جارٍ التحقق…</div><div class="act" style="margin-top:6px"><button class="btn" type="button" id="sBkNow">نسخة الآن</button><button class="btn" type="button" id="sBkDaily">—</button></div><div class="hint">تُحفظ النسخ كتبويبات مخفية Backup_… في الملف نفسه (آخر 12). وتُؤخذ نسخة تلقائياً قبل أي تأكيد جماعي (10 فأكثر). للاستعادة: أظهر التبويب وانسخ محتواه.</div></div>' +
     '<h4>التوقيت والتنبيهات</h4>' +
     lab('فاصل التحديث (ثوانٍ)', inp('sRef', S.refreshSec, '', 'number')) +
     lab('ترتيب التاريخ في الجدول', '<select id="sOrd"><option value="DMY"' + (S.dateOrder === 'DMY' ? ' selected' : '') + '>يوم/شهر/سنة</option><option value="MDY"' + (S.dateOrder === 'MDY' ? ' selected' : '') + '>شهر/يوم/سنة</option></select>') +
@@ -1209,7 +1363,8 @@ function openSettings(first) {
       criticalH: +val('sCrit') || 3, warnH: +val('sWarn') || 12, lateH: +val('sLate') || 2,
       lead: { 'makkah>jeddah': n('sLdMJ'), 'makkah>madinah': n('sLdMM'), 'madinah>madinah': n('sLdDM'), 'madinah>jeddah': n('sLdDJ') },
       transport: { arrival: $('#sTpA', ov).checked, departure: $('#sTpD', ov).checked, busMin: Math.max(1, +val('sBus') || 4) },
-      map, perms: { showPassports: $('#sShowPP', ov).checked },
+      map, perms: { showPassports: $('#sShowPP', ov).checked, confirm: val('sConf') },
+      ...($('#sPinClr', ov) && $('#sPinClr', ov).checked ? { pin: '' } : (val('sPin') ? { pin: val('sPin') } : {})),
       passCol: { arrival: passIdx('arrival', map), departure: passIdx('departure', map) }
     };
   };
@@ -1220,6 +1375,11 @@ function openSettings(first) {
   $('#sShare', ov).onfocus = e => e.target.select(); $('#sCfg', ov).onfocus = e => e.target.select();
   $('#sCopy', ov).onclick = copyOf($('#sCopy', ov), $('#sShare', ov));
   $('#sClose', ov).onclick = () => ov.close();
+  $('#sQual', ov).onclick = () => openQuality();
+  const bkDraw = j => { if (!j || !j.ok) { $('#sBkInfo', ov).textContent = 'تعذّر قراءة حالة النسخ'; return; } $('#sBkInfo', ov).textContent = (j.last ? 'آخر نسخة: ' + new Date(j.last.at).toLocaleString('ar-SA-u-nu-latn') + ' (' + j.last.why + ')' : 'لا توجد نسخ بعد') + ' · المحفوظ: ' + j.count + ' تبويب · اليومي: ' + (j.daily ? 'مفعّل' : 'متوقف'); $('#sBkDaily', ov).textContent = j.daily ? 'إيقاف النسخ اليومي' : 'تفعيل النسخ اليومي'; $('#sBkDaily', ov).dataset.on = j.daily ? '1' : ''; };
+  api('owner_backup_info').then(bkDraw, () => bkDraw(null));
+  $('#sBkNow', ov).onclick = async () => { $('#sBkNow', ov).disabled = true; try { const j = await api('owner_backup'); if (!j.ok) throw new Error(j.error); toast('تمت النسخة الاحتياطية', 'ok'); bkDraw(await api('owner_backup_info')); } catch (e) { toast('فشلت النسخة: ' + (e.message || e), 'err'); } $('#sBkNow', ov).disabled = false; };
+  $('#sBkDaily', ov).onclick = async () => { try { bkDraw(await api('owner_backup_daily', {}, { on: !$('#sBkDaily', ov).dataset.on })); } catch (e) { toast('تعذّر: ' + (e.message || e), 'err'); } };
   $('#sOut', ov).onclick = async () => { try { await api('logout'); } catch (e) { } CONN.session = ''; saveConn(); clearCaches(); location.reload(); };
   $('#sWipe', ov).onclick = async () => {
     if (!(await confirmBox('حذف كل الإعدادات', 'سيُحذف من الخادم رابط الملف وكل الإعدادات، ولن يرى الزوار أي بيانات حتى تُهيّئ المنظومة من جديد. لا يمكن التراجع.', 'نعم، احذف'))) return;
@@ -1319,7 +1479,7 @@ function initTracker(kind) {
   let view = null; try { view = localStorage.getItem(LS_VIEW); } catch (e) { }
   if (view !== 'cards' && view !== 'table') view = window.matchMedia('(max-width:760px)').matches ? 'cards' : 'table';
   const ui = { q: '', status: 'all', nat: 'all', day: 'all', flight: 'all', sec: null, sortK: 'when', dir: 1, reveal: false, limit: 150, sel: new Set(), open: new Set(), view, modal: null };
-  const qs = new URLSearchParams(location.search); if (qs.get('status')) ui.status = qs.get('status'); if (qs.get('q')) ui.q = qs.get('q');
+  const qs = new URLSearchParams(location.search); ['status', 'q', 'day', 'nat', 'flight'].forEach(k => { if (qs.get(k)) ui[k] = qs.get(k); });
   let prevDanger = null, gmap = new Map(), ridx = new Map(), mo = null, shownGroups = [], lastFl = null;
   // موعد المرجع للرحلة: الوصول، أو في المغادرة أبكر موعد تحرك بين سجلاتها (وإلا الإقلاع)
   const refOf = g => {
@@ -1331,12 +1491,13 @@ function initTracker(kind) {
     const t = ref ? ref.getTime() : null, h = t ? (t - now) / 36e5 : null;
     const lv = t ? (t < now ? 'warn' : (h <= S.criticalH ? 'danger' : (h <= S.warnH ? 'warn' : ''))) : '';
     const full = g.done >= g.pax, dep = kind === 'departure';
-    return '<div class="fl ' + (full ? 'full' : lv) + (ui.flight === g.key ? ' on' : '') + '" data-flight="' + esc(g.key) + '"><div class="t"><span class="no">' + esc(g.flight) + '</span><span class="sub">' + (ref ? C.fmtDayAr(ref) : '') + '</span></div>' +
+    const flag = C.groupRecords(g.rows).filter(x => { const n = noteOf(x); return n && (n.status === 'delayed' || n.status === 'issue'); }).length;
+    return '<div class="fl ' + (full ? 'full' : lv) + (ui.flight === g.key ? ' on' : '') + '" data-flight="' + esc(g.key) + '"><div class="t"><span class="no">' + esc(g.flight) + (flag ? ' <span class="flag" title="فيها مجموعات متأخرة أو بها مشكلة">⚠</span>' : '') + '</span><span class="sub">' + (ref ? C.fmtDayAr(ref) : '') + '</span></div>' +
       '<div class="m"><span>' + (dep ? 'التحرك' : esc(g.airline || '')) + '</span><span class="num">' + (ref ? C.fmtTime(ref) : '') + '</span></div>' +
       (dep && g.when ? '<div class="m"><span>الإقلاع</span><span class="num">' + C.fmtTime(g.when) + '</span></div>' : '') +
       '<div class="cd-wrap">' + (ref ? '<span class="cd" data-w="' + t + '" style="font-size:18px;font-weight:700"></span>' : '') + '</div>' +
       '<div class="bar" style="margin-top:8px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
-      '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span>' + (full ? '<span class="okmark">✓ مكتمل</span>' : '<button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + (dep ? 'مغادرة الكل' : 'تأكيد الكل') + '</button>') + '</div></div>';
+      '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span>' + (full ? '<span class="okmark">✓ مكتمل</span>' : '<button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + (dep ? 'مغادرة الكل' : 'تأكيد الكل') + '</button>') + '<button class="btn sm" data-fshare="' + esc(g.key) + '" title="مشاركة ملخص الرحلة" aria-label="مشاركة ملخص الرحلة">📤</button></div></div>';
   };
   // أقسام مختصرة بأعلى الصفحة؛ الضغط على قسم يعرض رحلاته (خمس كحد أقصى) أسفله، والجدول كما هو
   function drawRail(fl, now) {
@@ -1366,10 +1527,11 @@ function initTracker(kind) {
     '<div id="stale"></div><div class="kpis" id="kpis"></div><div id="alertbar"></div>' +
     '<section class="secs"><div class="sectiles" id="secTiles"></div><div class="secpanel panel" id="secPanel" hidden></div></section>' +
     '<section class="panel"><div id="tphint"></div><div class="toolbar">' +
+    '<div class="qchips" id="qchips"></div>' +
     '<div class="field">' + ICON.search + '<input type="search" id="fQ" placeholder="بحث: اسم، جواز، رحلة، فندق…" value="' + esc(ui.q) + '"></div>' +
     '<select id="fStatus"><option value="all">كل الحالات</option><option value="open">' + K.openL + '</option><option value="done">' + K.doneL + '</option><option value="danger">حرجة / متأخرة</option><option value="warn">تستدعي الانتباه</option></select>' +
     '<select id="fNat"></select><select id="fDay"></select>' +
-    '<label class="sw'+(isMasked()?'" hidden data-x="':'')+'"><input type="checkbox" id="fReveal"> إظهار أرقام الجوازات</label><span class="sp"></span><span class="hint" id="cnt"></span>' +
+    '<label class="sw'+(isMasked()?'" hidden data-x="':'')+'"><input type="checkbox" id="fReveal"> إظهار أرقام الجوازات</label><span class="sp"></span><span class="hint" id="cnt"></span><button class="btn sm" id="bLegend" title="دلالات الألوان والحالات" aria-label="دلالات الألوان">؟</button><button class="btn sm" id="bBell" title="تنبيه صوتي عند ظهور حالات حرجة جديدة" aria-pressed="false">🔔</button>' +
     '<div class="seg" role="group" aria-label="طريقة العرض"><button data-view="table" title="عرض جدول">' + ICON.table + '<span>جدول</span></button><button data-view="cards" title="عرض بطاقات">' + ICON.cards + '<span>بطاقات</span></button></div></div>' +
     '<div class="bulk" id="bulk" hidden></div><div id="list"></div><div class="more" id="more"></div></section>';
   $('#fStatus').value = ui.status;
@@ -1409,9 +1571,34 @@ function initTracker(kind) {
       (rest > 0 ? '<button class="nchip more" data-grp="' + esc(g.key) + '" title="عرض الكل">+' + rest + '</button>' : '') + '</div>';
   };
   const stChip = g => '<span class="chip ' + (g.syncing ? 'sync' : g.cls) + '">' + (g.syncing ? 'جارٍ المزامنة…' : esc(ST_LABEL[kind][g.st] || g.st)) + '</span>' + (g.open > 0 && g.done > 0 ? '<div class="sub num">مكتمل ' + g.done + ' من ' + g.pax + '</div>' : '');
-  const gAct = g => g.open === 0
+  /* ---- حالة النقل والملاحظة ---- */
+  const NST = () => ({ vehicle: kind === 'arrival' ? 'وصلت الحافلة/القطار' : 'وصلت الوسيلة للفندق', enroute: kind === 'arrival' ? 'في الطريق إلى الفندق' : 'في الطريق إلى المطار', delayed: 'تأخر النقل', issue: 'مشكلة تحتاج متابعة' });
+  const nkey = g => String(g.key).slice(0, 200);
+  const noteOf = g => state.notes[kind][nkey(g)] || null;
+  const noteChip = g => { const n = noteOf(g); if (!n || (!n.status && !n.note)) return ''; return '<div class="ntag ' + esc(n.status) + '">' + (n.status ? '<b>' + esc(NST()[n.status] || '') + '</b>' : '') + (n.note ? '<span>📝 ' + esc(n.note) + '</span>' : '') + (n.by ? '<small>' + esc(n.by) + '</small>' : '') + '</div>'; };
+  async function openNote(g) {
+    const n = noteOf(g) || { status: '', note: '' }, L = NST();
+    const ov = modal('<h3>حالة النقل والملاحظة</h3><p class="sub">' + esc(gTitle(g)) + '</p><div class="nsel">' +
+      [['', 'بلا حالة']].concat(Object.keys(L).map(k => [k, L[k]])).map(([k, l]) => '<label class="qc' + (n.status === k ? ' on' : '') + '"><input type="radio" name="nst" value="' + k + '"' + (n.status === k ? ' checked' : '') + ' hidden>' + esc(l) + '</label>').join('') +
+      '</div><div class="set"><label class="full">ملاحظة (حتى 300 حرف)<textarea id="nTx" maxlength="300" rows="3">' + esc(n.note || '') + '</textarea></label></div><div class="act"><button class="btn green" id="nOk">حفظ</button>' + ((n.status || n.note) ? '<button class="btn" id="nClr">مسح</button>' : '') + '<button class="btn" id="nX">إلغاء</button></div>');
+    ov.querySelectorAll('.nsel input').forEach(r => r.onchange = () => ov.querySelectorAll('.nsel .qc').forEach(l => l.classList.toggle('on', l.firstChild.checked)));
+    const save = async (st, note) => {
+      const auth = await ensureAuth(); if (!auth) return;
+      try {
+        const j = await api('note_set', {}, { kind, key: nkey(g), label: gTitle(g), status: st, note, by: auth.by, pin: auth.pin });
+        if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
+        if (!st && !note) delete state.notes[kind][nkey(g)]; else state.notes[kind][nkey(g)] = { key: nkey(g), status: st, note, by: auth.by, at: '' };
+        try { localStorage.setItem('hajj1447.notes.' + kind, JSON.stringify(state.notes[kind])); } catch (e) { }
+        ov.close(); render(); toast(!st && !note ? 'تم مسح الملاحظة' : 'تم حفظ الحالة والملاحظة', 'ok');
+      } catch (e) { toast('فشل الحفظ: ' + (e.message || e), 'err'); }
+    };
+    $('#nOk', ov).onclick = () => save((ov.querySelector('input[name=nst]:checked') || {}).value || '', $('#nTx', ov).value.trim());
+    if ($('#nClr', ov)) $('#nClr', ov).onclick = () => save('', '');
+    $('#nX', ov).onclick = () => ov.close();
+  }
+  const gAct = g => (g.open === 0
     ? '<button class="btn sm" data-gact="undo" data-key="' + esc(g.key) + '"' + (g.allSyncing ? ' disabled' : '') + '>تراجع</button>'
-    : '<button class="btn sm green" data-gact="ok" data-key="' + esc(g.key) + '"' + (g.allSyncing ? ' disabled' : '') + '>' + ICON.check + (kind === 'arrival' ? 'تسكين' : 'مغادرة') + (g.done ? ' المتبقي' : ' الكل') + '</button>';
+    : '<button class="btn sm green" data-gact="ok" data-key="' + esc(g.key) + '"' + (g.allSyncing ? ' disabled' : '') + '>' + ICON.check + (kind === 'arrival' ? 'تسكين' : 'مغادرة') + (g.done ? ' المتبقي' : ' الكل') + '</button>') + '<button class="btn sm" data-gnote="' + esc(g.key) + '" title="حالة النقل وملاحظة" aria-label="حالة النقل وملاحظة">📝</button>';
   const ppBtn = g => '<button class="btn sm sky" data-grp="' + esc(g.key) + '">' + ICON.eye + 'الجوازات (' + g.rows.length + ')</button>';
   const tpOn = () => !!(S.transport && S.transport[kind]);
   const gTransport = g => tpOn() ? C.transportFor(g.airCity, g.stayCity, g.pax, S.transport.busMin) : null;
@@ -1447,7 +1634,7 @@ function initTracker(kind) {
         case 'pax': return '<td><b class="num" style="font-size:17px">' + g.pax + '</b><div class="bar" style="width:70px;margin-top:4px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div></td>';
         case 'nat': return '<td>' + natChips(g, 3) + '</td>';
         case 'pp': return '<td>' + ppBtn(g) + '</td>';
-        case 'st': return '<td>' + stChip(g) + '</td>';
+        case 'st': return '<td>' + stChip(g) + noteChip(g) + '</td>';
         case 'act': return '<td>' + gAct(g) + '</td>';
       }
       return '<td></td>';
@@ -1463,11 +1650,86 @@ function initTracker(kind) {
       '<article class="gcard ' + (g.open === 0 ? 'done ' : '') + (g.open && g.cls === 'danger' ? 'danger ' : g.open && g.cls === 'warn' ? 'warn ' : '') + '">' +
       '<header><label class="chk"><input type="checkbox" data-sel="' + esc(g.key) + '"' + (ui.sel.has(g.key) ? ' checked' : '') + ' aria-label="تحديد"></label><div class="gt"><b class="no">' + esc(g.flight) + '</b>' + (g.airline ? '<div class="sub">' + esc(g.airline) + '</div>' : '') + '</div><div class="gs">' + stChip(g) + '</div></header>' +
       '<div class="gbig"><div><b class="num">' + g.pax + '</b><span>فرد</span></div><div class="gcd">' + gCd(g) + '</div></div>' +
-      '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
+      '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' + noteChip(g) +
       '<dl class="gkv"><div><dt>' + (kind === 'arrival' ? 'الموعد' : 'الإقلاع') + '</dt><dd>' + gWhen(g) + mvHtml(g) + '</dd></div>' + (ci.air ? '<div><dt>' + (kind === 'arrival' ? 'مطار الوصول' : 'مطار المغادرة') + '</dt><dd>' + twoLine(g.airport, airCityTxt(g)) + '</dd></div>' : '') + ((g.hotel || ci.stay) ? '<div><dt>الفندق</dt><dd>' + twoLine(g.hotel, stayCityTxt(g)) + '</dd></div>' : '') + (ci.tp ? '<div><dt>وسيلة النقل</dt><dd>' + tpHtml(gTransport(g)) + '</dd></div>' : '') + '</dl>' +
       natChips(g, 4) + '<footer>' + ppBtn(g) + gAct(g) + '</footer></article>').join('') + '</div>';
   }
 
+  /* ---- مرشحات سريعة ورابط العرض ---- */
+  const dayOf = off => C.fmtDay(new Date(Date.now() + off * 864e5));
+  function drawChips() {
+    const defs = [['all', 'الكل', ui.status === 'all' && ui.day === 'all' && ui.flight === 'all' && !ui.q && ui.nat === 'all'], ['danger', 'حرجة / متأخرة', ui.status === 'danger'], ['warn', 'تستدعي الانتباه', ui.status === 'warn'], ['open', K.openL, ui.status === 'open'], ['today', 'اليوم', ui.day === dayOf(0)], ['tomorrow', 'غداً', ui.day === dayOf(1)]];
+    $('#qchips').innerHTML = defs.map(d => '<button type="button" class="qc' + (d[2] ? ' on' : '') + '" data-qc="' + d[0] + '">' + d[1] + '</button>').join('') + '<button type="button" class="qc link" data-qc="link" title="نسخ رابط هذا العرض">🔗 نسخ رابط العرض</button>';
+  }
+  function viewLink() {
+    const p = new URLSearchParams(); ['status', 'q', 'day', 'nat', 'flight'].forEach(k => { if (ui[k] && ui[k] !== 'all') p.set(k, ui[k]); });
+    return location.origin + location.pathname + (p.toString() ? '?' + p : '') + location.hash;
+  }
+  function copyText(t, okMsg) {
+    const fb = () => { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); toast(okMsg, 'ok'); } catch (e) { toast('تعذّر النسخ', 'err'); } a.remove(); };
+    (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t).then(() => toast(okMsg, 'ok'), fb) : fb());
+  }
+  function qChip(v) {
+    ui.limit = 150;
+    if (v === 'link') { copyText(viewLink(), 'نُسخ رابط العرض'); return; }
+    if (v === 'all') { ui.status = 'all'; ui.day = 'all'; ui.flight = 'all'; ui.nat = 'all'; ui.q = ''; $('#fQ').value = ''; }
+    else if (v === 'today' || v === 'tomorrow') { const d = dayOf(v === 'today' ? 0 : 1); ui.day = ui.day === d ? 'all' : d; }
+    else ui.status = ui.status === v ? 'all' : v;
+    render();
+  }
+  /* ---- ملخص الرحلة: نص للمشاركة وورقة للطباعة ---- */
+  const flightLink = fg => { const u = new URL(kind + '.html', location.href); u.search = '?flight=' + encodeURIComponent(fg.key); return u.href + (CONN.webapp ? '#w=' + b64e(CONN.webapp) : ''); };
+  const hotelGroups = fg => C.groupRecords(fg.rows).sort((a, b) => (a.hotel || '').localeCompare(b.hotel || '', 'ar'));
+  function flightText(fg) {
+    const dep = kind === 'departure', ref = refOf(fg);
+    const L = [(dep ? '✈️ مغادرة — رحلة ' : '✈️ وصول — رحلة ') + fg.flight + (fg.airline ? ' (' + fg.airline + ')' : ''),
+      (dep ? 'الإقلاع: ' : 'الوصول: ') + (fg.when ? C.fmtDayAr(fg.when) + ' · ' + C.fmtTime(fg.when) : '—')];
+    if (dep && ref && fg.when && ref.getTime() !== fg.when.getTime()) L.push('أبكر تحرك: ' + C.fmtDayAr(ref) + ' · ' + C.fmtTime(ref));
+    L.push('العدد: ' + fg.pax + ' فرد · ' + (dep ? 'غادر ' : 'سُكّن ') + fg.done);
+    const air = fg.rows.find(r => r.airport); if (air) L.push('المطار: ' + air.airport);
+    L.push('');
+    hotelGroups(fg).forEach(g => {
+      const parts = [g.hotel || 'فندق غير محدد']; const cn = C.cityName(g.stayCity, g.stayCityRaw); if (cn) parts.push(cn);
+      L.push('🏨 ' + parts.join(' — ') + ' (' + g.pax + ')');
+      const nt = noteOf(g); if (nt && (nt.status || nt.note)) L.push('   ' + (nt.status ? '🚦 ' + NST()[nt.status] : '') + (nt.note ? ' 📝 ' + nt.note : ''));
+      const tp = gTransport(g), mv = moveTxt(g); const x = [tp ? 'النقل: ' + C.TRANSPORT[tp].ar : '', mv ? 'التحرك: ' + mv : ''].filter(Boolean).join(' · '); if (x) L.push('   ' + x);
+    });
+    L.push('', 'الرابط: ' + flightLink(fg));
+    return L.join('\n');
+  }
+  function openShare(fg) {
+    const txt = flightText(fg);
+    const ov = modal('<h3>ملخص الرحلة ' + esc(fg.flight) + '</h3><textarea id="shTx" rows="12" style="width:100%;font:inherit;direction:rtl" readonly></textarea><div class="act"><button class="btn green" id="shCp">نسخ</button><a class="btn sky" id="shWa" target="_blank" rel="noopener">واتساب</a><button class="btn" id="shPr">ورقة للطباعة</button><button class="btn" id="shX">إغلاق</button></div>');
+    $('#shTx', ov).value = txt; $('#shWa', ov).href = 'https://wa.me/?text=' + encodeURIComponent(txt);
+    $('#shCp', ov).onclick = () => copyText(txt, 'نُسخ الملخص'); $('#shX', ov).onclick = () => ov.close(); $('#shPr', ov).onclick = () => printSheet(fg);
+  }
+  let qrP = null;
+  const loadQr = () => qrP || (qrP = new Promise(res => { if (window.qrcode) return res(true); const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'; sc.onload = () => res(!!window.qrcode); sc.onerror = () => res(false); document.head.appendChild(sc); setTimeout(() => res(!!window.qrcode), 4000); }));
+  async function printSheet(fg) {
+    const link = flightLink(fg); let qr = '';
+    if (await loadQr()) { try { const q = window.qrcode(0, 'L'); q.addData(link); q.make(); qr = q.createSvgTag(4, 0); } catch (e) { } }
+    const dep = kind === 'departure', ref = refOf(fg), gs = hotelGroups(fg);
+    const rows = gs.map((g, i) => { const tp = gTransport(g); return '<tr><td>' + (i + 1) + '</td><td>' + esc(g.hotel || '—') + '</td><td>' + esc(C.cityName(g.stayCity, g.stayCityRaw)) + '</td><td>' + g.pax + '</td><td>' + esc(g.natList.map(n => n.label + ' (' + n.n + ')').join('، ')) + '</td><td>' + esc(tp ? C.TRANSPORT[tp].ar : '') + '</td><td>' + esc(moveTxt(g)) + '</td><td>' + esc((() => { const n = noteOf(g); return n ? [n.status ? NST()[n.status] : '', n.note].filter(Boolean).join(' — ') : ''; })()) + '</td><td>' + (g.open ? '☐' : '☑') + '</td></tr>'; }).join('');
+    const html = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>رحلة ' + esc(fg.flight) + '</title><style>@page{size:A4;margin:12mm}body{font-family:Tahoma,Arial,sans-serif;color:#000;font-size:13px}h1{margin:0 0 4px;font-size:22px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px}.meta div{margin:2px 0}table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:5px 7px;text-align:right}th{background:#eee}.qr svg{width:110px;height:110px}.ft{margin-top:10px;font-size:11px;color:#555}</style></head><body><div class="top"><div class="meta"><h1>' + (dep ? 'مغادرة' : 'وصول') + ' — رحلة ' + esc(fg.flight) + '</h1>' +
+      '<div>' + (dep ? 'الإقلاع: ' : 'الوصول: ') + esc(fg.when ? C.fmtDayAr(fg.when) + ' · ' + C.fmtTime(fg.when) : '—') + (dep && ref && fg.when && ref.getTime() !== fg.when.getTime() ? ' | أبكر تحرك: ' + esc(C.fmtTime(ref)) : '') + '</div><div>الناقل: ' + esc(fg.airline || '—') + ' | العدد: ' + fg.pax + ' فرد</div></div>' +
+      '<div class="qr">' + (qr || '<small dir="ltr">' + esc(link) + '</small>') + '</div></div><table><thead><tr><th>#</th><th>الفندق</th><th>المدينة</th><th>العدد</th><th>الجنسيات</th><th>النقل</th><th>التحرك</th><th>ملاحظة</th><th>تم</th></tr></thead><tbody>' + rows + '</tbody></table><div class="ft">طُبع: ' + esc(C.fmtDayAr(new Date()) + ' ' + C.fmtTime(new Date())) + '</div></body></html>';
+    const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0'; document.body.appendChild(fr);
+    fr.contentDocument.open(); fr.contentDocument.write(html); fr.contentDocument.close();
+    setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { toast('تعذّرت الطباعة', 'err'); } setTimeout(() => fr.remove(), 4000); }, 250);
+  }
+  /* ---- دلالات الألوان ---- */
+  function openLegend() {
+    const rows = Object.keys(ST).filter(k => ST_LABEL[kind][k]).map(k => '<div class="lg"><span class="chip ' + ST[k].cls + '">' + esc(ST_LABEL[kind][k]) + '</span></div>').join('');
+    modal('<h3>دلالات الحالات والألوان</h3><div class="lgs">' + rows + '</div><p class="hint" style="margin-top:12px">الأحمر: يحتاج إجراءً فورياً · الكهرماني: يستدعي الانتباه · الأزرق: قادم · الأخضر: مكتمل · الرمادي: بلا موعد. حدّا التنبيه (حرج/تحذير/تأخر) يضبطهما المالك من ⚙.</p><div class="act"><button class="btn" data-n>إغلاق</button></div>').querySelector('[data-n]').onclick = e => e.target.closest('.ov').close();
+  }
+  /* ---- تنبيه صوتي / إشعار المتصفح ---- */
+  const bellOn = () => lsGet('hajj1447.bell') === '1';
+  function drawBell() { const b = $('#bBell'); if (b) { b.classList.toggle('on', bellOn()); b.setAttribute('aria-pressed', bellOn()); } }
+  function beep() { try { const A = window.AudioContext || window.webkitAudioContext, c = new A(), o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = 880; o.connect(g); g.connect(c.destination); g.gain.setValueAtTime(.2, c.currentTime); g.gain.exponentialRampToValueAtTime(.001, c.currentTime + .6); o.start(); o.stop(c.currentTime + .6); setTimeout(() => c.close(), 900); } catch (e) { } }
+  function notifyNew(n) {
+    if (!bellOn()) return; beep();
+    try { if ('Notification' in window && Notification.permission === 'granted' && document.hidden) new Notification(K.title, { body: n + ' حالة حرجة جديدة' }); } catch (e) { }
+  }
   function render() {
     const d = state.data[kind], now = Date.now();
     const stale = $('#stale');
@@ -1477,7 +1739,7 @@ function initTracker(kind) {
       ['#list', '#more', '#bulk', '#alertbar'].forEach(id => { const e = $(id); if (e) { e.innerHTML = ''; if (id === '#bulk') e.hidden = true; } }); if ($('#cnt')) $('#cnt').textContent = '';
       $('#kpis').innerHTML = '<div class="empty" style="grid-column:1/-1">' + (state.err[kind] ? 'تعذّر تحميل البيانات.' : 'جارٍ تحميل البيانات…') + '</div>'; return;
     }
-    stale.innerHTML = state.err[kind] ? '<div class="stale">⚠ تعذّر التحديث الأخير (' + esc(state.err[kind]) + ') — تُعرض آخر بيانات محفوظة.</div>' : (d.warn ? '<div class="stale">⚠ ' + esc(d.warn) + ' <button class="btn sm" id="stSet2">الإعدادات</button></div>' : '');
+    stale.innerHTML = state.err[kind] ? '<div class="stale">⚠ تعذّر التحديث الأخير (' + esc(state.err[kind]) + ') — تُعرض آخر بيانات محفوظة قبل ' + fmtAge(now - (state.sync[kind] || now)) + '.</div>' : (d.warn ? '<div class="stale">⚠ ' + esc(d.warn) + ' <button class="btn sm" id="stSet2">الإعدادات</button></div>' : '');
     if ($('#stSet2')) $('#stSet2').onclick = () => openSettings(false);
     const R = recs(); ridx = new Map(R.map(r => [r.row, r]));
     const sm = C.summarize(R, now, S);
@@ -1494,7 +1756,7 @@ function initTracker(kind) {
       '<div class="kpi sky"><div class="l">أقرب رحلة</div><div class="v" style="font-size:25px;padding-top:5px">' + (nextG ? '<span class="cd" data-w="' + nextG.when.getTime() + '"></span>' : '—') + '</div><div class="s">' + (nextG ? esc(nextG.flight) + ' · ' + C.fmtTime(nextG.when) + ' · ' + nextG.pax + ' فرد' : 'لا توجد رحلات قادمة') + '</div></div>';
     $('#alertbar').innerHTML = sm.dangerRows ? '<div class="alertbar" data-kpi="danger"><span class="dot"></span><b>تنبيه:</b> ' + sm.dangerRows + ' سجل في حالة حرجة أو متأخرة ويحتاج إلى إجراء فوري <span class="sp"></span><span class="hint">عرض</span></div>' : '';
     const dk = new Set(R.filter(r => ST[r._st].cls === 'danger').map(r => pkey(r)));
-    if (prevDanger) { let n = 0; dk.forEach(k => { if (!prevDanger.has(k)) n++; }); if (n) toast('تنبيه: ' + n + ' حالة حرجة جديدة', 'err'); }
+    if (prevDanger) { let n = 0; dk.forEach(k => { if (!prevDanger.has(k)) n++; }); if (n) { toast('تنبيه: ' + n + ' حالة حرجة جديدة', 'err'); notifyNew(n); } }
     prevDanger = dk;
 
     // شريط الرحلات
@@ -1505,6 +1767,7 @@ function initTracker(kind) {
     const nv = ui.nat; $('#fNat').innerHTML = '<option value="all">كل الجنسيات</option>' + [...nats.entries()].sort((a, b) => a[1].localeCompare(b[1], 'ar')).map(([k, v]) => '<option value="' + esc(k) + '">' + esc(v) + '</option>').join(''); $('#fNat').value = nv;
     const days = [...new Set(R.filter(r => r.when).map(r => C.fmtDay(r.when)))].sort();
     const dv = ui.day; $('#fDay').innerHTML = '<option value="all">كل الأيام</option>' + days.map(k => '<option value="' + k + '">' + k.slice(5).replace('-', '/') + '</option>').join(''); $('#fDay').value = dv;
+    $('#fStatus').value = ui.status; drawChips();
     $$('.seg [data-view]').forEach(b => { const on = b.dataset.view === ui.view; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
 
     // القائمة
@@ -1589,14 +1852,16 @@ function initTracker(kind) {
   /* ---- أحداث الصفحة ---- */
   async function doWrite(list, value, label) {
     list = list.filter(r => r.done !== value && !r.syncing); if (!list.length) return;
-    if (list.length > 1 && !(await confirmBox(label, 'سيتم تحديث ' + list.length + ' سجل في Google Sheets. متابعة؟', 'نعم، تنفيذ'))) return;
+    if (list.length > 1 && !(await confirmBox(label, 'سيتم تحديث ' + list.length + ' سجل في Google Sheets' + (ctxOf(list) ? ' (' + ctxOf(list) + ')' : '') + '. متابعة؟', 'نعم، تنفيذ'))) return;
     await writeChecks(kind, list, value);
   }
   app.addEventListener('click', e => {
     const t = e.target; let el;
+    if ((el = t.closest('[data-gnote]'))) { const g = gmap.get(el.dataset.gnote); if (g) openNote(g); return; }
     if ((el = t.closest('[data-gact]'))) { const g = gmap.get(el.dataset.key); if (g) doWrite(g.rows, el.dataset.gact === 'ok', K.act + ' — ' + gTitle(g)); return; }
     if ((el = t.closest('[data-grp]'))) { openGroup(el.dataset.grp, el.dataset.nat); return; }
     if ((el = t.closest('[data-view]'))) { ui.view = el.dataset.view; try { localStorage.setItem(LS_VIEW, ui.view); } catch (x) { } render(); return; }
+    if ((el = t.closest('[data-fshare]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fshare); if (g) openShare(g); return; }
     if ((el = t.closest('[data-fok]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fok); if (g) doWrite(g.rows, true, K.act + ' — رحلة ' + g.flight); return; }
     if ((el = t.closest('[data-sec]'))) { ui.sec = ui.sec === el.dataset.sec ? null : el.dataset.sec; if (lastFl) drawRail(lastFl, Date.now()); tick(); return; }
     if ((el = t.closest('[data-flight]'))) { ui.flight = ui.flight === el.dataset.flight ? 'all' : el.dataset.flight; ui.limit = 150; render(); return; }
@@ -1612,6 +1877,9 @@ function initTracker(kind) {
     if (t.matches('[data-sel]')) { t.checked ? ui.sel.add(t.dataset.sel) : ui.sel.delete(t.dataset.sel); render(); return; }
     if (t.matches('[data-selall]')) { shownGroups.slice(0, ui.limit).forEach(g => t.checked ? ui.sel.add(g.key) : ui.sel.delete(g.key)); render(); }
   });
+  $('#qchips').addEventListener('click', e => { const b = e.target.closest('[data-qc]'); if (b) qChip(b.dataset.qc); });
+  $('#bLegend').onclick = openLegend; drawBell();
+  $('#bBell').onclick = () => { const on = !bellOn(); lsSet('hajj1447.bell', on ? '1' : ''); drawBell(); if (on) { beep(); try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) { } toast('فُعّل التنبيه الصوتي للحالات الحرجة الجديدة', 'ok'); } else toast('أُوقف التنبيه الصوتي', 'ok'); };
   $('#fQ').oninput = e => { ui.q = e.target.value; ui.limit = 150; render(); };
   $('#fStatus').onchange = e => { ui.status = e.target.value; render(); };
   $('#fNat').onchange = e => { ui.nat = e.target.value; render(); };
@@ -1672,8 +1940,30 @@ function initDashboard() {
     '<section class="panel"><h2>نسب الإنجاز</h2><div class="rings" id="rings"></div></section></div>' +
     '<div class="grid2 even"><section class="panel"><h2>الوصول حسب اليوم</h2><div class="chartbox"><canvas id="chA"></canvas></div></section><section class="panel"><h2>المغادرة حسب اليوم</h2><div class="chartbox"><canvas id="chD"></canvas></div></section></div>' +
     '<div class="grid2"><section class="panel"><h2>حركة الرحلات خلال 24 ساعة القادمة</h2><div class="chartbox"><canvas id="chH"></canvas></div></section><section class="panel"><div class="panel-h"><h2>الجوازات حسب الجنسية</h2><span class="hint" id="natCnt"></span></div><div class="natl" id="nat"></div></section></div>' +
+    '<section class="panel"><h2>الحجاج حسب المدينة</h2><div class="cities" id="cities"></div></section>' +
+    '<section class="panel"><div class="panel-h"><h2>الطلب على النقل حسب الساعة</h2><div class="qchips" id="tpSw" style="flex:none"></div></div><div id="tpNote"></div><div class="chartbox"><canvas id="chT"></canvas></div></section>' +
     '<section class="panel"><h2>تنبيهات حرجة تحتاج إجراءً</h2><div class="nxt feed" id="feed"></div></section>';
-  let snap = null;
+  let snap = null; const tps = { kind: 'arrival', off: 0 };
+  function cityPanel(A, D) {
+    const ids = ['makkah', 'madinah', 'jeddah', ''], m = {}; ids.forEach(i => m[i] = { a: 0, ad: 0, d: 0, dd: 0 });
+    const add = (R, k, kd) => R && R.forEach(r => { const o = m[C.CITY_DEF[r.stayCity] ? r.stayCity : '']; o[k] += r.pax; if (r.done) o[kd] += r.pax; });
+    add(A && A.records, 'a', 'ad'); add(D && D.records, 'd', 'dd');
+    $('#cities').innerHTML = ids.filter(i => i || m[i].a || m[i].d).map(i => { const o = m[i]; return '<div class="city"><h3>' + esc(i ? C.CITY_DEF[i].ar : 'مدينة غير محددة') + '</h3><div class="cr"><span>قادمون</span><b class="num">' + o.a + '</b><small>سُكّن ' + o.ad + '</small></div><div class="cr"><span>مغادرون</span><b class="num">' + o.d + '</b><small>غادر ' + o.dd + '</small></div></div>'; }).join('');
+  }
+  function tpPanel(A, D) {
+    const sw = [['arrival', 'وصول'], ['departure', 'مغادرة'], ['0', 'اليوم'], ['1', 'غداً']];
+    $('#tpSw').innerHTML = sw.map(([v, l]) => '<button type="button" class="qc' + ((v === tps.kind || v === String(tps.off)) ? ' on' : '') + '" data-tps="' + v + '">' + l + '</button>').join('');
+    const R = tps.kind === 'arrival' ? A : D, on = !!(S.transport && S.transport[tps.kind]);
+    $('#tpNote').innerHTML = !on ? '<div class="note">ℹ وسيلة النقل غير مفعّلة لهذه الحركة — يفعّلها المالك من ⚙.</div>' : '';
+    const day = C.fmtDay(new Date(Date.now() + tps.off * 864e5)), hrs = [...Array(24).keys()], dat = { bus: Array(24).fill(0), car: Array(24).fill(0), train: Array(24).fill(0) };
+    if (on && R) C.groupRecords(R.records).forEach(g => {
+      const tp = C.transportFor(g.airCity, g.stayCity, g.pax, S.transport.busMin); if (!tp || !g.when) return;
+      const t = tps.kind === 'departure' ? (C.movementTime(g.when, g.stayCity, g.airCity, S.lead) || g.when) : g.when;
+      if (C.fmtDay(t) !== day) return; dat[tp][+C.fmtTime(t).slice(0, 2)] += g.pax;
+    });
+    const st = { x: { stacked: true, ticks: { color: css('--mut'), maxRotation: 0 }, grid: { display: false } }, y: { stacked: true, beginAtZero: true, ticks: { color: css('--mut'), precision: 0 }, grid: { color: 'rgba(147,166,191,.15)' } } };
+    chart('chT', 'bar', { labels: hrs.map(h => String(h).padStart(2, '0') + ':00'), datasets: [{ label: 'حافلة', data: dat.bus, backgroundColor: '#C5A059' }, { label: 'سيارة', data: dat.car, backgroundColor: '#0EA5E9' }, { label: 'قطار', data: dat.train, backgroundColor: '#34C47A' }] }, { scales: st });
+  }
 
   function nxList(kind) {
     const d = state.data[kind], now = Date.now(); if (!d) return '<div class="empty">—</div>';
@@ -1723,8 +2013,10 @@ function initDashboard() {
     const items = []; [['arrival', A], ['departure', D]].forEach(([k, d]) => d && d.records.forEach(r => { if (ST[r._st] && ST[r._st].cls === 'danger') items.push({ k, r }); }));
     items.sort((x, y) => ST[y.r._st].lv - ST[x.r._st].lv || (x.r.when || 0) - (y.r.when || 0));
     $('#feed').innerHTML = items.length ? items.slice(0, 12).map(({ k, r }) => '<a class="nx" href="' + k + '.html?q=' + encodeURIComponent(r.passport || r.name) + '"><span class="no">' + esc(r.flight || '—') + '</span><span class="i">' + esc(r.name || '—') + '<small>' + (k === 'arrival' ? 'وصول' : 'مغادرة') + ' · ' + esc(r.country ? r.country.ar : r.natRaw) + '</small></span><span class="chip danger">' + esc(ST_LABEL[k][r._st]) + '</span><span class="c">' + (r.when ? '<span class="cd" data-w="' + r.when.getTime() + '"></span>' : '') + '</span></a>').join('') + (items.length > 12 ? '<div class="hint" style="padding:6px">+ ' + (items.length - 12) + ' أخرى — افتح صفحة الوصول/المغادرة وصفِّ بـ «حرجة»</div>' : '') : '<div class="empty" style="padding:18px">لا توجد تنبيهات حرجة حالياً ✓</div>';
+    cityPanel(A, D); tpPanel(A, D);
     tick();
   }
+  $('#tpSw').addEventListener('click', e => { const b = e.target.closest('[data-tps]'); if (!b) return; const v = b.dataset.tps; if (v === 'arrival' || v === 'departure') tps.kind = v; else tps.off = +v; tpPanel(state.data.arrival, state.data.departure); });
   $('#xPrint').onclick = () => window.print();
   $('#xXls').onclick = async () => {
     const A = state.data.arrival, D = state.data.departure; if (!A && !D) return toast('لا توجد بيانات بعد', 'warn');
@@ -1751,13 +2043,31 @@ function startAuto() {
   clearInterval(timer); if (!sourceReady()) return;
   timer = setInterval(() => { if (!document.hidden) refresh(); }, Math.max(10, S.refreshSec) * 1000);
 }
+/* ---------------- تثبيت كتطبيق (PWA) ---------------- */
+let instEv = null;
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function initInstall() {
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => { });
+  if (isStandalone()) return;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent), tools = $('#nav .tools'); if (!tools) return;
+  const b = document.createElement('button'); b.className = 'ibtn'; b.id = 'bInst'; b.type = 'button'; b.hidden = true; b.title = 'تثبيت كتطبيق على الجوال'; b.setAttribute('aria-label', 'تثبيت التطبيق'); b.textContent = '⤓';
+  tools.insertBefore(b, tools.firstChild);
+  b.onclick = async () => {
+    if (instEv) { instEv.prompt(); try { await instEv.userChoice; } catch (e) { } instEv = null; b.hidden = true; return; }
+    const ov = modal('<h3>تثبيت التطبيق</h3><p>' + (ios ? 'في Safari: اضغط زر المشاركة ⬆ ثم «إضافة إلى الشاشة الرئيسية».' : 'من قائمة المتصفح ⋮ اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».') + '</p><p class="hint">ملاحظة: على آيفون يحتفظ التطبيق المثبّت ببيانات منفصلة عن Safari، فافتح رابط الزوار من داخله مرة واحدة، أو اطلب من المالك تثبيت الخادم عبر config.js فيعمل مباشرة.</p><div class="act"><button class="btn" data-n>إغلاق</button></div>');
+    ov.querySelector('[data-n]').onclick = () => ov.close();
+  };
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instEv = e; b.hidden = false; });
+  window.addEventListener('appinstalled', () => { b.hidden = true; });
+  if (ios) b.hidden = false;
+}
 async function boot() {
   let th = 'dark'; try { th = localStorage.getItem(LS_THEME) || 'dark'; } catch (e) { }
   document.documentElement.dataset.theme = th;
   const page = document.body.dataset.page;
   kindsInUse = page === 'index' ? ['arrival', 'departure'] : [page];
   await initConnection();
-  renderNav(page); if (REMOTE.configured) hydrate(kindsInUse); else if (!REMOTE.error) clearCaches();
+  renderNav(page); initInstall(); if (REMOTE.configured) hydrate(kindsInUse); else if (!REMOTE.error) clearCaches();
   if (page === 'index') initDashboard(); else initTracker(page);
   setInterval(() => tick(), 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && sourceReady() && Date.now() - lastTry > S.refreshSec * 1000) refresh(); });

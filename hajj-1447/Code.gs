@@ -19,15 +19,22 @@ const CONFIG = {
 
   // أسماء أعمدة التأكيد الافتراضية ونص التأكيد المكتوب فيها (للمالك تغيير العمود من «ربط الأعمدة»)
   KINDS: {
-    arrival:   { checkHeader: 'Check',    atHeader: 'Check_At',    textOn: 'تم التسكين'   },
-    departure: { checkHeader: 'Check_De', atHeader: 'Check_De_At', textOn: 'تمت المغادرة' }
+    arrival:   { checkHeader: 'Check',    atHeader: 'Check_At',    byHeader: 'Check_By',    textOn: 'تم التسكين'   },
+    departure: { checkHeader: 'Check_De', atHeader: 'Check_De_At', byHeader: 'Check_De_By', textOn: 'تمت المغادرة' }
   },
   // 'text' → يكتب نص التأكيد، وعند التراجع يفرّغ الخلية | 'boolean' → TRUE/FALSE
   WRITE_AS: 'text',
   TEXT_OFF: '',
 
   SESSION_HOURS: 6,        // مدة جلسة المالك (الحد الأقصى 6 ساعات)
-  MAX_OPS: 50              // أقصى عدد سجلات في طلب كتابة واحد
+  MAX_OPS: 50,             // أقصى عدد سجلات في طلب كتابة واحد
+  LOG_SHEET: 'Log',        // تبويب سجل التأكيدات (يُنشأ تلقائياً)
+  NOTES_SHEET: 'Notes',    // تبويب الملاحظات وحالة النقل للمجموعات (يُنشأ تلقائياً)
+  BACKUP_PREFIX: 'Backup_',// بادئة تبويبات النسخ الاحتياطي داخل الملف
+  BACKUP_KEEP: 12,         // عدد النسخ المحتفظ بها لكل صفحة (الأقدم يُحذف)
+  BACKUP_BULK_MIN: 10,     // نسخة تلقائية قبل أي كتابة جماعية بهذا العدد أو أكثر
+  BACKUP_GAP_MIN: 30,      // لا تُكرَّر نسخة الكتابة الجماعية قبل مرور هذه الدقائق
+  BACKUP_HOUR: 3           // ساعة النسخ اليومي (بتوقيت الملف)
 };
 
 const PROP_KEY = 'HAJJ_SETTINGS';
@@ -45,6 +52,11 @@ function doGet(e) {
       case 'owner_save':  requireOwner_(p); return json_(ownerSave_(payload_(p)));
       case 'owner_test':  requireOwner_(p); return json_(ownerTest_(payload_(p)));
       case 'owner_reset': requireOwner_(p); PropertiesService.getScriptProperties().deleteProperty(PROP_KEY); return json_({ ok: true });
+      case 'owner_backup':       requireOwner_(p); return json_(backupNow_('يدوي'));
+      case 'owner_backup_info':  requireOwner_(p); return json_(backupInfo_());
+      case 'owner_backup_daily': requireOwner_(p); return json_(backupDaily_(payload_(p).on === true));
+      case 'notes_get':   return json_(notesGet_(p));
+      case 'note_set':    return json_(noteSet_(payload_(p), isOwner_(p.s)));
       case 'read':        return json_(read_(p));
       case 'write':       return json_(write_(payload_(p), isOwner_(p.s)));
       default:            return json_({ ok: true, service: 'hajj-sync', v: 3 });
@@ -90,23 +102,25 @@ function settings_() {
 function publicSettings_(st) {
   const o = JSON.parse(JSON.stringify(st));
   if (o.source) delete o.source.link;
-  delete o.sheetId; delete o.passCol;
+  delete o.sheetId; delete o.passCol; delete o.pin;
+  o.pinSet = !!st.pin;
   return o;
 }
 function publicInfo_() {
   const st = settings_();
   return { ok: true, service: 'hajj-sync', v: 3, configured: !!st, settings: st ? publicSettings_(st) : null };
 }
+function ownerView_(st) { if (!st) return st; const o = JSON.parse(JSON.stringify(st)); o.pinSet = !!st.pin; delete o.pin; return o; }
 function ownerGet_() {
   const st = settings_();
-  return { ok: true, email: CONFIG.OWNER_EMAIL, configured: !!st, settings: st };
+  return { ok: true, email: CONFIG.OWNER_EMAIL, configured: !!st, settings: ownerView_(st) };
 }
 function num_(v, d, lo, hi) { v = Number(v); return isFinite(v) && v >= lo && v <= hi ? v : d; }
 function str_(v, max) { return typeof v === 'string' ? v.trim().slice(0, max) : ''; }
 function sheetIdFromLink_(l) { const m = /\/d\/([a-zA-Z0-9_-]{20,})/.exec(String(l || '')); return m ? m[1] : ''; }
 
 // تنقية صارمة: لا يُحفظ إلا ما نعرفه وبحدود محددة
-function clean_(o) {
+function clean_(o, old) {
   o = o || {};
   const src = o.source || {}, ld = o.lead || {}, tp = o.transport || {}, pm = o.perms || {}, pc = o.passCol || {};
   const link = str_(src.link, 400);
@@ -120,7 +134,8 @@ function clean_(o) {
     lead: {},
     transport: { arrival: tp.arrival !== false, departure: tp.departure !== false, busMin: num_(tp.busMin, 4, 1, 100) },
     map: { arrival: {}, departure: {} },
-    perms: { showPassports: pm.showPassports === true },
+    perms: { showPassports: pm.showPassports === true, confirm: (pm.confirm === 'pin' || pm.confirm === 'off') ? pm.confirm : 'all' },
+    pin: o.pin === undefined ? ((old && old.pin) || '') : str_(String(o.pin), 32),
     passCol: { arrival: pcol_(pc.arrival), departure: pcol_(pc.departure) },
     updatedAt: Date.now()
   };
@@ -135,13 +150,14 @@ function clean_(o) {
 function pcol_(v) { if (v === null || v === undefined || v === '') return null; v = Number(v); return (isFinite(v) && v >= 0 && v < 200 && v === Math.floor(v)) ? v : null; }
 
 function ownerSave_(o) {
-  const st = clean_(o);
+  const st = clean_(o, settings_());
+  if (st.perms.confirm === 'pin' && !st.pin) return { ok: false, error: 'حدّد رمز المشرف أولاً (وضع التأكيد بالرمز)' };
   const ss = openSS_(st);                       // يتحقق أن الملف مفتوح
   const tabs = ss.getSheets().map(function (s) { return s.getName(); });
   const miss = [st.source.arrivalTab, st.source.departureTab].filter(function (t) { return tabs.indexOf(t) < 0; });
   if (miss.length) return { ok: false, error: 'لا توجد صفحة باسم «' + miss.join('» و«') + '». الصفحات الموجودة: ' + tabs.join('، '), tabs: tabs };
   PropertiesService.getScriptProperties().setProperty(PROP_KEY, JSON.stringify(st));
-  return { ok: true, name: ss.getName(), tabs: tabs, settings: st };
+  return { ok: true, name: ss.getName(), tabs: tabs, settings: ownerView_(st) };
 }
 function ownerTest_(req) {
   const st = { sheetId: sheetIdFromLink_(req && req.link) };
@@ -177,12 +193,29 @@ function passCol_(st, kind, headers) {
 }
 
 /* ============================ الكتابة ============================ */
+// صلاحية الكتابة للزائر بحسب وضع المالك (all / pin / off)؛ تعيد null إن سُمح
+function visitorDenied_(st, req, owner) {
+  if (owner) return null;
+  const mode = (st.perms && st.perms.confirm) || 'all';
+  if (mode === 'off') return { ok: false, error: 'readonly' };
+  if (mode === 'pin') {
+    const c = cache_(), pf = Number(c.get('pfails') || 0);
+    if (pf >= 8) return { ok: false, error: 'locked' };
+    if (!st.pin || !safeEq_(String(req.pin || ''), st.pin)) { c.put('pfails', String(pf + 1), 900); return { ok: false, error: 'bad_pin' }; }
+    c.remove('pfails');
+  }
+  return null;
+}
+function byOf_(req, owner) { return cell_(String(req.by || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 40)) || (owner ? 'المالك' : 'زائر'); }
 function write_(req, owner) {
   const st = settings_();
   if (!st) return { ok: false, error: 'not_configured' };
   const kind = req.kind, cfg = CONFIG.KINDS[kind];
   if (!cfg) return { ok: false, error: 'kind غير صالح' };
   const ops = (req.ops || []).slice(0, CONFIG.MAX_OPS);
+  const denied = visitorDenied_(st, req, owner); if (denied) return denied;
+  const by = byOf_(req, owner);
+  if (ops.length >= CONFIG.BACKUP_BULK_MIN) backupIfStale_(st, 'قبل تعديل جماعي');
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
@@ -193,6 +226,7 @@ function write_(req, owner) {
     const colCheck = findCol_(headers, checkName);
     if (colCheck < 0) return { ok: false, error: 'العمود ' + checkName + ' غير موجود في الورقة' };
     const colAt = cfg.atHeader ? findCol_(headers, cfg.atHeader) : -1;
+    const colBy = cfg.byHeader ? findCol_(headers, cfg.byHeader) : -1;
     const masked = !owner && !(st.perms && st.perms.showPassports);
     const pcol = masked ? passCol_(st, kind, headers) : -1;
     const norm = function (col, v) { v = String(v == null ? '' : v).trim(); return (masked && col === pcol) ? mask_(v) : v; };
@@ -214,16 +248,123 @@ function write_(req, owner) {
         const on = op.value === true;
         sh.getRange(row, colCheck + 1).setValue(CONFIG.WRITE_AS === 'text' ? (on ? (cfg.textOn || 'تم') : CONFIG.TEXT_OFF) : on);
         if (colAt >= 0) sh.getRange(row, colAt + 1).setValue(on ? new Date() : '');
+        if (colBy >= 0) sh.getRange(row, colBy + 1).setValue(on ? by : '');
         return { ok: true, row: row };
       } catch (err) {
         return { ok: false, error: String(err.message || err) };
       }
     });
     SpreadsheetApp.flush();
+    log_(st, kind, owner, by, ops[0] && ops[0].value === true, results, String(req.ctx || '').slice(0, 120));
     return { ok: true, results: results, v: 3 };
   } finally {
     try { lock.releaseLock(); } catch (x) { }
   }
+}
+
+/* ============================ الملاحظات وحالة النقل ============================ */
+const NOTE_STATUS = ['', 'vehicle', 'enroute', 'delayed', 'issue'];
+const NOTE_HEAD = ['المفتاح', 'الصفحة', 'الوصف', 'الحالة', 'الملاحظة', 'بواسطة', 'آخر تحديث'];
+function notesSheet_(st, create) {
+  const ss = openSS_(st);
+  let sh = ss.getSheetByName(CONFIG.NOTES_SHEET);
+  if (!sh && create) { sh = ss.insertSheet(CONFIG.NOTES_SHEET); sh.appendRow(NOTE_HEAD); }
+  return sh;
+}
+function notesGet_(p) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  if (p.kind !== 'arrival' && p.kind !== 'departure') return { ok: false, error: 'kind غير صالح' };
+  const sh = notesSheet_(st, false), items = [];
+  if (sh) {
+    const rows = sh.getDataRange().getDisplayValues();
+    const pg = p.kind === 'arrival' ? 'الوصول' : 'المغادرة';
+    for (let i = 1; i < rows.length; i++) if (rows[i][1] === pg && rows[i][0]) items.push({ key: rows[i][0], status: rows[i][3], note: rows[i][4], by: rows[i][5], at: rows[i][6] });
+  }
+  return { ok: true, items: items, ts: Date.now() };
+}
+function noteSet_(req, owner) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  if (req.kind !== 'arrival' && req.kind !== 'departure') return { ok: false, error: 'kind غير صالح' };
+  const denied = visitorDenied_(st, req, owner); if (denied) return denied;
+  const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح المجموعة مفقود' };
+  const status = NOTE_STATUS.indexOf(String(req.status || '')) >= 0 ? String(req.status || '') : '';
+  const note = cell_(String(req.note || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 300));
+  const pg = req.kind === 'arrival' ? 'الوصول' : 'المغادرة', by = byOf_(req, owner);
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const sh = notesSheet_(st, true), rows = sh.getDataRange().getDisplayValues();
+    let at = -1;
+    for (let i = 1; i < rows.length; i++) if (rows[i][0] === key && rows[i][1] === pg) { at = i + 1; break; }
+    const cleared = !status && !note;
+    if (cleared) { if (at > 0) sh.getRange(at, 1, 1, NOTE_HEAD.length).clearContent(); }
+    else {
+      const rec = [cell_(key), pg, cell_(String(req.label || '').slice(0, 120)), status, note, by, new Date()];
+      if (at > 0) sh.getRange(at, 1, 1, rec.length).setValues([rec]); else sh.appendRow(rec);
+    }
+    SpreadsheetApp.flush();
+    log_(st, req.kind, owner, by, true, [{ ok: true }], 'ملاحظة/حالة: ' + (status || '—') + ' | ' + String(req.label || '').slice(0, 80), cleared ? 'مسح ملاحظة' : 'ملاحظة');
+    return { ok: true, cleared: cleared };
+  } finally { try { lock.releaseLock(); } catch (x) { } }
+}
+
+/* ============================ النسخ الاحتياطي ============================ */
+function stamp_(ss) { return Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyyMMdd-HHmm'); }
+// ينسخ صفحتي الوصول والمغادرة إلى تبويبين جديدين داخل الملف، ويحذف الأقدم
+function backupNow_(why) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const ss = openSS_(st), tag = stamp_(ss), made = [];
+  ['arrival', 'departure'].forEach(function (k) {
+    const src = sheetOf_(st, k), copy = src.copyTo(ss);
+    copy.setName(CONFIG.BACKUP_PREFIX + tag + '_' + (k === 'arrival' ? 'A' : 'D')); made.push(copy.getName());
+    try { copy.hideSheet(); } catch (e) { }
+  });
+  pruneBackups_(ss);
+  PropertiesService.getScriptProperties().setProperty('HAJJ_LAST_BACKUP', JSON.stringify({ at: Date.now(), why: why || '' }));
+  return { ok: true, made: made, why: why || '' };
+}
+function backupIfStale_(st, why) {
+  try {
+    const raw = PropertiesService.getScriptProperties().getProperty('HAJJ_LAST_BACKUP'), last = raw ? JSON.parse(raw).at : 0;
+    if (Date.now() - last > CONFIG.BACKUP_GAP_MIN * 60000) backupNow_(why);
+  } catch (e) { /* النسخة لا تُفشل الكتابة */ }
+}
+function pruneBackups_(ss) {
+  ['A', 'D'].forEach(function (suf) {
+    const list = ss.getSheets().filter(function (s) { const n = s.getName(); return n.indexOf(CONFIG.BACKUP_PREFIX) === 0 && n.slice(-2) === '_' + suf; })
+      .sort(function (a, b) { return a.getName() < b.getName() ? 1 : -1; });
+    list.slice(CONFIG.BACKUP_KEEP).forEach(function (s) { ss.deleteSheet(s); });
+  });
+}
+function backupInfo_() {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const ss = openSS_(st), props = PropertiesService.getScriptProperties().getProperty('HAJJ_LAST_BACKUP');
+  const names = ss.getSheets().map(function (s) { return s.getName(); }).filter(function (n) { return n.indexOf(CONFIG.BACKUP_PREFIX) === 0; }).sort().reverse();
+  const daily = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'dailyBackup'; });
+  return { ok: true, daily: daily, last: props ? JSON.parse(props) : null, tabs: names.slice(0, 6), count: names.length };
+}
+function backupDaily_(on) {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'dailyBackup') ScriptApp.deleteTrigger(t); });
+  if (on) ScriptApp.newTrigger('dailyBackup').timeBased().everyDays(1).atHour(CONFIG.BACKUP_HOUR).create();
+  return backupInfo_();
+}
+// تُستدعى من المشغّل اليومي
+function dailyBackup() { try { backupNow_('يومي تلقائي'); } catch (e) { } }
+
+/* ============================ سجل التأكيدات ============================ */
+// يمنع تحويل نص يبدأ بـ = + - @ إلى معادلة في الجدول
+function cell_(v) { v = String(v == null ? '' : v); return /^[=+\-@]/.test(v) ? "'" + v : v; }
+
+function log_(st, kind, owner, by, on, results, ctx, label) {
+  try {
+    const okN = results.filter(function (r) { return r.ok; }).length;
+    if (!okN) return;
+    const ss = openSS_(st);
+    let sh = ss.getSheetByName(CONFIG.LOG_SHEET);
+    if (!sh) { sh = ss.insertSheet(CONFIG.LOG_SHEET); sh.appendRow(['الوقت', 'الصفحة', 'الدور', 'الاسم', 'الإجراء', 'العدد', 'التفاصيل']); }
+    sh.appendRow([new Date(), kind === 'arrival' ? 'الوصول' : 'المغادرة', owner ? 'المالك' : 'زائر', by,
+      label || (on ? (kind === 'arrival' ? 'تسكين' : 'مغادرة') : 'تراجع'), okN, cell_(ctx)]);
+  } catch (e) { /* السجل لا يُفشل الكتابة */ }
 }
 
 /* ============================ مساعدات ============================ */

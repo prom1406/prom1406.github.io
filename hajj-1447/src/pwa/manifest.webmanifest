@@ -1,0 +1,55 @@
+{
+ "name": "منظومة تحركات الحجاج 1447هـ",
+ "short_name": "حجاج 1447",
+ "description": "متابعة وصول ومغادرة الحجاج وتسكينهم",
+ "lang": "ar",
+ "dir": "rtl",
+ "start_url": "index.html",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "portrait",
+ "background_color": "#07182D",
+ "theme_color": "#07182D",
+ "icons": [
+  {
+   "src": "icon-192.png",
+   "sizes": "192x192",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icon-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "any"
+  },
+  {
+   "src": "icon-maskable-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ],
+ "shortcuts": [
+  {
+   "name": "متابعة الوصول",
+   "url": "arrival.html",
+   "icons": [
+    {
+     "src": "icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  },
+  {
+   "name": "متابعة المغادرة",
+   "url": "departure.html",
+   "icons": [
+    {
+     "src": "icon-192.png",
+     "sizes": "192x192"
+    }
+   ]
+  }
+ ]
+}
