@@ -299,7 +299,7 @@ body.ro [data-fappr]{display:none!important}
 .gcd{font-size:17px;font-weight:700}
 .gkv{margin:0;display:grid;gap:6px}.gkv>div{display:flex;justify-content:space-between;gap:10px;font-size:13.5px}
 .gkv dt{color:var(--mut)}.gkv dd{margin:0;font-weight:600;text-align:end}
-.gcard footer{display:flex;gap:8px;justify-content:space-between;margin-top:auto;padding-top:4px}
+.gcard footer{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;margin-top:auto;padding-top:4px}
 .gcard footer .btn{flex:1;justify-content:center}
 .modal.wide{width:min(980px,100%)}
 .mhead{display:flex;gap:18px;flex-wrap:wrap;align-items:center;color:var(--mut);margin:-6px 0 10px}
@@ -1049,14 +1049,14 @@ function applyReady() {
 async function loadReady() {
   try {
     const j = await api('ready_get'); if (!j.ok) return;
-    const m = {}; (j.items || []).forEach(x => { m[x.key] = x; }); state.ready = m;
+    const m = {}; (j.items || []).forEach(x => { m[x.key] = x; }); guardMerge('ready', m); state.ready = m;
     try { localStorage.setItem('hajj1447.ready', JSON.stringify(m)); } catch (e) { }
   } catch (e) { }
 }
 async function loadAppr() {
   try {
     const j = await api('appr_get'); if (!j.ok) return;
-    const m = {}; (j.items || []).forEach(x => { m[x.key] = x; }); state.appr = m;
+    const m = {}; (j.items || []).forEach(x => { m[x.key] = x; }); guardMerge('appr', m); state.appr = m;
     try { localStorage.setItem('hajj1447.appr', JSON.stringify(m)); } catch (e) { }
   } catch (e) { }
 }
@@ -1078,12 +1078,29 @@ async function loadKind(kind) {
 }
 let kindsInUse = [], lastTry = 0;
 // ملاحظات المجموعات وحالة النقل (تُحفظ في تبويب Notes بالملف)
+// حماية الحفظ المحلي: لا تمحو استجابة قديمة/متأخرة من الخادم ما حُفظ للتو قبل أن يظهر في الملف
+const GUARD = {};
+function guardSet(name, key, val) { (GUARD[name] = GUARD[name] || {})[key] = { v: val, t: Date.now() }; }
+function guardMerge(name, m) {
+  const g = GUARD[name]; if (!g) return;
+  Object.keys(g).forEach(k => {
+    const p = g[k];
+    if (Date.now() - p.t > 600000) { delete g[k]; return; }
+    const s = m[k];
+    const same = p.v === null ? !s : (s && Object.keys(p.v).every(f => f === 'key' || f === 'by' || f === 'at' || String(s[f] == null ? '' : s[f]) === String(p.v[f] == null ? '' : p.v[f])));
+    if (same) { delete g[k]; return; }
+    if (p.v === null) delete m[k]; else m[k] = p.v;
+  });
+}
 async function loadNotes(kind) {
   try {
-    const j = await api('notes_get', { kind }); if (!j.ok) return;
-    const m = {}; (j.items || []).forEach(x => { m[x.key] = x; }); state.notes[kind] = m;
+    const j = await api('notes_get', { kind }); if (!j.ok) return null;
+    const m = {}; (j.items || []).forEach(x => { m[x.key] = x; });
+    const raw = Object.assign({}, m);
+    guardMerge('notes.' + kind, m); state.notes[kind] = m;
     try { localStorage.setItem('hajj1447.notes.' + kind, JSON.stringify(m)); } catch (e) { }
-  } catch (e) { }
+    return raw;
+  } catch (e) { return null; }
 }
 // الزائر: التقط أي تغيير أجراه المالك في الإعدادات دون إعادة تحميل الصفحة
 async function syncPublic() {
@@ -1608,7 +1625,7 @@ function initTracker(kind) {
       (dep && g.when ? '<div class="m"><span>الإقلاع</span><span class="num">' + C.fmtTime(g.when) + '</span></div>' : '') +
       '<div class="cd-wrap">' + (ref ? '<span class="cd" data-w="' + t + '" style="font-size:18px;font-weight:700"></span>' : '') + '</div>' +
       rdy + prepHtml(g) + notesHtml(g) + '<div class="bar" style="margin-top:8px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
-      '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span>' + (full ? '<span class="okmark">✓ مكتمل</span>' : '<button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + (dep ? 'مغادرة الكل' : 'تأكيد الكل') + '</button>') + '<button class="btn sm" data-fshare="' + esc(g.key) + '" title="مشاركة ملخص الرحلة" aria-label="مشاركة ملخص الرحلة">📤 مشاركة</button>' + (kind === 'arrival' ? '<button class="btn sm" data-fready="' + esc(g.key) + '" title="الاستعداد المسبق للرحلة" aria-label="الاستعداد المسبق">🛬 الاستعداد</button>' : '<button class="btn sm" data-fappr="' + esc(g.key) + '" title="اعتماد المغادرة لهذه الرحلة" aria-label="اعتماد الرحلة">🧾 الاعتماد</button>') + '</div></div>';
+      '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span>' + (full ? '<span class="okmark">✓ مكتمل</span>' : '<button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + (dep ? 'مغادرة الكل' : 'تأكيد الكل') + '</button>') + '<button class="btn sm" data-fshare="' + esc(g.key) + '" title="مشاركة ملخص الرحلة" aria-label="مشاركة ملخص الرحلة">📤 مشاركة</button>' + (kind === 'arrival' ? '<button class="btn sm" data-fready="' + esc(g.key) + '" title="الاستعداد المسبق للرحلة" aria-label="الاستعداد المسبق">🛬 الاستعداد</button>' : '<button class="btn sm" data-fappr="' + esc(g.key) + '" title="اعتماد المغادرة لهذه الرحلة" aria-label="إصدار اعتماد">🧾 إصدار اعتماد</button>') + '</div></div>';
   };
   // أقسام مختصرة بأعلى الصفحة؛ الضغط على قسم يعرض رحلاته (خمس كحد أقصى) أسفله، والجدول كما هو
   function drawRail(fl, now) {
@@ -1709,7 +1726,7 @@ function initTracker(kind) {
       try {
         const j = await api('ready_set', {}, Object.assign({ key: g.key, label: 'رحلة ' + g.flight, by: auth.by, pin: auth.pin }, v));
         if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
-        if (j.cleared) delete state.ready[g.key]; else state.ready[g.key] = Object.assign({ key: g.key }, v, { by: auth.by });
+        if (j.cleared) delete state.ready[g.key]; else state.ready[g.key] = Object.assign({ key: g.key }, v, { by: auth.by }); guardSet('ready', g.key, j.cleared ? null : state.ready[g.key]);
         try { localStorage.setItem('hajj1447.ready', JSON.stringify(state.ready)); } catch (x) { }
         applyReady(); ov.close(); render(); toast(j.cleared ? 'تم مسح الاستعداد' : 'تم حفظ الاستعداد المسبق', 'ok');
       } catch (x) { toast('فشل الحفظ: ' + (x.message || x), 'err'); }
@@ -1741,7 +1758,7 @@ function initTracker(kind) {
       try {
         const j = await api('appr_set', {}, { key: g.key, label: 'رحلة ' + g.flight, status: st, by: auth.by, pin: auth.pin });
         if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
-        if (!st) delete state.appr[g.key]; else state.appr[g.key] = { key: g.key, status: st, by: auth.by };
+        if (!st) delete state.appr[g.key]; else state.appr[g.key] = { key: g.key, status: st, by: auth.by }; guardSet('appr', g.key, st ? state.appr[g.key] : null);
         try { localStorage.setItem('hajj1447.appr', JSON.stringify(state.appr)); } catch (x) { }
         ov.close(); render(); toast(st ? 'تم تسجيل الاعتماد' : 'أُلغي الاعتماد', 'ok');
       } catch (x) { toast('فشل الحفظ: ' + (x.message || x), 'err'); }
@@ -1767,6 +1784,8 @@ function initTracker(kind) {
         if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
         if (!st && !note) delete state.notes[kind][nkey(g)]; else state.notes[kind][nkey(g)] = { key: nkey(g), status: st, note, by: auth.by, at: '' };
         try { localStorage.setItem('hajj1447.notes.' + kind, JSON.stringify(state.notes[kind])); } catch (e) { }
+        guardSet('notes.' + kind, nkey(g), (!st && !note) ? null : state.notes[kind][nkey(g)]);
+        setTimeout(async () => { const raw = await loadNotes(kind), has = !!(raw && raw[nkey(g)]); if (raw && ((st || note) ? !has : has)) toast('تنبيه: لم تُحفظ الملاحظة في ملف Google — تحقق من نشر أحدث Code.gs وصلاحية تبويب Notes', 'err'); }, 5000);
         ov.close(); render(); toast(!st && !note ? 'تم مسح الملاحظة' : 'تم حفظ الحالة والملاحظة', 'ok');
       } catch (e) { toast('فشل الحفظ: ' + (e.message || e), 'err'); }
     };
@@ -1778,6 +1797,8 @@ function initTracker(kind) {
     ? '<button class="btn sm" data-gact="undo" data-key="' + esc(g.key) + '"' + (g.allSyncing ? ' disabled' : '') + '>تراجع</button>'
     : '<button class="btn sm green" data-gact="ok" data-key="' + esc(g.key) + '"' + (g.allSyncing ? ' disabled' : '') + '>' + ICON.check + (kind === 'arrival' ? 'تسكين' : 'مغادرة') + (g.done ? ' المتبقي' : ' الكل') + '</button>') + '<button class="btn sm" data-gnote="' + esc(g.key) + '" title="حالة النقل وملاحظة" aria-label="حالة النقل وملاحظة">📝</button>';
   const ppBtn = g => '<button class="btn sm sky" data-grp="' + esc(g.key) + '">' + ICON.eye + 'الجوازات (' + g.rows.length + ')</button>';
+  const fkOf = g => { const r = g.rows[0] || {}; return (r.flight || '—') + '|' + ((r.when0 || r.when) ? C.fmtDay(r.when0 || r.when) : ''); };
+  const fBtns = g => { const k = esc(fkOf(g)); return '<button class="btn sm" data-fshare="' + k + '" title="مشاركة ملخص الرحلة" aria-label="مشاركة ملخص الرحلة">📤 مشاركة</button>' + (kind === 'arrival' ? '<button class="btn sm" data-fready="' + k + '" title="الاستعداد المسبق للرحلة" aria-label="الاستعداد المسبق">🛬 الاستعداد</button>' : '<button class="btn sm" data-fappr="' + k + '" title="إصدار اعتماد المغادرة لهذه الرحلة" aria-label="إصدار اعتماد">🧾 إصدار اعتماد</button>'); };
   const tpOn = () => !!(S.transport && S.transport[kind]);
   const gTransport = g => tpOn() ? C.transportFor(g.airCity, g.stayCity, g.pax, S.transport.busMin) : null;
   const tpLabel = g => { const x = gTransport(g); return x ? C.TRANSPORT[x].ar : ''; };
@@ -1830,7 +1851,7 @@ function initTracker(kind) {
       '<div class="gbig"><div><b class="num">' + g.pax + '</b><span>فرد</span></div><div class="gcd">' + gCd(g) + '</div></div>' +
       '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' + noteChip(g) +
       '<dl class="gkv"><div><dt>' + (kind === 'arrival' ? 'الموعد' : 'الإقلاع') + '</dt><dd>' + gWhen(g) + mvHtml(g) + '</dd></div>' + (ci.air ? '<div><dt>' + (kind === 'arrival' ? 'مطار الوصول' : 'مطار المغادرة') + '</dt><dd>' + twoLine(g.airport, airCityTxt(g)) + '</dd></div>' : '') + ((g.hotel || ci.stay) ? '<div><dt>الفندق</dt><dd>' + twoLine(g.hotel, stayCityTxt(g)) + '</dd></div>' : '') + (ci.tp ? '<div><dt>وسيلة النقل</dt><dd>' + tpHtml(gTransport(g)) + '</dd></div>' : '') + '</dl>' +
-      natChips(g, 4) + '<footer>' + ppBtn(g) + gAct(g) + '</footer></article>').join('') + '</div>';
+      natChips(g, 4) + '<footer>' + ppBtn(g) + gAct(g) + fBtns(g) + '</footer></article>').join('') + '</div>';
   }
 
   /* ---- مرشحات سريعة ورابط العرض ---- */
