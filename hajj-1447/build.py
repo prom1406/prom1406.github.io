@@ -20,6 +20,8 @@ TPL = """<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#07182D">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="حجاج 1447"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="icon.svg"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>{title} — حجاج 1447هـ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -40,3 +42,8 @@ TPL = """<!doctype html>
 for page, (title, libs) in PAGES.items():
     (dist / f"{page}.html").write_text(TPL.format(title=title, libs=libs, css=css, js=js, page=page), encoding="utf-8")
     print("built", page, (dist / f"{page}.html").stat().st_size, "bytes")
+
+import shutil
+for f in (src / "pwa").iterdir():
+    shutil.copy(f, dist / f.name)
+print("copied pwa files")

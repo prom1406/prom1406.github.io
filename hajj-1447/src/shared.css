@@ -305,3 +305,41 @@ tr.detail td{background:rgba(255,255,255,.03)}
 .mv{margin-top:3px;color:var(--gold2);font-size:12.5px;font-weight:700}
 [data-theme=light] .mv{color:#8A6A2A}
 .mvb{color:var(--gold2)}[data-theme=light] .mvb{color:#8A6A2A}
+
+/* ---- الدور والتراجع ---- */
+.pill{font:inherit;font-size:12px;font-weight:700;padding:5px 11px;border-radius:99px;border:1px solid var(--line2);background:var(--card2);color:inherit;cursor:pointer;white-space:nowrap}
+.pill.owner{border-color:var(--gold);color:var(--gold)}.pill.sup{border-color:var(--green,#2fbf71);color:var(--green,#2fbf71)}
+.toast{display:flex;align-items:center;gap:12px}.toast .tact{font:inherit;font-weight:700;cursor:pointer;border:1px solid currentColor;background:transparent;color:inherit;border-radius:8px;padding:3px 12px}
+body.ro [data-gact],body.ro [data-fok],body.ro [data-mact],body.ro [data-mall],body.ro [data-bulk],body.ro [data-sel],body.ro [data-selall]{display:none!important}
+@media(max-width:700px){.pill{max-width:110px;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;font-size:11px}}
+
+/* ---- مرشحات سريعة ودلالات ---- */
+.qchips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:thin;flex:1 0 100%}
+.qc{font:inherit;font-size:13px;font-weight:700;padding:6px 14px;border-radius:99px;border:1px solid var(--line2);background:var(--card2);color:inherit;cursor:pointer;white-space:nowrap;flex:none}
+.qc.on{background:var(--gold);border-color:var(--gold);color:#1a1405}.qc.link{margin-inline-start:auto;font-weight:600}
+#bBell.on{background:var(--gold);color:#1a1405}
+.lgs{display:grid;gap:8px;margin-top:10px}
+@media(max-width:760px){
+  .btn.sm,.qc,.pill{min-height:40px}.qc{padding:8px 14px}
+  .bulk{position:sticky;bottom:64px;z-index:30;box-shadow:0 -6px 18px rgba(0,0,0,.35)}
+  td input[type=checkbox],[data-sel],[data-selall]{width:22px;height:22px}
+}
+
+.cities{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.city{background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:12px 14px}.city h3{margin:0 0 8px;font-size:15px;color:var(--gold)}
+.cr{display:flex;align-items:baseline;gap:8px;margin:4px 0}.cr span{flex:1;color:var(--mut)}.cr b{font-size:20px}.cr small{color:var(--mut)}
+
+.qual h4{margin:14px 0 6px;color:var(--gold)}.qrow{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;padding:6px 10px;border-radius:8px;background:var(--card2);margin:4px 0}
+.qrow>span{flex:1}.qrow.bad b{color:var(--red)}.qrow.ok{opacity:.75}.qrow small{flex:1 0 100%;color:var(--mut)}
+@media print{.qchips,#bBell,#bLegend,.pill,#bulk{display:none!important}}
+
+/* ---- حالة النقل والملاحظات ---- */
+.ntag{margin-top:6px;padding:6px 9px;border-radius:9px;background:var(--card2);border:1px solid var(--line2);font-size:12.5px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;max-width:260px}
+.ntag b{font-weight:800}.ntag small{color:var(--mut);margin-inline-start:auto}
+.ntag.vehicle{border-color:#0EA5E9;color:#7dd3fc}.ntag.enroute{border-color:#34C47A;color:#86efac}.ntag.delayed{border-color:#f5a524;color:#fcd34d}.ntag.issue{border-color:#ef4444;color:#fca5a5}
+.ntag span{color:var(--ink,inherit)}
+.nsel{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}.nsel .qc{cursor:pointer}
+.fl .flag{color:#f5a524;font-size:13px}
+textarea#nTx{width:100%;font:inherit;border-radius:10px;padding:8px;background:var(--card2);color:inherit;border:1px solid var(--line2)}
+.bk{border:1px dashed var(--line2);border-radius:10px;padding:10px}
+body.ro [data-gnote]{display:none!important}
