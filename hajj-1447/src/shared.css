@@ -354,3 +354,10 @@ body.ro [data-gnote]{display:none!important}
 .peaks{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 12px;align-items:stretch}.pk-h{width:100%;font-weight:700;color:var(--gold)}
 .pk{flex:1 1 150px;background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;gap:2px}.pk span{color:var(--mut);font-size:12px}.pk b{font-size:15px}
 @media print{.ovr .dot{animation:none}}
+
+/* ---- الاستعداد المسبق ---- */
+.rdy{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.rb{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:99px;border:1px solid var(--line2);background:var(--card2);white-space:nowrap}
+.rb.approved{border-color:#34C47A;color:#86efac}.rb.entered{border-color:#0EA5E9;color:#7dd3fc}.rb.pending{border-color:#f5a524;color:#fcd34d}.rb.fix{border-color:#ef4444;color:#fca5a5}
+.rb.none{color:var(--mut)}.rb.eta{border-color:#C5A059;color:#E6C77F}.rb.miss{border-color:#f5a524;color:#fcd34d}
+body.ro [data-fready]{display:none!important}

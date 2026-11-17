@@ -29,6 +29,7 @@ const CONFIG = {
   SESSION_HOURS: 6,        // مدة جلسة المالك (الحد الأقصى 6 ساعات)
   MAX_OPS: 50,             // أقصى عدد سجلات في طلب كتابة واحد
   LOG_SHEET: 'Log',        // تبويب سجل التأكيدات (يُنشأ تلقائياً)
+  READY_SHEET: 'Readiness',// تبويب الاستعداد المسبق للرحلات (يُنشأ تلقائياً)
   NOTES_SHEET: 'Notes',    // تبويب الملاحظات وحالة النقل للمجموعات (يُنشأ تلقائياً)
   BACKUP_PREFIX: 'Backup_',// بادئة تبويبات النسخ الاحتياطي داخل الملف
   BACKUP_KEEP: 12,         // عدد النسخ المحتفظ بها لكل صفحة (الأقدم يُحذف)
@@ -55,6 +56,8 @@ function doGet(e) {
       case 'owner_backup':       requireOwner_(p); return json_(backupNow_('يدوي'));
       case 'owner_backup_info':  requireOwner_(p); return json_(backupInfo_());
       case 'owner_backup_daily': requireOwner_(p); return json_(backupDaily_(payload_(p).on === true));
+      case 'ready_get':   return json_(readyGet_());
+      case 'ready_set':   return json_(readySet_(payload_(p), isOwner_(p.s)));
       case 'notes_get':   return json_(notesGet_(p));
       case 'note_set':    return json_(noteSet_(payload_(p), isOwner_(p.s)));
       case 'read':        return json_(read_(p));
@@ -304,6 +307,46 @@ function noteSet_(req, owner) {
     }
     SpreadsheetApp.flush();
     log_(st, req.kind, owner, by, true, [{ ok: true }], 'ملاحظة/حالة: ' + (status || '—') + ' | ' + String(req.label || '').slice(0, 80), cleared ? 'مسح ملاحظة' : 'ملاحظة');
+    return { ok: true, cleared: cleared };
+  } finally { try { lock.releaseLock(); } catch (x) { } }
+}
+
+/* ============================ الاستعداد المسبق للرحلات ============================ */
+const READY_STATUS = ['', 'pending', 'entered', 'approved', 'fix'];
+const READY_HEAD = ['المفتاح', 'الرحلة', 'الحالة', 'ETA', 'الصالة', 'البوابة', 'ملاحظة', 'بواسطة', 'آخر تحديث'];
+function readySheet_(st, create) {
+  const ss = openSS_(st); let sh = ss.getSheetByName(CONFIG.READY_SHEET);
+  if (!sh && create) { sh = ss.insertSheet(CONFIG.READY_SHEET); sh.appendRow(READY_HEAD); }
+  return sh;
+}
+function readyGet_() {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const sh = readySheet_(st, false), items = [];
+  if (sh) { const rows = sh.getDataRange().getDisplayValues(); for (let i = 1; i < rows.length; i++) if (rows[i][0]) items.push({ key: rows[i][0], flight: rows[i][1], status: rows[i][2], eta: rows[i][3], hall: rows[i][4], gate: rows[i][5], note: rows[i][6], by: rows[i][7], at: rows[i][8] }); }
+  return { ok: true, items: items, ts: Date.now() };
+}
+function readySet_(req, owner) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const denied = visitorDenied_(st, req, owner); if (denied) return denied;
+  const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح الرحلة مفقود' };
+  const status = READY_STATUS.indexOf(String(req.status || '')) >= 0 ? String(req.status || '') : '';
+  const eta = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(req.eta || '')) ? String(req.eta) : '';
+  const clean = function (v, n) { return cell_(String(v || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, n)); };
+  const hall = clean(req.hall, 30), gate = clean(req.gate, 30), note = clean(req.note, 300), by = byOf_(req, owner);
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const sh = readySheet_(st, true), rows = sh.getDataRange().getDisplayValues(); let at = -1;
+    for (let i = 1; i < rows.length; i++) if (rows[i][0] === key) { at = i + 1; break; }
+    const cleared = !status && !eta && !hall && !gate && !note;
+    if (cleared) { if (at > 0) sh.getRange(at, 1, 1, READY_HEAD.length).clearContent(); }
+    else {
+      const rowIdx = at > 0 ? at : sh.getLastRow() + 1, rec = [cell_(key), clean(req.label, 80), status, eta, hall, gate, note, by, new Date()];
+      sh.getRange(rowIdx, 4).setNumberFormat('@');      // ETA نص صريح كي لا يتحول إلى تاريخ
+      sh.getRange(rowIdx, 1, 1, rec.length).setValues([rec]);
+    }
+    SpreadsheetApp.flush();
+    log_(st, 'arrival', owner, by, true, [{ ok: true }], 'استعداد: ' + (status || '—') + (eta ? ' ETA ' + eta : '') + ' | ' + clean(req.label, 80), cleared ? 'مسح استعداد' : 'استعداد مسبق');
     return { ok: true, cleared: cleared };
   } finally { try { lock.releaseLock(); } catch (x) { } }
 }
