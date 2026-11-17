@@ -224,6 +224,15 @@ tr.detail td{background:rgba(255,255,255,.03)}
 .feed .nx{border-inline-start:3px solid var(--red)}
 
 /* ---------- Modal / toast ---------- */
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.4)}
+.prep{margin:8px 0 0;padding:6px 10px;border-radius:10px;font-size:12.5px;border:1px solid var(--line);background:rgba(245,165,36,.10)}
+.prep.l1{border-color:#f5a524;color:#fcd34d}
+.prep.l2{border-color:#f97316;background:rgba(249,115,22,.14);color:#fdba74;font-weight:700}
+.prep.l3{border-color:#ef4444;background:rgba(239,68,68,.18);color:#fca5a5;font-weight:800;animation:pz 1.6s infinite}
+.prep.ok{border-color:#34C47A;color:#86efac;background:rgba(52,196,122,.10)}
+@keyframes pz{50%{opacity:.6}}
+.nh{font-size:12px;color:var(--mut);margin-top:6px}
+body.ro [data-fappr]{display:none!important}
 .ov{position:fixed;inset:0;background:rgba(3,10,20,.65);backdrop-filter:blur(4px);z-index:100;display:grid;place-items:center;padding:16px}
 .modal{width:min(760px,100%);max-height:90vh;overflow:auto;background:#0A2039;border:1px solid var(--line);border-radius:18px;padding:20px 22px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
 [data-theme=light] .modal{background:#fff}
@@ -977,7 +986,7 @@ const ICON = {
 };
 
 /* ---------------- الحالة والمزامنة ---------------- */
-const state = { ready: {}, notes: { arrival: {}, departure: {} }, data: { arrival: null, departure: null }, sync: { arrival: 0, departure: 0 }, err: {}, pending: { arrival: {}, departure: {} }, fn: [] };
+const state = { ready: {}, appr: {}, notes: { arrival: {}, departure: {} }, data: { arrival: null, departure: null }, sync: { arrival: 0, departure: 0 }, err: {}, pending: { arrival: {}, departure: {} }, fn: [] };
 const pkey = r => (isMasked() ? 'r' + r.row : (r.key || ('r' + r.row)));
 const emit = () => state.fn.forEach(f => { try { f(); } catch (e) { console.error(e); } });
 const onData = f => state.fn.push(f);
@@ -1044,6 +1053,13 @@ async function loadReady() {
     try { localStorage.setItem('hajj1447.ready', JSON.stringify(m)); } catch (e) { }
   } catch (e) { }
 }
+async function loadAppr() {
+  try {
+    const j = await api('appr_get'); if (!j.ok) return;
+    const m = {}; (j.items || []).forEach(x => { m[x.key] = x; }); state.appr = m;
+    try { localStorage.setItem('hajj1447.appr', JSON.stringify(m)); } catch (e) { }
+  } catch (e) { }
+}
 function updateBadges() {
   const b = {}; try { Object.assign(b, JSON.parse(localStorage.getItem(LS_BADGE) || '{}')); } catch (e) { }
   ['arrival', 'departure'].forEach(k => { if (state.data[k]) { b[k] = C.summarize(state.data[k].records, Date.now(), S).dangerRows; } });
@@ -1084,13 +1100,14 @@ async function refresh(kinds) {
   const live = $('#live'), btn = $('#bRef');
   if (live) live.className = 'live load'; if (btn) btn.classList.add('spin');
   await syncPublic();
-  await Promise.all(kinds.map(loadKind).concat(kinds.map(loadNotes), kinds.includes('arrival') ? [loadReady()] : []));
+  await Promise.all(kinds.map(loadKind).concat(kinds.map(loadNotes), kinds.includes('arrival') ? [loadReady()] : [], kinds.includes('departure') ? [loadAppr()] : []));
   applyReady();
   if (btn) btn.classList.remove('spin');
   updateBadges(); emit(); tick(true);
 }
 function hydrate(kinds) {
   try { state.ready = JSON.parse(localStorage.getItem('hajj1447.ready') || '{}') || {}; } catch (e) { }
+  try { state.appr = JSON.parse(localStorage.getItem('hajj1447.appr') || '{}') || {}; } catch (e) { }
   kinds.forEach(k => {
     try { state.notes[k] = JSON.parse(localStorage.getItem('hajj1447.notes.' + k) || '{}') || {}; } catch (e) { }
     try { const c = JSON.parse(localStorage.getItem('hajj1447.cache.' + k) || 'null'); if (c && c.rows) { processRows(k, c.rows); state.sync[k] = c.ts; state.cached = true; } } catch (e) { }
@@ -1559,6 +1576,23 @@ function initTracker(kind) {
   const qs = new URLSearchParams(location.search); ['status', 'q', 'day', 'nat', 'flight', 'rdy'].forEach(k => { if (qs.get(k)) ui[k] = qs.get(k); });
   let prevDanger = null, gmap = new Map(), ridx = new Map(), mo = null, shownGroups = [], lastFl = null;
   // موعد المرجع للرحلة: الوصول، أو في المغادرة أبكر موعد تحرك بين سجلاتها (وإلا الإقلاع)
+  // أوامر الاستعداد والاعتماد لا تُقبل إلا قبل الرحلة بأسبوعين على الأقل
+  // تنبيه الاستعداد/الاعتماد: يبدأ قبل الرحلة بأسبوعين، يعلو قبل أسبوع، ويصبح حرجاً قبل يومين، ويتوقف عند الإنجاز
+  const prepHtml = g => {
+    const cur = kind === 'arrival' ? state.ready[g.key] : state.appr[g.key];
+    const done = kind === 'arrival' ? readyOk(cur) : !!(cur && cur.status === 'approved');
+    const label = kind === 'arrival' ? 'الاستعداد' : 'الاعتماد';
+    if (done) return '<div class="prep ok">✓ ' + label + ' مكتمل' + (cur && cur.by ? ' — ' + esc(cur.by) : '') + '</div>';
+    if (!g.when) return '';
+    const h = (g.when.getTime() - Date.now()) / 36e5;
+    if (h > 336) return '';
+    const lv = h <= 48 ? 3 : (h <= 168 ? 2 : 1);
+    const tag = lv === 3 ? 'حرج' : (lv === 2 ? 'عالٍ' : 'تنبيه');
+    const when = h < 0 ? 'مضى موعد الرحلة ولم يُنجز' : (lv === 3 ? 'أقل من يومين على الرحلة' : (lv === 2 ? 'أقل من أسبوع على الرحلة' : 'قبل الرحلة بأسبوعين'));
+    return '<div class="prep l' + lv + '"><b>' + tag + ':</b> ' + label + ' لم يُنجز — ' + when + '</div>';
+  };
+  // ملاحظات النقل على الرحلة: تظهر لكل فندق في الرحلة
+  const notesHtml = g => C.groupRecords(g.rows).map(sub => { const c = noteChip(sub); return c ? '<div class="nh">' + esc(sub.hotel || '—') + '</div>' + c : ''; }).join('');
   const refOf = g => {
     if (kind !== 'departure') return g.when;
     let m = null; g.rows.forEach(r => { const t = C.movementTime(r.when, r.stayCity, r.airCity, S.lead); if (t && (!m || t < m)) m = t; });
@@ -1573,29 +1607,8 @@ function initTracker(kind) {
       '<div class="m"><span>' + (dep ? 'التحرك' : esc(g.airline || '')) + '</span><span class="num">' + (ref ? C.fmtTime(ref) : '') + '</span></div>' +
       (dep && g.when ? '<div class="m"><span>الإقلاع</span><span class="num">' + C.fmtTime(g.when) + '</span></div>' : '') +
       '<div class="cd-wrap">' + (ref ? '<span class="cd" data-w="' + t + '" style="font-size:18px;font-weight:700"></span>' : '') + '</div>' +
-      rdy + '<div class="bar" style="margin-top:8px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
-      '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span>' + (full ? '<span class="okmark">✓ مكتمل</span>' : '<button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + (dep ? 'مغادرة الكل' : 'تأكيد الكل') + '</button>') + '<button class="btn sm" data-fshare="' + esc(g.key) + '" title="مشاركة ملخص الرحلة" aria-label="مشاركة ملخص الرحلة">📤</button>' + (kind === 'arrival' ? '<button class="btn sm" data-fready="' + esc(g.key) + '" title="الاستعداد المسبق" aria-label="الاستعداد المسبق">🛬</button>' : '') + '</div></div>';
-  };
-  // أقسام مختصرة بأعلى الصفحة؛ الضغط على قسم يعرض رحلاته (خمس كحد أقصى) أسفله، والجدول كما هو
-  function drawRail(fl, now) {
-    lastFl = fl;
-    const defs = SEC_DEFS[kind], T = fl.map(g => ({ g, ref: refOf(g) })).filter(x => x.ref), w = x => x.ref.getTime();
-    const lists = {
-      cur: T.filter(x => Math.abs(w(x) - now) <= SEC_MS).sort((a, b) => w(a) - w(b)),
-      arr: T.filter(x => now - w(x) > SEC_MS).sort((a, b) => w(b) - w(a)),
-      soon: T.filter(x => w(x) - now > SEC_MS).sort((a, b) => w(a) - w(b))
-    };
-    $('#secTiles').innerHTML = defs.map(x => {
-      const l = lists[x.id], f = l[0];
-      return '<button type="button" class="stile ' + x.cls + (ui.sec === x.id ? ' on' : '') + '" data-sec="' + x.id + '" aria-expanded="' + (ui.sec === x.id) + '"><span class="st">' + x.t + '</span><span class="sn">' + l.length + '</span>' +
-        '<span class="ss">' + (f ? '<b>' + esc(f.g.flight) + '</b> <span class="cd" data-w="' + w(f) + '"></span>' : '—') + '</span></button>';
-    }).join('');
-    const pn = $('#secPanel'), cur = defs.find(x => x.id === ui.sec);
-    if (!cur) { pn.hidden = true; pn.innerHTML = ''; return; }
-    const l = lists[cur.id];
-    pn.hidden = false;
-    pn.innerHTML = '<div class="sec ' + cur.cls + '"><div class="sec-h"><b>' + cur.t + '</b><span class="cnt">' + l.length + '</span><span class="hint">' + cur.s + ' · اضغط رحلة لتصفية الجدول' + (l.length > SEC_N ? ' · اسحب يميناً لعرض البقية ›' : '') + '</span></div>' +
-      '<div class="rail">' + (l.length ? l.slice(0, SEC_MAX).map(x => flCard(x.g, now, x.ref)).join('') : '<div class="empty" style="width:100%;padding:12px">لا توجد رحلات في هذا القسم</div>') + '</div></div>';
+      rdy + prepHtml(g) + notesHtml(g) + '<div class="bar" style="margin-top:8px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
+      '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span>' + (full ? '<span class="okmark">✓ مكتمل</span>' : '<button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + (dep ? 'مغادرة الكل' : 'تأكيد الكل') + '</button>') + '<button class="btn sm" data-fshare="' + esc(g.key) + '" title="مشاركة ملخص الرحلة" aria-label="مشاركة ملخص الرحلة">📤 مشاركة</button>' + (kind === 'arrival' ? '<button class="btn sm" data-fready="' + esc(g.key) + '" title="الاستعداد المسبق للرحلة" aria-label="الاستعداد المسبق">🛬 الاستعداد</button>' : '<button class="btn sm" data-fappr="' + esc(g.key) + '" title="اعتماد المغادرة لهذه الرحلة" aria-label="اعتماد الرحلة">🧾 الاعتماد</button>') + '</div></div>';
   }
   setInterval(() => { if (lastFl) drawRail(lastFl, Date.now()); }, 20000);   // تنتقل الرحلات بين الأقسام مع الوقت
 
@@ -1683,6 +1696,37 @@ function initTracker(kind) {
     $('#rOk', ov).onclick = () => { const et = $('#rEta', ov).value; save({ status: (ov.querySelector('input[name=rst]:checked') || {}).value || '', eta: et ? et.replace('T', ' ').slice(0, 16) : '', hall: $('#rHall', ov).value.trim(), gate: $('#rGate', ov).value.trim(), note: $('#rNote', ov).value.trim() }); };
     if ($('#rClr', ov)) $('#rClr', ov).onclick = () => save({ status: '', eta: '', hall: '', gate: '', note: '' });
     $('#rX', ov).onclick = () => ov.close();
+  }
+  // اعتماد مغادرة لرحلة واحدة: نص الاعتماد المقترح + تسجيل الاعتماد (يبقى زر الاعتماد على البطاقة بعد الإنجاز)
+  function openTripAppr(g) {
+    const cur = state.appr[g.key] || null, done = !!(cur && cur.status === 'approved');
+    const D = state.data.departure;
+    let mine = [], body;
+    if (!D || !D.records) body = '<div class="empty">تحتاج بيانات المغادرة لعرض نص الاعتماد — افتح صفحة المغادرة مرة واحدة</div>';
+    else {
+      const win = +lsGet('hajj1447.apprWin') || 60, { list } = buildApprFrom(D.records, win, 'all');
+      mine = list.map((a, i) => ({ a, i })).filter(x => x.a.items.some(y => y.g.flight === g.flight));
+      body = mine.length ? mine.map((x, j) => '<div class="ap ' + x.a.tp + '"><div class="ap-h"><b>' + ICON[x.a.tp] + ' ' + C.TRANSPORT[x.a.tp].ar + '</b><span>' + esc(APPR_ROUTE(x.a.st, x.a.air)) + '</span><span class="num">' + C.fmtDayAr(x.a.t0) + ' ' + C.fmtTime(x.a.t0) + '</span><b class="num">' + x.a.pax + ' فرد</b></div>' +
+        '<pre style="white-space:pre-wrap;margin:8px 0 0;font:inherit;direction:rtl">' + esc(apprText(x.a, x.i)) + '</pre>' +
+        '<div class="ap-a"><button class="btn sm" data-cp="' + j + '">نسخ</button><a class="btn sm sky" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(apprText(x.a, x.i)) + '">واتساب</a></div></div>').join('')
+        : '<div class="empty">لا يوجد اعتماد مقترح لهذه الرحلة (قد تكون بسيارة، أو بلا وقت تحرك/مدينة)</div>';
+    }
+    const ov = modal('<h3>اعتماد الرحلة ' + esc(g.flight) + '</h3><p class="sub">' + esc(gTitle(g)) + '</p>' +
+      (done ? '<p class="hint" style="color:#86efac">✓ معتمدة' + (cur.by ? ' — بواسطة ' + esc(cur.by) : '') + '</p>' : '') + body +
+      '<div class="act"><button class="btn green" id="taOk">' + (done ? 'إلغاء الاعتماد' : 'تم الاعتماد') + '</button><button class="btn" id="taX">إغلاق</button></div>');
+    ov.addEventListener('click', e => { const c = e.target.closest('[data-cp]'); if (c) { const x = mine[+c.dataset.cp]; copyText(apprText(x.a, x.i), 'نُسخ نص الاعتماد'); } });
+    const save = async st => {
+      const auth = await ensureAuth(); if (!auth) return;
+      try {
+        const j = await api('appr_set', {}, { key: g.key, label: 'رحلة ' + g.flight, status: st, by: auth.by, pin: auth.pin });
+        if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
+        if (!st) delete state.appr[g.key]; else state.appr[g.key] = { key: g.key, status: st, by: auth.by };
+        try { localStorage.setItem('hajj1447.appr', JSON.stringify(state.appr)); } catch (x) { }
+        ov.close(); render(); toast(st ? 'تم تسجيل الاعتماد' : 'أُلغي الاعتماد', 'ok');
+      } catch (x) { toast('فشل الحفظ: ' + (x.message || x), 'err'); }
+    };
+    $('#taOk', ov).onclick = () => save(done ? '' : 'approved');
+    $('#taX', ov).onclick = () => ov.close();
   }
   /* ---- حالة النقل والملاحظة ---- */
   const NST = () => ({ vehicle: kind === 'arrival' ? 'وصلت الحافلة/القطار' : 'وصلت الوسيلة للفندق', enroute: kind === 'arrival' ? 'في الطريق إلى الفندق' : 'في الطريق إلى المطار', delayed: 'تأخر النقل', issue: 'مشكلة تحتاج متابعة' });
@@ -2005,6 +2049,7 @@ function initTracker(kind) {
     if ((el = t.closest('[data-grp]'))) { openGroup(el.dataset.grp, el.dataset.nat); return; }
     if ((el = t.closest('[data-view]'))) { ui.view = el.dataset.view; try { localStorage.setItem(LS_VIEW, ui.view); } catch (x) { } render(); return; }
     if ((el = t.closest('[data-fready]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fready); if (g) openReady(g); return; }
+    if ((el = t.closest('[data-fappr]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fappr); if (g) openTripAppr(g); return; }
     if ((el = t.closest('[data-fshare]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fshare); if (g) openShare(g); return; }
     if ((el = t.closest('[data-fok]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fok); if (g) doWrite(g.rows, true, K.act + ' — رحلة ' + g.flight); return; }
     if ((el = t.closest('[data-sec]'))) { ui.sec = ui.sec === el.dataset.sec ? null : el.dataset.sec; if (lastFl) drawRail(lastFl, Date.now()); tick(); return; }
