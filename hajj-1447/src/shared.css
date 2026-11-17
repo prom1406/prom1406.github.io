@@ -361,3 +361,20 @@ body.ro [data-gnote]{display:none!important}
 .rb.approved{border-color:#34C47A;color:#86efac}.rb.entered{border-color:#0EA5E9;color:#7dd3fc}.rb.pending{border-color:#f5a524;color:#fcd34d}.rb.fix{border-color:#ef4444;color:#fca5a5}
 .rb.none{color:var(--mut)}.rb.eta{border-color:#C5A059;color:#E6C77F}.rb.miss{border-color:#f5a524;color:#fcd34d}
 body.ro [data-fready]{display:none!important}
+
+/* ---- اعتمادات المغادرة ---- */
+.ov.wide .modal,.ov.wide>div{max-width:780px;width:94vw}
+.ap{border:1px solid var(--line2);border-radius:12px;margin:10px 0;overflow:hidden;background:var(--card2)}
+.ap.train{border-inline-start:4px solid #34C47A}.ap.bus{border-inline-start:4px solid #C5A059}
+.ap-h{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 12px;background:rgba(147,166,191,.08)}.ap-h b:last-child{margin-inline-start:auto}
+.ap-r{display:flex;gap:12px;align-items:center;padding:6px 12px;border-top:1px solid var(--line2);font-size:13px}.ap-r span:nth-child(2){flex:1}
+.ap-a{display:flex;gap:8px;padding:8px 12px;border-top:1px solid var(--line2)}
+.ap-h svg{width:20px;height:20px;vertical-align:-4px;margin-inline-end:4px}.ap-h b:first-child{display:inline-flex;align-items:center}
+
+/* ---- الرئيسية: الاستعداد والاعتمادات ---- */
+.rdyb{margin-bottom:12px}.rdyb-t{display:flex;align-items:baseline;gap:10px}.rdyb-t b{font-size:28px;color:#86efac}.rdyb-t span{color:var(--mut)}
+.rdyb-bar{display:flex;height:10px;border-radius:99px;overflow:hidden;background:rgba(147,166,191,.15);margin:8px 0}
+.rdyb-bar i{display:block}.rdyb-bar .approved{background:#34C47A}.rdyb-bar .entered{background:#0EA5E9}.rdyb-bar .pending{background:#f5a524}.rdyb-bar .fix{background:#ef4444}.rdyb-bar .none{background:#64748b}
+.rdyb-l{display:flex;flex-wrap:wrap;gap:6px}.rdyb-l .rb b{margin-inline-start:4px}
+.apsum{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.apc{background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}.apc span{color:var(--mut);font-size:12px}.apc b{font-size:26px;color:var(--gold)}.apc small{color:var(--mut)}

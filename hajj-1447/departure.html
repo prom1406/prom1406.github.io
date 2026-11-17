@@ -374,6 +374,23 @@ body.ro [data-gnote]{display:none!important}
 .rb.none{color:var(--mut)}.rb.eta{border-color:#C5A059;color:#E6C77F}.rb.miss{border-color:#f5a524;color:#fcd34d}
 body.ro [data-fready]{display:none!important}
 
+/* ---- اعتمادات المغادرة ---- */
+.ov.wide .modal,.ov.wide>div{max-width:780px;width:94vw}
+.ap{border:1px solid var(--line2);border-radius:12px;margin:10px 0;overflow:hidden;background:var(--card2)}
+.ap.train{border-inline-start:4px solid #34C47A}.ap.bus{border-inline-start:4px solid #C5A059}
+.ap-h{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 12px;background:rgba(147,166,191,.08)}.ap-h b:last-child{margin-inline-start:auto}
+.ap-r{display:flex;gap:12px;align-items:center;padding:6px 12px;border-top:1px solid var(--line2);font-size:13px}.ap-r span:nth-child(2){flex:1}
+.ap-a{display:flex;gap:8px;padding:8px 12px;border-top:1px solid var(--line2)}
+.ap-h svg{width:20px;height:20px;vertical-align:-4px;margin-inline-end:4px}.ap-h b:first-child{display:inline-flex;align-items:center}
+
+/* ---- الرئيسية: الاستعداد والاعتمادات ---- */
+.rdyb{margin-bottom:12px}.rdyb-t{display:flex;align-items:baseline;gap:10px}.rdyb-t b{font-size:28px;color:#86efac}.rdyb-t span{color:var(--mut)}
+.rdyb-bar{display:flex;height:10px;border-radius:99px;overflow:hidden;background:rgba(147,166,191,.15);margin:8px 0}
+.rdyb-bar i{display:block}.rdyb-bar .approved{background:#34C47A}.rdyb-bar .entered{background:#0EA5E9}.rdyb-bar .pending{background:#f5a524}.rdyb-bar .fix{background:#ef4444}.rdyb-bar .none{background:#64748b}
+.rdyb-l{display:flex;flex-wrap:wrap;gap:6px}.rdyb-l .rb b{margin-inline-start:4px}
+.apsum{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.apc{background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}.apc span{color:var(--mut);font-size:12px}.apc b{font-size:26px;color:var(--gold)}.apc small{color:var(--mut)}
+
 </style>
 </head>
 <body data-page="departure">
@@ -986,6 +1003,26 @@ function processRows(kind, rows) {
   res.warn = (res.records.length && res.map.check == null) ? 'لم يُعثر على عمود «' + S[kind].checkHeader + '» في صفحة «' + tabOf(kind) + '» — تأكد من اسم الصفحة في الإعدادات' : '';
   state.data[kind] = res; if (kind === 'arrival') applyReady(); return res;
 }
+/* ---------------- اعتمادات المغادرة: تجميع بالوسيلة والمسار وتقارب وقت التحرك ---------------- */
+const APPR_ROUTE = (st, air) => C.cityName(st, '') + ' ← ' + (air === 'jeddah' ? 'مطار جدة' : air === 'madinah' ? 'مطار المدينة المنورة' : C.cityName(air, ''));
+function buildApprFrom(records, win, dayF) {
+  const now = Date.now(), skip = { nocity: 0, nomove: 0, car: 0 }, by = new Map();
+  C.groupRecords(records).filter(g => g.open > 0).forEach(g => {
+    const mv = C.movementTime(g.when, g.stayCity, g.airCity, S.lead), tp = C.transportFor(g.airCity, g.stayCity, g.pax, S.transport && S.transport.busMin);
+    if (!g.stayCity || !g.airCity) { skip.nocity++; return; }
+    if (!mv) { skip.nomove++; return; }
+    if (dayF !== 'all' && C.fmtDay(mv) !== C.fmtDay(new Date(now + (dayF === 'tomorrow' ? 864e5 : 0)))) return;
+    if (tp === 'car' || !tp) { skip.car++; return; }
+    const k = tp + '|' + g.stayCity + '|' + g.airCity; if (!by.has(k)) by.set(k, []); by.get(k).push({ g, mv, tp });
+  });
+  const out = [];
+  [...by.keys()].sort().forEach(k => {
+    const L = by.get(k).sort((a, b) => a.mv - b.mv); let cur = null;
+    L.forEach(x => { if (!cur || x.mv - cur.items[0].mv > win * 60000) { cur = { tp: x.tp, st: x.g.stayCity, air: x.g.airCity, items: [] }; out.push(cur); } cur.items.push(x); });
+  });
+  out.forEach(a => { a.pax = a.items.reduce((n, x) => n + x.g.pax, 0); a.t0 = a.items[0].mv; a.t1 = a.items[a.items.length - 1].mv; a.fl = [...new Set(a.items.map(x => x.g.flight))]; a.ho = [...new Set(a.items.map(x => x.g.hotel || 'فندق غير محدد'))]; });
+  out.sort((a, b) => a.t0 - b.t0); return { list: out, skip };
+}
 /* ---------------- الاستعداد المسبق للرحلات (الوصول) ---------------- */
 const RDY_ST = { pending: 'لم تُدخل في نظام الوزارة', entered: 'أُدخلت في نظام الوزارة', approved: 'جاهزة', fix: 'تحتاج تعديلاً' };
 const rKey = r => (r.flight || '—') + '|' + ((r.when0 || r.when) ? C.fmtDay(r.when0 || r.when) : '');
@@ -1571,7 +1608,7 @@ function initTracker(kind) {
     '<div class="field">' + ICON.search + '<input type="search" id="fQ" placeholder="بحث: اسم، جواز، رحلة، فندق…" value="' + esc(ui.q) + '"></div>' +
     '<select id="fStatus"><option value="all">كل الحالات</option><option value="open">' + K.openL + '</option><option value="done">' + K.doneL + '</option><option value="danger">حرجة / متأخرة</option><option value="warn">تستدعي الانتباه</option></select>' +
     '<select id="fNat"></select><select id="fDay"></select>' +
-    '<label class="sw'+(isMasked()?'" hidden data-x="':'')+'"><input type="checkbox" id="fReveal"> إظهار أرقام الجوازات</label><span class="sp"></span><span class="hint" id="cnt"></span><button class="btn sm" id="bLegend" title="دلالات الألوان والحالات" aria-label="دلالات الألوان">؟</button><button class="btn sm" id="bBell" title="تنبيه صوتي عند ظهور حالات حرجة جديدة" aria-pressed="false">🔔</button>' +
+    '<label class="sw'+(isMasked()?'" hidden data-x="':'')+'"><input type="checkbox" id="fReveal"> إظهار أرقام الجوازات</label><span class="sp"></span><span class="hint" id="cnt"></span>' + (kind === 'departure' ? '<button class="btn sm" id="bAppr" title="اقتراح اعتمادات المغادرة لمسار">🧾 الاعتمادات</button>' : '') + '<button class="btn sm" id="bLegend" title="دلالات الألوان والحالات" aria-label="دلالات الألوان">؟</button><button class="btn sm" id="bBell" title="تنبيه صوتي عند ظهور حالات حرجة جديدة" aria-pressed="false">🔔</button>' +
     '<div class="seg" role="group" aria-label="طريقة العرض"><button data-view="table" title="عرض جدول">' + ICON.table + '<span>جدول</span></button><button data-view="cards" title="عرض بطاقات">' + ICON.cards + '<span>بطاقات</span></button></div></div>' +
     '<div class="bulk" id="bulk" hidden></div><div id="list"></div><div class="more" id="more"></div></section>';
   $('#fStatus').value = ui.status;
@@ -1795,6 +1832,34 @@ function initTracker(kind) {
     fr.contentDocument.open(); fr.contentDocument.write(html); fr.contentDocument.close();
     setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { toast('تعذّرت الطباعة', 'err'); } setTimeout(() => fr.remove(), 4000); }, 250);
   }
+  /* ---- اعتمادات المغادرة (نسك مسار): تجميع المجموعات بالوسيلة والمسار وتقارب وقت التحرك ---- */
+  const buildAppr = (win, dayF) => buildApprFrom(recs(), win, dayF);
+  function apprText(a, i) {
+    const same = C.fmtDay(a.t0) === C.fmtDay(a.t1), L = ['🧾 اعتماد مغادرة ' + (i + 1) + ' — ' + C.TRANSPORT[a.tp].ar, 'المسار: ' + APPR_ROUTE(a.st, a.air),
+      'وقت التحرك: ' + C.fmtDayAr(a.t0) + ' ' + C.fmtTime(a.t0) + (a.t1 - a.t0 ? ' إلى ' + (same ? '' : C.fmtDayAr(a.t1) + ' ') + C.fmtTime(a.t1) : ''), 'العدد: ' + a.pax + ' فرد', ''];
+    a.items.forEach(x => L.push('• ' + x.g.flight + ' (إقلاع ' + C.fmtTime(x.g.when) + ') — ' + (x.g.hotel || 'فندق غير محدد') + ' — ' + x.g.open + ' فرد — تحرك ' + C.fmtTime(x.mv)));
+    return L.join('\n');
+  }
+  function openAppr() {
+    const st = { win: +lsGet('hajj1447.apprWin') || 60, day: 'today' };
+    const ov = modal('<h3>اقتراح اعتمادات المغادرة — نسك مسار</h3><div class="qchips" id="apCh" style="flex:none;padding-bottom:6px"></div><div id="apBody"></div><div class="act"><button class="btn green" id="apAll">نسخ الكل</button><button class="btn" id="apX">إغلاق</button></div>');
+    ov.classList.add('wide'); let cur = null;
+    const draw = () => {
+      $('#apCh', ov).innerHTML = [['today', 'اليوم'], ['tomorrow', 'غداً'], ['all', 'الكل']].map(([v, l]) => '<button type="button" class="qc' + (st.day === v ? ' on' : '') + '" data-d="' + v + '">' + l + '</button>').join('') + '<span class="hint" style="align-self:center">فارق التجميع:</span>' + [30, 60, 120].map(w => '<button type="button" class="qc' + (st.win === w ? ' on' : '') + '" data-w="' + w + '">' + w + ' د</button>').join('');
+      cur = buildAppr(st.win, st.day); const { list, skip } = cur;
+      $('#apBody', ov).innerHTML = (list.length ? list.map((a, i) => '<div class="ap ' + a.tp + '"><div class="ap-h"><b>' + ICON[a.tp] + ' اعتماد ' + (i + 1) + ' — ' + C.TRANSPORT[a.tp].ar + '</b><span>' + esc(APPR_ROUTE(a.st, a.air)) + '</span><span class="num">' + C.fmtDayAr(a.t0) + ' ' + C.fmtTime(a.t0) + (a.t1 - a.t0 ? ' → ' + C.fmtTime(a.t1) : '') + '</span><b class="num">' + a.pax + ' فرد</b></div>' +
+        a.items.map(x => '<div class="ap-r"><span class="no">' + esc(x.g.flight) + '</span><span>' + esc(x.g.hotel || '—') + '</span><span class="num">تحرك ' + C.fmtTime(x.mv) + '</span><span class="num">' + x.g.open + '</span></div>').join('') +
+        '<div class="ap-a"><button class="btn sm" data-cp="' + i + '">نسخ</button><a class="btn sm sky" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(apprText(a, i)) + '">واتساب</a></div></div>').join('') : '<div class="empty">لا توجد مجموعات تحتاج اعتماداً في هذه الفترة.</div>') +
+        '<p class="hint" style="margin-top:10px">يُجمَع في اعتماد واحد ما اتفق في الوسيلة والمسار وكان فارق أوقات التحرك ضمن ' + st.win + ' دقيقة من أول مجموعة. الاعتماد بالحافلة: مكة←جدة والمدينة←المدينة، وبالقطار: مكة←المدينة والمدينة←جدة.' +
+        (skip.car ? ' · ' + skip.car + ' مجموعة بسيارة (دون اعتماد)' : '') + (skip.nomove ? ' · ' + skip.nomove + ' بلا وقت تحرك (اضبط ساعات التحرك في ⚙)' : '') + (skip.nocity ? ' · ' + skip.nocity + ' بلا مدينة فندق/مطار' : '') + '</p>';
+    };
+    ov.addEventListener('click', e => {
+      const d = e.target.closest('[data-d]'), w = e.target.closest('[data-w]'), c = e.target.closest('[data-cp]');
+      if (d) { st.day = d.dataset.d; draw(); } else if (w) { st.win = +w.dataset.w; lsSet('hajj1447.apprWin', String(st.win)); draw(); } else if (c) copyText(apprText(cur.list[+c.dataset.cp], +c.dataset.cp), 'نُسخ نص الاعتماد');
+    });
+    $('#apAll', ov).onclick = () => cur.list.length ? copyText(cur.list.map(apprText).join('\n\n'), 'نُسخت كل الاعتمادات') : toast('لا توجد اعتمادات', 'warn');
+    $('#apX', ov).onclick = () => ov.close(); draw();
+  }
   /* ---- دلالات الألوان ---- */
   function openLegend() {
     const rows = Object.keys(ST).filter(k => ST_LABEL[kind][k]).map(k => '<div class="lg"><span class="chip ' + ST[k].cls + '">' + esc(ST_LABEL[kind][k]) + '</span></div>').join('');
@@ -1957,7 +2022,7 @@ function initTracker(kind) {
     if (t.matches('[data-selall]')) { shownGroups.slice(0, ui.limit).forEach(g => t.checked ? ui.sel.add(g.key) : ui.sel.delete(g.key)); render(); }
   });
   $('#qchips').addEventListener('click', e => { const b = e.target.closest('[data-qc]'); if (b) qChip(b.dataset.qc); });
-  $('#bLegend').onclick = openLegend; drawBell();
+  $('#bLegend').onclick = openLegend; drawBell(); if ($('#bAppr')) { $('#bAppr').onclick = () => openAppr(); if (qs.get('appr')) setTimeout(openAppr, 600); }
   $('#bBell').onclick = () => { const on = !bellOn(); lsSet('hajj1447.bell', on ? '1' : ''); drawBell(); if (on) { beep(); try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) { } toast('فُعّل التنبيه الصوتي للحالات الحرجة الجديدة', 'ok'); } else toast('أُوقف التنبيه الصوتي', 'ok'); };
   $('#fQ').oninput = e => { ui.q = e.target.value; ui.limit = 150; render(); };
   $('#fStatus').onchange = e => { ui.status = e.target.value; render(); };
@@ -2016,6 +2081,7 @@ function initDashboard() {
   app.innerHTML = '<section class="hero"><div><h1>لوحة المؤشرات <span>التنفيذية</span></h1><p>نظرة لحظية على حركة وصول ومغادرة حجاج 1447هـ</p></div><div class="hero-actions"><button class="btn green" id="xXls">' + ICON.xls + 'Excel شامل</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'تقرير PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
     '<div id="stale"></div><div id="ovr"></div><div class="kpis" id="kpis"></div>' +
     '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الأكثر تأخراً</h2><span class="hint">وصول لم يُسكَّن · تحرك لم يغادر</span></div><div class="nxt" id="late"></div></section><section class="panel"><div class="panel-h"><h2>الجاهزية والنقل</h2><span class="hint">رحلات غير جاهزة · مشاكل النقل</span></div><div class="nxt" id="nIss"></div></section></div>' +
+    '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الاستعداد المسبق للوصول</h2><a class="hint" href="arrival.html?rdy=no">الرحلات غير الجاهزة ←</a></div><div id="rdyP"></div></section><section class="panel"><div class="panel-h"><h2>اعتمادات المغادرة المقترحة</h2><a class="hint" href="departure.html?appr=1">فتح الاعتمادات ←</a></div><div id="apprP"></div></section></div>' +
     '<div class="grid2"><section class="panel"><h2>أقرب الرحلات</h2><div class="cols2"><div><h3>الوصول</h3><div class="nxt" id="nxA"></div></div><div><h3>المغادرة</h3><div class="nxt" id="nxD"></div></div></div></section>' +
     '<section class="panel"><h2>نسب الإنجاز</h2><div class="rings" id="rings"></div></section></div>' +
     '<div class="grid2 even"><section class="panel"><h2>الوصول حسب اليوم</h2><div class="chartbox"><canvas id="chA"></canvas></div></section><section class="panel"><h2>المغادرة حسب اليوم</h2><div class="chartbox"><canvas id="chD"></canvas></div></section></div>' +
@@ -2076,6 +2142,26 @@ function initDashboard() {
     const it = [['arrival', 0, 'وصول اليوم'], ['arrival', 1, 'وصول غداً'], ['departure', 0, 'تحرك اليوم'], ['departure', 1, 'تحرك غداً']];
     $('#peaks').innerHTML = '<div class="pk-h">أزحم ساعة</div>' + it.map(([k, o, l]) => '<div class="pk"><span>' + l + '</span><b>' + peakTxt(peakOf(hourly(k, o))) + '</b></div>').join('');
   }
+  // لوحة الاستعداد المسبق: توزيع الحالات للرحلات القادمة خلال 24 ساعة + أقربها
+  function rdyPanel(now) {
+    const up = grps0().filter(g => g.when && g.done < g.pax && g.when.getTime() > now - 36e5 && g.when.getTime() < now + 864e5).sort((a, b) => a.when - b.when);
+    if (!up.length) { $('#rdyP').innerHTML = '<div class="empty">لا رحلات وصول خلال 24 ساعة</div>'; return; }
+    const keys = ['approved', 'entered', 'pending', 'fix', 'none'], lab = Object.assign({}, RDY_ST, { none: 'غير مسجّلة' }), c = {}; keys.forEach(k => c[k] = 0);
+    up.forEach(g => { const e = state.ready[g.key]; c[e && e.status ? e.status : 'none']++; });
+    const pct = Math.round(c.approved / up.length * 100), w0 = g => g.rows.reduce((a, r) => (r.when0 && (!a || r.when0 < a) ? r.when0 : a), null);
+    const shifted = up.filter(g => { const e = state.ready[g.key], o = w0(g); return e && e.eta && o && Math.abs(g.when - o) >= 10 * 60000; }).length;
+    $('#rdyP').innerHTML = '<div class="rdyb"><div class="rdyb-t"><b class="num">' + pct + '%</b><span>جاهزة من ' + up.length + ' رحلة خلال 24 ساعة</span></div><div class="rdyb-bar">' + keys.filter(k => c[k]).map(k => '<i class="' + k + '" style="flex:' + c[k] + '" title="' + esc(lab[k]) + '"></i>').join('') + '</div>' +
+      '<div class="rdyb-l">' + keys.map(k => '<span class="rb ' + k + '">' + esc(lab[k]) + ' <b>' + c[k] + '</b></span>').join('') + (shifted ? '<span class="rb eta">تغيّر ETA <b>' + shifted + '</b></span>' : '') + '</div></div>' +
+      '<div class="nxt">' + up.slice(0, 5).map(g => { const e = state.ready[g.key], o = w0(g), dm = e && e.eta && o ? Math.round((g.when - o) / 60000) : 0; return '<a class="nx" href="arrival.html?flight=' + encodeURIComponent(g.key) + '"><span class="no">' + esc(g.flight) + '</span><span class="i">' + C.fmtTime(g.when) + (dm ? ' (ETA ' + (dm > 0 ? '+' : '−') + dur(Math.abs(dm) * 60000) + ')' : '') + '<small>' + g.pax + ' فرد' + (e && (e.hall || e.gate) ? ' · ' + esc([e.hall, e.gate].filter(Boolean).join(' / ')) : '') + '</small></span><span class="c"><span class="rb ' + (e && e.status ? e.status : 'none') + '">' + esc(e && e.status ? RDY_ST[e.status] : 'غير مسجّلة') + '</span></span></a>'; }).join('') + '</div>';
+  }
+  // لوحة الاعتمادات المقترحة للمغادرة (نافذة التجميع المحفوظة في المتصفح، افتراضي 60 د)
+  function apprPanel(now) {
+    const D0 = state.data.departure; if (!D0) { $('#apprP').innerHTML = '<div class="empty">—</div>'; return; }
+    const win = +lsGet('hajj1447.apprWin') || 60, { list, skip } = buildApprFrom(D0.records, win, 'all'), live = list.filter(a => a.t0.getTime() > now - 18e5 && a.t0.getTime() < now + 36 * 36e5);
+    const t = C.fmtDay(new Date(now)), tm = C.fmtDay(new Date(now + 864e5)), cnt = (d, tp) => live.filter(a => C.fmtDay(a.t0) === d && a.tp === tp).length, sum = d => live.filter(a => C.fmtDay(a.t0) === d).reduce((n, a) => n + a.pax, 0);
+    $('#apprP').innerHTML = '<div class="apsum">' + [['اليوم', t], ['غداً', tm]].map(([l, d]) => '<div class="apc"><span>' + l + '</span><b class="num">' + (cnt(d, 'bus') + cnt(d, 'train')) + '</b><small>' + cnt(d, 'bus') + ' حافلة · ' + cnt(d, 'train') + ' قطار · ' + sum(d) + ' فرد</small></div>').join('') + '</div>' +
+      (live.length ? '<div class="nxt">' + live.slice(0, 5).map(a => '<a class="nx" href="departure.html?appr=1"><span class="no">' + C.fmtTime(a.t0) + '</span><span class="i">' + C.TRANSPORT[a.tp].ar + ' · ' + esc(APPR_ROUTE(a.st, a.air)) + '<small>' + a.fl.length + ' رحلة · ' + a.ho.length + ' فندق · ' + a.pax + ' فرد</small></span><span class="c"><span class="cd" data-w="' + a.t0.getTime() + '"></span></span></a>').join('') + '</div>' : '<div class="empty">لا اعتمادات قريبة' + (skip.nomove ? ' — ' + skip.nomove + ' مجموعة بلا وقت تحرك (اضبطه من ⚙)' : '') + '</div>');
+  }
   // ملخص اليوم للمشاركة
   function dailyText() {
     const now = Date.now(), today = C.fmtDay(new Date(now)), o = overall(now), L = [];
@@ -2084,6 +2170,8 @@ function initDashboard() {
       const d = state.data[k]; if (!d) return; const s = C.summarize(d.records, now, S), gs = grps(k).filter(g => g.when && C.fmtDay(g.when) === today);
       L.push('', '✈️ ' + t + ': إجمالي ' + s.total + ' · ' + v + ' ' + s.done + ' (' + s.pct + '%) · متبقٍ ' + s.pending, '   اليوم: ' + gs.length + ' مجموعة · ' + gs.reduce((n, g) => n + g.pax, 0) + ' فرد · مكتمل ' + gs.filter(g => g.open === 0).length, '   أزحم ساعة اليوم: ' + peakTxt(peakOf(hourly(k, 0))));
     });
+    if (state.data.departure) { const list = buildApprFrom(state.data.departure.records, +lsGet('hajj1447.apprWin') || 60, 'today').list.filter(a => a.t0.getTime() > now - 18e5); if (list.length) L.push('', '🧾 اعتمادات مغادرة اليوم المتبقية (مقترحة): ' + list.length + ' (' + list.filter(a => a.tp === 'bus').length + ' حافلة · ' + list.filter(a => a.tp === 'train').length + ' قطار)'); }
+    { const up = grps0().filter(g => g.when && g.done < g.pax && g.when.getTime() > now - 36e5 && g.when.getTime() < now + 864e5); if (up.length) L.push('', '🛬 الاستعداد المسبق (24 س): جاهزة ' + up.filter(g => readyOk(state.ready[g.key])).length + ' من ' + up.length); }
     const lt = lateList(now).slice(0, 5); if (lt.length) { L.push('', '⏰ الأكثر تأخراً:'); lt.forEach(x => L.push('• ' + x.g.flight + ' (' + (x.k === 'arrival' ? 'وصول' : 'مغادرة') + ') — ' + (x.g.hotel || '—') + ' — ' + x.g.open + ' فرد — منذ ' + dur(x.w))); }
     const nl = nrList(now).sort((a, b) => a.h - b.h).slice(0, 5); if (nl.length) { L.push('', '🛬 رحلات غير جاهزة قبل الوصول:'); nl.forEach(x => L.push('• ' + x.g.flight + ' — ' + (x.h > 0 ? 'بعد ' + dur(x.h * 36e5) : 'مضى موعده بـ ' + dur(-x.h * 36e5)) + ' — ' + (x.e && x.e.status ? RDY_ST[x.e.status] : 'غير مسجّل') + ' — ' + x.g.pax + ' فرد')); }
     const is = issueList().slice(0, 5); if (is.length) { L.push('', '🚦 مشاكل النقل:'); is.forEach(x => L.push('• ' + x.g.flight + ' — ' + (x.g.hotel || '—') + ' — ' + NL[x.n.status] + (x.n.note ? ': ' + x.n.note : ''))); }
@@ -2163,7 +2251,7 @@ function initDashboard() {
     const items = []; [['arrival', A], ['departure', D]].forEach(([k, d]) => d && d.records.forEach(r => { if (ST[r._st] && ST[r._st].cls === 'danger') items.push({ k, r }); }));
     items.sort((x, y) => ST[y.r._st].lv - ST[x.r._st].lv || (x.r.when || 0) - (y.r.when || 0));
     $('#feed').innerHTML = items.length ? items.slice(0, 12).map(({ k, r }) => '<a class="nx" href="' + k + '.html?q=' + encodeURIComponent(r.passport || r.name) + '"><span class="no">' + esc(r.flight || '—') + '</span><span class="i">' + esc(r.name || '—') + '<small>' + (k === 'arrival' ? 'وصول' : 'مغادرة') + ' · ' + esc(r.country ? r.country.ar : r.natRaw) + '</small></span><span class="chip danger">' + esc(ST_LABEL[k][r._st]) + '</span><span class="c">' + (r.when ? '<span class="cd" data-w="' + r.when.getTime() + '"></span>' : '') + '</span></a>').join('') + (items.length > 12 ? '<div class="hint" style="padding:6px">+ ' + (items.length - 12) + ' أخرى — افتح صفحة الوصول/المغادرة وصفِّ بـ «حرجة»</div>' : '') : '<div class="empty" style="padding:18px">لا توجد تنبيهات حرجة حالياً ✓</div>';
-    ovrPanel(now); latePanel(now); issPanel(now); peaksPanel(); cityPanel(A, D); tpPanel(A, D);
+    ovrPanel(now); latePanel(now); issPanel(now); rdyPanel(now); apprPanel(now); peaksPanel(); cityPanel(A, D); tpPanel(A, D);
     tick();
   }
   $('#xPrint').insertAdjacentHTML('beforebegin', '<button class="btn" id="xWa">📋 ملخص اليوم</button>'); $('#xWa').onclick = openDaily;
