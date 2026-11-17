@@ -357,6 +357,17 @@ textarea#nTx{width:100%;font:inherit;border-radius:10px;padding:8px;background:v
 .bk{border:1px dashed var(--line2);border-radius:10px;padding:10px}
 body.ro [data-gnote]{display:none!important}
 
+/* ---- لوحة المؤشرات: الوضع العام والذروة ---- */
+.ovr{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 16px;border-radius:14px;border:1px solid var(--line2);background:var(--card2);margin-bottom:14px}
+.ovr .dot{width:12px;height:12px;border-radius:50%;background:#34C47A;box-shadow:0 0 0 4px rgba(52,196,122,.2)}
+.ovr b{font-size:17px}.ovr span:last-child{color:var(--mut)}
+.ovr.watch{border-color:#f5a524}.ovr.watch .dot{background:#f5a524;box-shadow:0 0 0 4px rgba(245,165,36,.2)}
+.ovr.crit{border-color:#ef4444;background:rgba(239,68,68,.08)}.ovr.crit .dot{background:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.25);animation:pulseDot 1.4s infinite}
+.nx .lt{color:#f5a524;font-size:15px}
+.peaks{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 12px;align-items:stretch}.pk-h{width:100%;font-weight:700;color:var(--gold)}
+.pk{flex:1 1 150px;background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;gap:2px}.pk span{color:var(--mut);font-size:12px}.pk b{font-size:15px}
+@media print{.ovr .dot{animation:none}}
+
 </style>
 </head>
 <body data-page="index">
@@ -1935,15 +1946,79 @@ const ring = (pct, color, label, sub) => { const c = 2 * Math.PI * 54; return '<
 function initDashboard() {
   const app = $('#app');
   app.innerHTML = '<section class="hero"><div><h1>لوحة المؤشرات <span>التنفيذية</span></h1><p>نظرة لحظية على حركة وصول ومغادرة حجاج 1447هـ</p></div><div class="hero-actions"><button class="btn green" id="xXls">' + ICON.xls + 'Excel شامل</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'تقرير PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
-    '<div id="stale"></div><div class="kpis" id="kpis"></div>' +
+    '<div id="stale"></div><div id="ovr"></div><div class="kpis" id="kpis"></div>' +
+    '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الأكثر تأخراً</h2><span class="hint">وصول لم يُسكَّن · تحرك لم يغادر</span></div><div class="nxt" id="late"></div></section><section class="panel"><div class="panel-h"><h2>حالات النقل والمشاكل</h2><span class="hint">من ملاحظات المشرفين</span></div><div class="nxt" id="nIss"></div></section></div>' +
     '<div class="grid2"><section class="panel"><h2>أقرب الرحلات</h2><div class="cols2"><div><h3>الوصول</h3><div class="nxt" id="nxA"></div></div><div><h3>المغادرة</h3><div class="nxt" id="nxD"></div></div></div></section>' +
     '<section class="panel"><h2>نسب الإنجاز</h2><div class="rings" id="rings"></div></section></div>' +
     '<div class="grid2 even"><section class="panel"><h2>الوصول حسب اليوم</h2><div class="chartbox"><canvas id="chA"></canvas></div></section><section class="panel"><h2>المغادرة حسب اليوم</h2><div class="chartbox"><canvas id="chD"></canvas></div></section></div>' +
     '<div class="grid2"><section class="panel"><h2>حركة الرحلات خلال 24 ساعة القادمة</h2><div class="chartbox"><canvas id="chH"></canvas></div></section><section class="panel"><div class="panel-h"><h2>الجوازات حسب الجنسية</h2><span class="hint" id="natCnt"></span></div><div class="natl" id="nat"></div></section></div>' +
     '<section class="panel"><h2>الحجاج حسب المدينة</h2><div class="cities" id="cities"></div></section>' +
-    '<section class="panel"><div class="panel-h"><h2>الطلب على النقل حسب الساعة</h2><div class="qchips" id="tpSw" style="flex:none"></div></div><div id="tpNote"></div><div class="chartbox"><canvas id="chT"></canvas></div></section>' +
+    '<section class="panel"><div class="panel-h"><h2>الطلب على النقل حسب الساعة</h2><div class="qchips" id="tpSw" style="flex:none"></div></div><div class="peaks" id="peaks"></div><div id="tpNote"></div><div class="chartbox"><canvas id="chT"></canvas></div></section>' +
     '<section class="panel"><h2>تنبيهات حرجة تحتاج إجراءً</h2><div class="nxt feed" id="feed"></div></section>';
   let snap = null; const tps = { kind: 'arrival', off: 0 };
+  const dur = ms => { const m = Math.max(0, Math.round(ms / 60000)), h = Math.floor(m / 60); return h ? h + ' س' + (m % 60 ? ' ' + (m % 60) + ' د' : '') : m + ' د'; };
+  const refT = (kind, g) => g.when ? (kind === 'departure' ? (C.movementTime(g.when, g.stayCity, g.airCity, S.lead) || g.when) : g.when) : null;
+  const grps = kind => state.data[kind] ? C.groupRecords(state.data[kind].records) : [];
+  const nOf = (kind, g) => (state.notes[kind] || {})[String(g.key).slice(0, 200)] || null;
+  const NL = { vehicle: 'وصلت الوسيلة', enroute: 'في الطريق', delayed: 'تأخر النقل', issue: 'مشكلة' };
+  // الأكثر تأخراً: مجموعات مضى موعدها (الوصول أو وقت التحرك) ولم تُنجَز
+  function lateList(now) {
+    const o = []; ['arrival', 'departure'].forEach(k => grps(k).forEach(g => { const t = refT(k, g); if (t && g.open > 0 && t.getTime() < now) o.push({ k, g, w: now - t.getTime() }); }));
+    return o.sort((a, b) => b.w - a.w);
+  }
+  function issueList() {
+    const o = []; ['arrival', 'departure'].forEach(k => grps(k).forEach(g => { const n = nOf(k, g); if (n && (n.status === 'delayed' || n.status === 'issue') && g.open > 0) o.push({ k, g, n }); }));
+    return o.sort((a, b) => (a.n.status === 'issue' ? 0 : 1) - (b.n.status === 'issue' ? 0 : 1));
+  }
+  const gLink = (k, g) => k + '.html?flight=' + encodeURIComponent(C.groupFlights(g.rows)[0].key);
+  function hourly(kind, off) {
+    const day = C.fmtDay(new Date(Date.now() + off * 864e5)), a = Array(24).fill(0);
+    grps(kind).forEach(g => { const t = refT(kind, g); if (t && C.fmtDay(t) === day) a[+C.fmtTime(t).slice(0, 2)] += g.pax; });
+    return a;
+  }
+  const peakOf = a => { let m = 0, h = -1; a.forEach((v, i) => { if (v > m) { m = v; h = i; } }); return h < 0 ? null : { h, v: m }; };
+  const peakTxt = p => p ? String(p.h).padStart(2, '0') + ':00 · ' + p.v + ' فرد' : 'لا حركة';
+  // الوضع العام من الحالات الحرجة والتأخر ومشاكل النقل
+  function overall(now) {
+    const cnt = c => ['arrival', 'departure'].reduce((n, k) => n + grps(k).filter(g => g.open > 0 && g.cls === c).length, 0);
+    const dg = cnt('danger'), wg = cnt('warn'), is = issueList().length, lt = lateList(now).length;
+    const lv = (dg || is) ? 'crit' : (wg || lt) ? 'watch' : 'ok';
+    return { lv, dg, wg, is, lt, label: { crit: 'حرج', watch: 'تحت المراقبة', ok: 'طبيعي' }[lv] };
+  }
+  function ovrPanel(now) {
+    if (!state.data.arrival && !state.data.departure) { $('#ovr').innerHTML = ''; return; }
+    const o = overall(now), bits = [o.dg && o.dg + ' مجموعة حرجة', o.lt && o.lt + ' متأخرة', o.is && o.is + ' مشكلة نقل', o.wg && o.wg + ' تستدعي الانتباه'].filter(Boolean);
+    $('#ovr').innerHTML = '<div class="ovr ' + o.lv + '"><span class="dot"></span><b>الوضع العام: ' + o.label + '</b><span>' + (bits.length ? bits.join(' · ') : 'لا توجد حالات تحتاج تدخلاً') + '</span></div>';
+  }
+  function latePanel(now) {
+    const L = lateList(now).slice(0, 8), cn = g => C.cityName(g.stayCity, g.stayCityRaw);
+    $('#late').innerHTML = L.length ? L.map(x => '<a class="nx" href="' + gLink(x.k, x.g) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">' + (x.k === 'arrival' ? 'وصول' : 'مغادرة') + ' · ' + esc(x.g.hotel || '—') + (cn(x.g) ? ' (' + esc(cn(x.g)) + ')' : '') + '<small>' + x.g.open + ' فرد متبقٍ من ' + x.g.pax + '</small></span><span class="c"><b class="lt">' + dur(x.w) + '</b></span></a>').join('') : '<div class="empty">لا توجد مجموعات متأخرة ✓</div>';
+  }
+  function issPanel() {
+    const L = issueList();
+    $('#nIss').innerHTML = L.length ? L.map(x => '<a class="nx" href="' + gLink(x.k, x.g) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">' + esc(x.g.hotel || '—') + '<small>' + esc(x.n.note || '') + (x.n.by ? ' — ' + esc(x.n.by) : '') + '</small></span><span class="c"><span class="ntag ' + esc(x.n.status) + '" style="margin:0"><b>' + NL[x.n.status] + '</b></span></span></a>').join('') : '<div class="empty">لا توجد حالات نقل متأخرة أو مشاكل ✓</div>';
+  }
+  function peaksPanel() {
+    const it = [['arrival', 0, 'وصول اليوم'], ['arrival', 1, 'وصول غداً'], ['departure', 0, 'تحرك اليوم'], ['departure', 1, 'تحرك غداً']];
+    $('#peaks').innerHTML = '<div class="pk-h">أزحم ساعة</div>' + it.map(([k, o, l]) => '<div class="pk"><span>' + l + '</span><b>' + peakTxt(peakOf(hourly(k, o))) + '</b></div>').join('');
+  }
+  // ملخص اليوم للمشاركة
+  function dailyText() {
+    const now = Date.now(), today = C.fmtDay(new Date(now)), o = overall(now), L = [];
+    L.push('📊 ملخص حجاج 1447هـ', C.fmtDayAr(new Date(now)) + ' · ' + C.fmtTime(new Date(now)), '', 'الوضع العام: ' + o.label);
+    [['arrival', 'الوصول', 'سُكّن'], ['departure', 'المغادرة', 'غادر']].forEach(([k, t, v]) => {
+      const d = state.data[k]; if (!d) return; const s = C.summarize(d.records, now, S), gs = grps(k).filter(g => g.when && C.fmtDay(g.when) === today);
+      L.push('', '✈️ ' + t + ': إجمالي ' + s.total + ' · ' + v + ' ' + s.done + ' (' + s.pct + '%) · متبقٍ ' + s.pending, '   اليوم: ' + gs.length + ' مجموعة · ' + gs.reduce((n, g) => n + g.pax, 0) + ' فرد · مكتمل ' + gs.filter(g => g.open === 0).length, '   أزحم ساعة اليوم: ' + peakTxt(peakOf(hourly(k, 0))));
+    });
+    const lt = lateList(now).slice(0, 5); if (lt.length) { L.push('', '⏰ الأكثر تأخراً:'); lt.forEach(x => L.push('• ' + x.g.flight + ' (' + (x.k === 'arrival' ? 'وصول' : 'مغادرة') + ') — ' + (x.g.hotel || '—') + ' — ' + x.g.open + ' فرد — منذ ' + dur(x.w))); }
+    const is = issueList().slice(0, 5); if (is.length) { L.push('', '🚦 مشاكل النقل:'); is.forEach(x => L.push('• ' + x.g.flight + ' — ' + (x.g.hotel || '—') + ' — ' + NL[x.n.status] + (x.n.note ? ': ' + x.n.note : ''))); }
+    L.push('', location.origin + location.pathname.replace(/[^/]*$/, '') + 'index.html'); return L.join('\n');
+  }
+  function openDaily() {
+    const txt = dailyText(), ov = modal('<h3>ملخص اليوم</h3><textarea id="dyTx" rows="14" style="width:100%;font:inherit;direction:rtl" readonly></textarea><div class="act"><button class="btn green" id="dyCp">نسخ</button><a class="btn sky" id="dyWa" target="_blank" rel="noopener">واتساب</a><button class="btn" id="dyX">إغلاق</button></div>');
+    $('#dyTx', ov).value = txt; $('#dyWa', ov).href = 'https://wa.me/?text=' + encodeURIComponent(txt); $('#dyX', ov).onclick = () => ov.close();
+    $('#dyCp', ov).onclick = () => { const ok = () => toast('نُسخ الملخص', 'ok'); (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(txt).then(ok, () => { $('#dyTx', ov).select(); document.execCommand('copy'); ok(); }) : ($('#dyTx', ov).select(), document.execCommand('copy'), ok())); };
+  }
   function cityPanel(A, D) {
     const ids = ['makkah', 'madinah', 'jeddah', ''], m = {}; ids.forEach(i => m[i] = { a: 0, ad: 0, d: 0, dd: 0 });
     const add = (R, k, kd) => R && R.forEach(r => { const o = m[C.CITY_DEF[r.stayCity] ? r.stayCity : '']; o[k] += r.pax; if (r.done) o[kd] += r.pax; });
@@ -2013,9 +2088,10 @@ function initDashboard() {
     const items = []; [['arrival', A], ['departure', D]].forEach(([k, d]) => d && d.records.forEach(r => { if (ST[r._st] && ST[r._st].cls === 'danger') items.push({ k, r }); }));
     items.sort((x, y) => ST[y.r._st].lv - ST[x.r._st].lv || (x.r.when || 0) - (y.r.when || 0));
     $('#feed').innerHTML = items.length ? items.slice(0, 12).map(({ k, r }) => '<a class="nx" href="' + k + '.html?q=' + encodeURIComponent(r.passport || r.name) + '"><span class="no">' + esc(r.flight || '—') + '</span><span class="i">' + esc(r.name || '—') + '<small>' + (k === 'arrival' ? 'وصول' : 'مغادرة') + ' · ' + esc(r.country ? r.country.ar : r.natRaw) + '</small></span><span class="chip danger">' + esc(ST_LABEL[k][r._st]) + '</span><span class="c">' + (r.when ? '<span class="cd" data-w="' + r.when.getTime() + '"></span>' : '') + '</span></a>').join('') + (items.length > 12 ? '<div class="hint" style="padding:6px">+ ' + (items.length - 12) + ' أخرى — افتح صفحة الوصول/المغادرة وصفِّ بـ «حرجة»</div>' : '') : '<div class="empty" style="padding:18px">لا توجد تنبيهات حرجة حالياً ✓</div>';
-    cityPanel(A, D); tpPanel(A, D);
+    ovrPanel(now); latePanel(now); issPanel(); peaksPanel(); cityPanel(A, D); tpPanel(A, D);
     tick();
   }
+  $('#xPrint').insertAdjacentHTML('beforebegin', '<button class="btn" id="xWa">📋 ملخص اليوم</button>'); $('#xWa').onclick = openDaily;
   $('#tpSw').addEventListener('click', e => { const b = e.target.closest('[data-tps]'); if (!b) return; const v = b.dataset.tps; if (v === 'arrival' || v === 'departure') tps.kind = v; else tps.off = +v; tpPanel(state.data.arrival, state.data.departure); });
   $('#xPrint').onclick = () => window.print();
   $('#xXls').onclick = async () => {
