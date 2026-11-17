@@ -64,7 +64,7 @@ const ICON = {
 };
 
 /* ---------------- الحالة والمزامنة ---------------- */
-const state = { notes: { arrival: {}, departure: {} }, data: { arrival: null, departure: null }, sync: { arrival: 0, departure: 0 }, err: {}, pending: { arrival: {}, departure: {} }, fn: [] };
+const state = { ready: {}, notes: { arrival: {}, departure: {} }, data: { arrival: null, departure: null }, sync: { arrival: 0, departure: 0 }, err: {}, pending: { arrival: {}, departure: {} }, fn: [] };
 const pkey = r => (isMasked() ? 'r' + r.row : (r.key || ('r' + r.row)));
 const emit = () => state.fn.forEach(f => { try { f(); } catch (e) { console.error(e); } });
 const onData = f => state.fn.push(f);
@@ -88,7 +88,28 @@ function processRows(kind, rows) {
   });
   // حماية من اسم صفحة خاطئ: غياب عمود التأكيد المتوقع يعني غالباً أن الصفحة ليست المقصودة
   res.warn = (res.records.length && res.map.check == null) ? 'لم يُعثر على عمود «' + S[kind].checkHeader + '» في صفحة «' + tabOf(kind) + '» — تأكد من اسم الصفحة في الإعدادات' : '';
-  state.data[kind] = res; return res;
+  state.data[kind] = res; if (kind === 'arrival') applyReady(); return res;
+}
+/* ---------------- الاستعداد المسبق للرحلات (الوصول) ---------------- */
+const RDY_ST = { pending: 'لم تُدخل في نظام الوزارة', entered: 'أُدخلت في نظام الوزارة', approved: 'جاهزة', fix: 'تحتاج تعديلاً' };
+const rKey = r => (r.flight || '—') + '|' + ((r.when0 || r.when) ? C.fmtDay(r.when0 || r.when) : '');
+const parseEta = s => { const m = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/.exec(s || ''); if (!m) return null; const d = new Date(m[1] + 'T' + m[2] + ':00+03:00'); return isNaN(d) ? null : d; };
+const readyOk = e => !!(e && e.status === 'approved');
+// يبدّل وقت الوصول بالـETA المحدّث (مع حفظ الأصلي في when0 كي لا تتغير مفاتيح الرحلات والملاحظات)
+function applyReady() {
+  const d = state.data.arrival; if (!d) return;
+  d.records.forEach(r => {
+    if (r.when0 === undefined) { r.when0 = r.when; r.approx0 = r.approx; }
+    const e = state.ready[rKey(r)], et = e && e.eta ? parseEta(e.eta) : null;
+    r.when = et || r.when0; r.approx = et ? false : r.approx0; r.eta = !!et;
+  });
+}
+async function loadReady() {
+  try {
+    const j = await api('ready_get'); if (!j.ok) return;
+    const m = {}; (j.items || []).forEach(x => { m[x.key] = x; }); state.ready = m;
+    try { localStorage.setItem('hajj1447.ready', JSON.stringify(m)); } catch (e) { }
+  } catch (e) { }
 }
 function updateBadges() {
   const b = {}; try { Object.assign(b, JSON.parse(localStorage.getItem(LS_BADGE) || '{}')); } catch (e) { }
@@ -130,11 +151,13 @@ async function refresh(kinds) {
   const live = $('#live'), btn = $('#bRef');
   if (live) live.className = 'live load'; if (btn) btn.classList.add('spin');
   await syncPublic();
-  await Promise.all(kinds.map(loadKind).concat(kinds.map(loadNotes)));
+  await Promise.all(kinds.map(loadKind).concat(kinds.map(loadNotes), kinds.includes('arrival') ? [loadReady()] : []));
+  applyReady();
   if (btn) btn.classList.remove('spin');
   updateBadges(); emit(); tick(true);
 }
 function hydrate(kinds) {
+  try { state.ready = JSON.parse(localStorage.getItem('hajj1447.ready') || '{}') || {}; } catch (e) { }
   kinds.forEach(k => {
     try { state.notes[k] = JSON.parse(localStorage.getItem('hajj1447.notes.' + k) || '{}') || {}; } catch (e) { }
     try { const c = JSON.parse(localStorage.getItem('hajj1447.cache.' + k) || 'null'); if (c && c.rows) { processRows(k, c.rows); state.sync[k] = c.ts; state.cached = true; } } catch (e) { }
@@ -599,8 +622,8 @@ function initTracker(kind) {
   const K = KIND[kind], app = $('#app');
   let view = null; try { view = localStorage.getItem(LS_VIEW); } catch (e) { }
   if (view !== 'cards' && view !== 'table') view = window.matchMedia('(max-width:760px)').matches ? 'cards' : 'table';
-  const ui = { q: '', status: 'all', nat: 'all', day: 'all', flight: 'all', sec: null, sortK: 'when', dir: 1, reveal: false, limit: 150, sel: new Set(), open: new Set(), view, modal: null };
-  const qs = new URLSearchParams(location.search); ['status', 'q', 'day', 'nat', 'flight'].forEach(k => { if (qs.get(k)) ui[k] = qs.get(k); });
+  const ui = { q: '', status: 'all', nat: 'all', day: 'all', flight: 'all', rdy: 'all', sec: null, sortK: 'when', dir: 1, reveal: false, limit: 150, sel: new Set(), open: new Set(), view, modal: null };
+  const qs = new URLSearchParams(location.search); ['status', 'q', 'day', 'nat', 'flight', 'rdy'].forEach(k => { if (qs.get(k)) ui[k] = qs.get(k); });
   let prevDanger = null, gmap = new Map(), ridx = new Map(), mo = null, shownGroups = [], lastFl = null;
   // موعد المرجع للرحلة: الوصول، أو في المغادرة أبكر موعد تحرك بين سجلاتها (وإلا الإقلاع)
   const refOf = g => {
@@ -612,13 +635,13 @@ function initTracker(kind) {
     const t = ref ? ref.getTime() : null, h = t ? (t - now) / 36e5 : null;
     const lv = t ? (t < now ? 'warn' : (h <= S.criticalH ? 'danger' : (h <= S.warnH ? 'warn' : ''))) : '';
     const full = g.done >= g.pax, dep = kind === 'departure';
-    const flag = C.groupRecords(g.rows).filter(x => { const n = noteOf(x); return n && (n.status === 'delayed' || n.status === 'issue'); }).length;
+    const rdy = rdyHtml(g), flag = C.groupRecords(g.rows).filter(x => { const n = noteOf(x); return n && (n.status === 'delayed' || n.status === 'issue'); }).length;
     return '<div class="fl ' + (full ? 'full' : lv) + (ui.flight === g.key ? ' on' : '') + '" data-flight="' + esc(g.key) + '"><div class="t"><span class="no">' + esc(g.flight) + (flag ? ' <span class="flag" title="فيها مجموعات متأخرة أو بها مشكلة">⚠</span>' : '') + '</span><span class="sub">' + (ref ? C.fmtDayAr(ref) : '') + '</span></div>' +
       '<div class="m"><span>' + (dep ? 'التحرك' : esc(g.airline || '')) + '</span><span class="num">' + (ref ? C.fmtTime(ref) : '') + '</span></div>' +
       (dep && g.when ? '<div class="m"><span>الإقلاع</span><span class="num">' + C.fmtTime(g.when) + '</span></div>' : '') +
       '<div class="cd-wrap">' + (ref ? '<span class="cd" data-w="' + t + '" style="font-size:18px;font-weight:700"></span>' : '') + '</div>' +
-      '<div class="bar" style="margin-top:8px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
-      '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span>' + (full ? '<span class="okmark">✓ مكتمل</span>' : '<button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + (dep ? 'مغادرة الكل' : 'تأكيد الكل') + '</button>') + '<button class="btn sm" data-fshare="' + esc(g.key) + '" title="مشاركة ملخص الرحلة" aria-label="مشاركة ملخص الرحلة">📤</button></div></div>';
+      rdy + '<div class="bar" style="margin-top:8px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
+      '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span>' + (full ? '<span class="okmark">✓ مكتمل</span>' : '<button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + (dep ? 'مغادرة الكل' : 'تأكيد الكل') + '</button>') + '<button class="btn sm" data-fshare="' + esc(g.key) + '" title="مشاركة ملخص الرحلة" aria-label="مشاركة ملخص الرحلة">📤</button>' + (kind === 'arrival' ? '<button class="btn sm" data-fready="' + esc(g.key) + '" title="الاستعداد المسبق" aria-label="الاستعداد المسبق">🛬</button>' : '') + '</div></div>';
   };
   // أقسام مختصرة بأعلى الصفحة؛ الضغط على قسم يعرض رحلاته (خمس كحد أقصى) أسفله، والجدول كما هو
   function drawRail(fl, now) {
@@ -658,13 +681,14 @@ function initTracker(kind) {
   $('#fStatus').value = ui.status;
 
   const recs = () => (state.data[kind] ? state.data[kind].records : []);
-  const flightKey = r => (r.flight || '—') + '|' + (r.when ? C.fmtDay(r.when) : '');
+  const flightKey = rKey;
   const natLabel = r => r.country ? r.country.ar : (r.natRaw || 'غير محدد');
   function passes(r) {
     if (ui.q) { const h = r._h || (r._h = normAr([r.name, r.passport, r.flight, r.hotel, r.room, r.group, r.phone, r.natRaw, r.country && r.country.ar].join(' '))); if (!h.includes(normAr(ui.q))) return false; }
     if (ui.nat !== 'all' && C.natKey(r) !== ui.nat) return false;
     if (ui.day !== 'all' && !(r.when && C.fmtDay(r.when) === ui.day)) return false;
     if (ui.flight !== 'all' && flightKey(r) !== ui.flight) return false;
+    if (ui.rdy === 'no' && (kind !== 'arrival' || r.done || readyOk(state.ready[rKey(r)]))) return false;
     return true;
   }
   function groupPass(g) {
@@ -692,6 +716,41 @@ function initTracker(kind) {
       (rest > 0 ? '<button class="nchip more" data-grp="' + esc(g.key) + '" title="عرض الكل">+' + rest + '</button>' : '') + '</div>';
   };
   const stChip = g => '<span class="chip ' + (g.syncing ? 'sync' : g.cls) + '">' + (g.syncing ? 'جارٍ المزامنة…' : esc(ST_LABEL[kind][g.st] || g.st)) + '</span>' + (g.open > 0 && g.done > 0 ? '<div class="sub num">مكتمل ' + g.done + ' من ' + g.pax + '</div>' : '');
+  /* ---- الاستعداد المسبق للرحلة ---- */
+  const missingOf = g => { const m = { passport: 0, nat: 0, hotel: 0 }; let rows = 0; g.rows.forEach(r => { const a = !r.passport, b = !r.natRaw, c = !r.hotel; if (a) m.passport++; if (b) m.nat++; if (c) m.hotel++; if (a || b || c) rows++; }); return { m, rows }; };
+  function rdyHtml(g) {
+    if (kind !== 'arrival') return '';
+    const e = state.ready[g.key], ms = missingOf(g), w0 = g.rows.reduce((a, r) => (r.when0 && (!a || r.when0 < a) ? r.when0 : a), null), out = [];
+    out.push('<span class="rb ' + (e && e.status ? e.status : 'none') + '">' + esc(e && e.status ? RDY_ST[e.status] : 'الاستعداد: غير مسجّل') + '</span>');
+    if (e && e.eta && w0 && g.when) { const dm = Math.round((g.when - w0) / 60000); out.push('<span class="rb eta">ETA ' + C.fmtTime(g.when) + (dm ? ' (' + (dm > 0 ? '+' : '−') + dur0(Math.abs(dm)) + ')' : '') + '</span>'); }
+    if (e && (e.hall || e.gate)) out.push('<span class="rb loc">🚪 ' + esc([e.hall, e.gate].filter(Boolean).join(' · ')) + '</span>');
+    if (ms.rows) out.push('<span class="rb miss" title="جواز: ' + ms.m.passport + ' · جنسية: ' + ms.m.nat + ' · فندق: ' + ms.m.hotel + '">⚠ بيانات ناقصة (' + ms.rows + ')</span>');
+    return '<div class="rdy">' + out.join('') + '</div>';
+  }
+  const dur0 = m => m >= 60 ? Math.floor(m / 60) + ' س' + (m % 60 ? ' ' + (m % 60) + ' د' : '') : m + ' د';
+  async function openReady(g) {
+    const e = state.ready[g.key] || {}, ms = missingOf(g), w0 = g.rows.reduce((a, r) => (r.when0 && (!a || r.when0 < a) ? r.when0 : a), null);
+    const fmtIn = d => d ? C.fmtDay(d) + 'T' + C.fmtTime(d) : '', cur = e.eta ? e.eta.replace(' ', 'T') : '';
+    const ov = modal('<h3>الاستعداد المسبق — رحلة ' + esc(g.flight) + '</h3><p class="sub">الموعد الأصلي: ' + (w0 ? C.fmtDayAr(w0) + ' · ' + C.fmtTime(w0) : '—') + ' · ' + g.pax + ' فرد</p>' +
+      '<div class="nsel">' + [['', 'غير مسجّل']].concat(Object.keys(RDY_ST).map(k => [k, RDY_ST[k]])).map(([k, l]) => '<label class="qc' + ((e.status || '') === k ? ' on' : '') + '"><input type="radio" name="rst" value="' + k + '"' + ((e.status || '') === k ? ' checked' : '') + ' hidden>' + esc(l) + '</label>').join('') + '</div>' +
+      '<div class="set"><label>الوقت المحدّث للوصول (ETA)<input id="rEta" type="datetime-local" value="' + esc(cur) + '"></label><label>الصالة<input id="rHall" maxlength="30" value="' + esc(e.hall || '') + '"></label><label>البوابة / الجسر<input id="rGate" maxlength="30" value="' + esc(e.gate || '') + '"></label><label class="full">ملاحظة<textarea id="rNote" maxlength="300" rows="2">' + esc(e.note || '') + '</textarea></label></div>' +
+      (ms.rows ? '<p class="hint" style="color:var(--amber,#f5a524)">⚠ ' + ms.rows + ' سجل ناقص قبل الإدخال في نظام الوزارة — بلا جواز: ' + ms.m.passport + ' · بلا جنسية: ' + ms.m.nat + ' · بلا فندق: ' + ms.m.hotel + '</p>' : '<p class="hint">✓ بيانات الرحلة مكتملة (جواز وجنسية وفندق لكل فرد).</p>') +
+      '<div class="act"><button class="btn green" id="rOk">حفظ</button>' + (e.status || e.eta || e.hall || e.gate || e.note ? '<button class="btn" id="rClr">مسح</button>' : '') + '<button class="btn" id="rX">إلغاء</button></div>');
+    ov.querySelectorAll('.nsel input').forEach(r => r.onchange = () => ov.querySelectorAll('.nsel .qc').forEach(l => l.classList.toggle('on', l.firstChild.checked)));
+    const save = async v => {
+      const auth = await ensureAuth(); if (!auth) return;
+      try {
+        const j = await api('ready_set', {}, Object.assign({ key: g.key, label: 'رحلة ' + g.flight, by: auth.by, pin: auth.pin }, v));
+        if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
+        if (j.cleared) delete state.ready[g.key]; else state.ready[g.key] = Object.assign({ key: g.key }, v, { by: auth.by });
+        try { localStorage.setItem('hajj1447.ready', JSON.stringify(state.ready)); } catch (x) { }
+        applyReady(); ov.close(); render(); toast(j.cleared ? 'تم مسح الاستعداد' : 'تم حفظ الاستعداد المسبق', 'ok');
+      } catch (x) { toast('فشل الحفظ: ' + (x.message || x), 'err'); }
+    };
+    $('#rOk', ov).onclick = () => { const et = $('#rEta', ov).value; save({ status: (ov.querySelector('input[name=rst]:checked') || {}).value || '', eta: et ? et.replace('T', ' ').slice(0, 16) : '', hall: $('#rHall', ov).value.trim(), gate: $('#rGate', ov).value.trim(), note: $('#rNote', ov).value.trim() }); };
+    if ($('#rClr', ov)) $('#rClr', ov).onclick = () => save({ status: '', eta: '', hall: '', gate: '', note: '' });
+    $('#rX', ov).onclick = () => ov.close();
+  }
   /* ---- حالة النقل والملاحظة ---- */
   const NST = () => ({ vehicle: kind === 'arrival' ? 'وصلت الحافلة/القطار' : 'وصلت الوسيلة للفندق', enroute: kind === 'arrival' ? 'في الطريق إلى الفندق' : 'في الطريق إلى المطار', delayed: 'تأخر النقل', issue: 'مشكلة تحتاج متابعة' });
   const nkey = g => String(g.key).slice(0, 200);
@@ -779,11 +838,11 @@ function initTracker(kind) {
   /* ---- مرشحات سريعة ورابط العرض ---- */
   const dayOf = off => C.fmtDay(new Date(Date.now() + off * 864e5));
   function drawChips() {
-    const defs = [['all', 'الكل', ui.status === 'all' && ui.day === 'all' && ui.flight === 'all' && !ui.q && ui.nat === 'all'], ['danger', 'حرجة / متأخرة', ui.status === 'danger'], ['warn', 'تستدعي الانتباه', ui.status === 'warn'], ['open', K.openL, ui.status === 'open'], ['today', 'اليوم', ui.day === dayOf(0)], ['tomorrow', 'غداً', ui.day === dayOf(1)]];
+    const defs = [['all', 'الكل', ui.status === 'all' && ui.day === 'all' && ui.flight === 'all' && ui.rdy === 'all' && !ui.q && ui.nat === 'all'], ['danger', 'حرجة / متأخرة', ui.status === 'danger'], ['warn', 'تستدعي الانتباه', ui.status === 'warn'], ['open', K.openL, ui.status === 'open'], ...(kind === 'arrival' ? [['rdy', 'غير جاهزة', ui.rdy === 'no']] : []), ['today', 'اليوم', ui.day === dayOf(0)], ['tomorrow', 'غداً', ui.day === dayOf(1)]];
     $('#qchips').innerHTML = defs.map(d => '<button type="button" class="qc' + (d[2] ? ' on' : '') + '" data-qc="' + d[0] + '">' + d[1] + '</button>').join('') + '<button type="button" class="qc link" data-qc="link" title="نسخ رابط هذا العرض">🔗 نسخ رابط العرض</button>';
   }
   function viewLink() {
-    const p = new URLSearchParams(); ['status', 'q', 'day', 'nat', 'flight'].forEach(k => { if (ui[k] && ui[k] !== 'all') p.set(k, ui[k]); });
+    const p = new URLSearchParams(); ['status', 'q', 'day', 'nat', 'flight', 'rdy'].forEach(k => { if (ui[k] && ui[k] !== 'all') p.set(k, ui[k]); });
     return location.origin + location.pathname + (p.toString() ? '?' + p : '') + location.hash;
   }
   function copyText(t, okMsg) {
@@ -793,7 +852,8 @@ function initTracker(kind) {
   function qChip(v) {
     ui.limit = 150;
     if (v === 'link') { copyText(viewLink(), 'نُسخ رابط العرض'); return; }
-    if (v === 'all') { ui.status = 'all'; ui.day = 'all'; ui.flight = 'all'; ui.nat = 'all'; ui.q = ''; $('#fQ').value = ''; }
+    if (v === 'rdy') ui.rdy = ui.rdy === 'no' ? 'all' : 'no';
+    else if (v === 'all') { ui.status = 'all'; ui.day = 'all'; ui.flight = 'all'; ui.rdy = 'all'; ui.nat = 'all'; ui.q = ''; $('#fQ').value = ''; }
     else if (v === 'today' || v === 'tomorrow') { const d = dayOf(v === 'today' ? 0 : 1); ui.day = ui.day === d ? 'all' : d; }
     else ui.status = ui.status === v ? 'all' : v;
     render();
@@ -808,6 +868,7 @@ function initTracker(kind) {
     if (dep && ref && fg.when && ref.getTime() !== fg.when.getTime()) L.push('أبكر تحرك: ' + C.fmtDayAr(ref) + ' · ' + C.fmtTime(ref));
     L.push('العدد: ' + fg.pax + ' فرد · ' + (dep ? 'غادر ' : 'سُكّن ') + fg.done);
     const air = fg.rows.find(r => r.airport); if (air) L.push('المطار: ' + air.airport);
+    { const e = kind === 'arrival' ? state.ready[fg.key] : null; if (e) { if (e.status) L.push('الاستعداد المسبق: ' + RDY_ST[e.status]); if (e.hall || e.gate) L.push('الصالة/البوابة: ' + [e.hall, e.gate].filter(Boolean).join(' · ')); if (e.note) L.push('ملاحظة: ' + e.note); } }
     L.push('');
     hotelGroups(fg).forEach(g => {
       const parts = [g.hotel || 'فندق غير محدد']; const cn = C.cityName(g.stayCity, g.stayCityRaw); if (cn) parts.push(cn);
@@ -832,7 +893,7 @@ function initTracker(kind) {
     const dep = kind === 'departure', ref = refOf(fg), gs = hotelGroups(fg);
     const rows = gs.map((g, i) => { const tp = gTransport(g); return '<tr><td>' + (i + 1) + '</td><td>' + esc(g.hotel || '—') + '</td><td>' + esc(C.cityName(g.stayCity, g.stayCityRaw)) + '</td><td>' + g.pax + '</td><td>' + esc(g.natList.map(n => n.label + ' (' + n.n + ')').join('، ')) + '</td><td>' + esc(tp ? C.TRANSPORT[tp].ar : '') + '</td><td>' + esc(moveTxt(g)) + '</td><td>' + esc((() => { const n = noteOf(g); return n ? [n.status ? NST()[n.status] : '', n.note].filter(Boolean).join(' — ') : ''; })()) + '</td><td>' + (g.open ? '☐' : '☑') + '</td></tr>'; }).join('');
     const html = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>رحلة ' + esc(fg.flight) + '</title><style>@page{size:A4;margin:12mm}body{font-family:Tahoma,Arial,sans-serif;color:#000;font-size:13px}h1{margin:0 0 4px;font-size:22px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px}.meta div{margin:2px 0}table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:5px 7px;text-align:right}th{background:#eee}.qr svg{width:110px;height:110px}.ft{margin-top:10px;font-size:11px;color:#555}</style></head><body><div class="top"><div class="meta"><h1>' + (dep ? 'مغادرة' : 'وصول') + ' — رحلة ' + esc(fg.flight) + '</h1>' +
-      '<div>' + (dep ? 'الإقلاع: ' : 'الوصول: ') + esc(fg.when ? C.fmtDayAr(fg.when) + ' · ' + C.fmtTime(fg.when) : '—') + (dep && ref && fg.when && ref.getTime() !== fg.when.getTime() ? ' | أبكر تحرك: ' + esc(C.fmtTime(ref)) : '') + '</div><div>الناقل: ' + esc(fg.airline || '—') + ' | العدد: ' + fg.pax + ' فرد</div></div>' +
+      '<div>' + (dep ? 'الإقلاع: ' : 'الوصول: ') + esc(fg.when ? C.fmtDayAr(fg.when) + ' · ' + C.fmtTime(fg.when) : '—') + (dep && ref && fg.when && ref.getTime() !== fg.when.getTime() ? ' | أبكر تحرك: ' + esc(C.fmtTime(ref)) : '') + '</div><div>الناقل: ' + esc(fg.airline || '—') + ' | العدد: ' + fg.pax + ' فرد</div>' + (() => { const e = kind === 'arrival' ? state.ready[fg.key] : null; return e ? '<div>الاستعداد: ' + esc((e.status ? RDY_ST[e.status] : '—') + (e.hall || e.gate ? ' | ' + [e.hall, e.gate].filter(Boolean).join(' · ') : '')) + '</div>' : ''; })() + '</div>' +
       '<div class="qr">' + (qr || '<small dir="ltr">' + esc(link) + '</small>') + '</div></div><table><thead><tr><th>#</th><th>الفندق</th><th>المدينة</th><th>العدد</th><th>الجنسيات</th><th>النقل</th><th>التحرك</th><th>ملاحظة</th><th>تم</th></tr></thead><tbody>' + rows + '</tbody></table><div class="ft">طُبع: ' + esc(C.fmtDayAr(new Date()) + ' ' + C.fmtTime(new Date())) + '</div></body></html>';
     const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0'; document.body.appendChild(fr);
     fr.contentDocument.open(); fr.contentDocument.write(html); fr.contentDocument.close();
@@ -982,6 +1043,7 @@ function initTracker(kind) {
     if ((el = t.closest('[data-gact]'))) { const g = gmap.get(el.dataset.key); if (g) doWrite(g.rows, el.dataset.gact === 'ok', K.act + ' — ' + gTitle(g)); return; }
     if ((el = t.closest('[data-grp]'))) { openGroup(el.dataset.grp, el.dataset.nat); return; }
     if ((el = t.closest('[data-view]'))) { ui.view = el.dataset.view; try { localStorage.setItem(LS_VIEW, ui.view); } catch (x) { } render(); return; }
+    if ((el = t.closest('[data-fready]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fready); if (g) openReady(g); return; }
     if ((el = t.closest('[data-fshare]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fshare); if (g) openShare(g); return; }
     if ((el = t.closest('[data-fok]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fok); if (g) doWrite(g.rows, true, K.act + ' — رحلة ' + g.flight); return; }
     if ((el = t.closest('[data-sec]'))) { ui.sec = ui.sec === el.dataset.sec ? null : el.dataset.sec; if (lastFl) drawRail(lastFl, Date.now()); tick(); return; }
@@ -1057,7 +1119,7 @@ function initDashboard() {
   const app = $('#app');
   app.innerHTML = '<section class="hero"><div><h1>لوحة المؤشرات <span>التنفيذية</span></h1><p>نظرة لحظية على حركة وصول ومغادرة حجاج 1447هـ</p></div><div class="hero-actions"><button class="btn green" id="xXls">' + ICON.xls + 'Excel شامل</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'تقرير PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
     '<div id="stale"></div><div id="ovr"></div><div class="kpis" id="kpis"></div>' +
-    '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الأكثر تأخراً</h2><span class="hint">وصول لم يُسكَّن · تحرك لم يغادر</span></div><div class="nxt" id="late"></div></section><section class="panel"><div class="panel-h"><h2>حالات النقل والمشاكل</h2><span class="hint">من ملاحظات المشرفين</span></div><div class="nxt" id="nIss"></div></section></div>' +
+    '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الأكثر تأخراً</h2><span class="hint">وصول لم يُسكَّن · تحرك لم يغادر</span></div><div class="nxt" id="late"></div></section><section class="panel"><div class="panel-h"><h2>الجاهزية والنقل</h2><span class="hint">رحلات غير جاهزة · مشاكل النقل</span></div><div class="nxt" id="nIss"></div></section></div>' +
     '<div class="grid2"><section class="panel"><h2>أقرب الرحلات</h2><div class="cols2"><div><h3>الوصول</h3><div class="nxt" id="nxA"></div></div><div><h3>المغادرة</h3><div class="nxt" id="nxD"></div></div></div></section>' +
     '<section class="panel"><h2>نسب الإنجاز</h2><div class="rings" id="rings"></div></section></div>' +
     '<div class="grid2 even"><section class="panel"><h2>الوصول حسب اليوم</h2><div class="chartbox"><canvas id="chA"></canvas></div></section><section class="panel"><h2>المغادرة حسب اليوم</h2><div class="chartbox"><canvas id="chD"></canvas></div></section></div>' +
@@ -1080,6 +1142,11 @@ function initDashboard() {
     const o = []; ['arrival', 'departure'].forEach(k => grps(k).forEach(g => { const n = nOf(k, g); if (n && (n.status === 'delayed' || n.status === 'issue') && g.open > 0) o.push({ k, g, n }); }));
     return o.sort((a, b) => (a.n.status === 'issue' ? 0 : 1) - (b.n.status === 'issue' ? 0 : 1));
   }
+  // رحلات وصول قريبة (خلال حد التحذير) لم تُعتمد جاهزيتها في نظام الوزارة
+  function nrList(now) {
+    return grps0().filter(g => g.when && g.done < g.pax && g.when.getTime() > now - 36e5 && (g.when.getTime() - now) / 36e5 <= S.warnH && !readyOk(state.ready[g.key])).map(g => ({ g, h: (g.when.getTime() - now) / 36e5, e: state.ready[g.key] || null }));
+  }
+  const grps0 = () => state.data.arrival ? C.groupFlights(state.data.arrival.records) : [];
   const gLink = (k, g) => k + '.html?flight=' + encodeURIComponent(C.groupFlights(g.rows)[0].key);
   function hourly(kind, off) {
     const day = C.fmtDay(new Date(Date.now() + off * 864e5)), a = Array(24).fill(0);
@@ -1091,22 +1158,23 @@ function initDashboard() {
   // الوضع العام من الحالات الحرجة والتأخر ومشاكل النقل
   function overall(now) {
     const cnt = c => ['arrival', 'departure'].reduce((n, k) => n + grps(k).filter(g => g.open > 0 && g.cls === c).length, 0);
-    const dg = cnt('danger'), wg = cnt('warn'), is = issueList().length, lt = lateList(now).length;
-    const lv = (dg || is) ? 'crit' : (wg || lt) ? 'watch' : 'ok';
-    return { lv, dg, wg, is, lt, label: { crit: 'حرج', watch: 'تحت المراقبة', ok: 'طبيعي' }[lv] };
+    const nl = nrList(now), nr = nl.length, nrc = nl.filter(x => x.h <= S.criticalH).length, dg = cnt('danger'), wg = cnt('warn'), is = issueList().length, lt = lateList(now).length;
+    const lv = (dg || is || nrc) ? 'crit' : (wg || lt || nr) ? 'watch' : 'ok';
+    return { lv, dg, wg, is, lt, nr, label: { crit: 'حرج', watch: 'تحت المراقبة', ok: 'طبيعي' }[lv] };
   }
   function ovrPanel(now) {
     if (!state.data.arrival && !state.data.departure) { $('#ovr').innerHTML = ''; return; }
-    const o = overall(now), bits = [o.dg && o.dg + ' مجموعة حرجة', o.lt && o.lt + ' متأخرة', o.is && o.is + ' مشكلة نقل', o.wg && o.wg + ' تستدعي الانتباه'].filter(Boolean);
+    const o = overall(now), bits = [o.dg && o.dg + ' مجموعة حرجة', o.lt && o.lt + ' متأخرة', o.is && o.is + ' مشكلة نقل', o.nr && o.nr + ' رحلة غير جاهزة قبل الوصول', o.wg && o.wg + ' تستدعي الانتباه'].filter(Boolean);
     $('#ovr').innerHTML = '<div class="ovr ' + o.lv + '"><span class="dot"></span><b>الوضع العام: ' + o.label + '</b><span>' + (bits.length ? bits.join(' · ') : 'لا توجد حالات تحتاج تدخلاً') + '</span></div>';
   }
   function latePanel(now) {
     const L = lateList(now).slice(0, 8), cn = g => C.cityName(g.stayCity, g.stayCityRaw);
     $('#late').innerHTML = L.length ? L.map(x => '<a class="nx" href="' + gLink(x.k, x.g) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">' + (x.k === 'arrival' ? 'وصول' : 'مغادرة') + ' · ' + esc(x.g.hotel || '—') + (cn(x.g) ? ' (' + esc(cn(x.g)) + ')' : '') + '<small>' + x.g.open + ' فرد متبقٍ من ' + x.g.pax + '</small></span><span class="c"><b class="lt">' + dur(x.w) + '</b></span></a>').join('') : '<div class="empty">لا توجد مجموعات متأخرة ✓</div>';
   }
-  function issPanel() {
-    const L = issueList();
-    $('#nIss').innerHTML = L.length ? L.map(x => '<a class="nx" href="' + gLink(x.k, x.g) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">' + esc(x.g.hotel || '—') + '<small>' + esc(x.n.note || '') + (x.n.by ? ' — ' + esc(x.n.by) : '') + '</small></span><span class="c"><span class="ntag ' + esc(x.n.status) + '" style="margin:0"><b>' + NL[x.n.status] + '</b></span></span></a>').join('') : '<div class="empty">لا توجد حالات نقل متأخرة أو مشاكل ✓</div>';
+  function issPanel(now) {
+    const L = issueList(), NR = nrList(now).sort((a, b) => a.h - b.h);
+    const nrRows = NR.map(x => '<a class="nx" href="arrival.html?flight=' + encodeURIComponent(x.g.key) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">' + (x.e && x.e.status ? esc(RDY_ST[x.e.status]) : 'الاستعداد غير مسجّل') + '<small>' + (x.h > 0 ? 'الوصول بعد ' + dur(x.h * 36e5) : 'مضى موعد الوصول بـ ' + dur(-x.h * 36e5)) + ' · ' + x.g.pax + ' فرد' + (x.e && (x.e.hall || x.e.gate) ? ' · ' + esc([x.e.hall, x.e.gate].filter(Boolean).join(' / ')) : '') + '</small></span><span class="c"><span class="ntag ' + (x.h <= S.criticalH ? 'issue' : 'delayed') + '" style="margin:0"><b>غير جاهزة</b></span></span></a>').join('');
+    $('#nIss').innerHTML = (L.length || NR.length) ? nrRows + L.map(x => '<a class="nx" href="' + gLink(x.k, x.g) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">' + esc(x.g.hotel || '—') + '<small>' + esc(x.n.note || '') + (x.n.by ? ' — ' + esc(x.n.by) : '') + '</small></span><span class="c"><span class="ntag ' + esc(x.n.status) + '" style="margin:0"><b>' + NL[x.n.status] + '</b></span></span></a>').join('') : '<div class="empty">لا توجد حالات نقل أو جاهزية تحتاج متابعة ✓</div>';
   }
   function peaksPanel() {
     const it = [['arrival', 0, 'وصول اليوم'], ['arrival', 1, 'وصول غداً'], ['departure', 0, 'تحرك اليوم'], ['departure', 1, 'تحرك غداً']];
@@ -1121,6 +1189,7 @@ function initDashboard() {
       L.push('', '✈️ ' + t + ': إجمالي ' + s.total + ' · ' + v + ' ' + s.done + ' (' + s.pct + '%) · متبقٍ ' + s.pending, '   اليوم: ' + gs.length + ' مجموعة · ' + gs.reduce((n, g) => n + g.pax, 0) + ' فرد · مكتمل ' + gs.filter(g => g.open === 0).length, '   أزحم ساعة اليوم: ' + peakTxt(peakOf(hourly(k, 0))));
     });
     const lt = lateList(now).slice(0, 5); if (lt.length) { L.push('', '⏰ الأكثر تأخراً:'); lt.forEach(x => L.push('• ' + x.g.flight + ' (' + (x.k === 'arrival' ? 'وصول' : 'مغادرة') + ') — ' + (x.g.hotel || '—') + ' — ' + x.g.open + ' فرد — منذ ' + dur(x.w))); }
+    const nl = nrList(now).sort((a, b) => a.h - b.h).slice(0, 5); if (nl.length) { L.push('', '🛬 رحلات غير جاهزة قبل الوصول:'); nl.forEach(x => L.push('• ' + x.g.flight + ' — ' + (x.h > 0 ? 'بعد ' + dur(x.h * 36e5) : 'مضى موعده بـ ' + dur(-x.h * 36e5)) + ' — ' + (x.e && x.e.status ? RDY_ST[x.e.status] : 'غير مسجّل') + ' — ' + x.g.pax + ' فرد')); }
     const is = issueList().slice(0, 5); if (is.length) { L.push('', '🚦 مشاكل النقل:'); is.forEach(x => L.push('• ' + x.g.flight + ' — ' + (x.g.hotel || '—') + ' — ' + NL[x.n.status] + (x.n.note ? ': ' + x.n.note : ''))); }
     L.push('', location.origin + location.pathname.replace(/[^/]*$/, '') + 'index.html'); return L.join('\n');
   }
@@ -1198,7 +1267,7 @@ function initDashboard() {
     const items = []; [['arrival', A], ['departure', D]].forEach(([k, d]) => d && d.records.forEach(r => { if (ST[r._st] && ST[r._st].cls === 'danger') items.push({ k, r }); }));
     items.sort((x, y) => ST[y.r._st].lv - ST[x.r._st].lv || (x.r.when || 0) - (y.r.when || 0));
     $('#feed').innerHTML = items.length ? items.slice(0, 12).map(({ k, r }) => '<a class="nx" href="' + k + '.html?q=' + encodeURIComponent(r.passport || r.name) + '"><span class="no">' + esc(r.flight || '—') + '</span><span class="i">' + esc(r.name || '—') + '<small>' + (k === 'arrival' ? 'وصول' : 'مغادرة') + ' · ' + esc(r.country ? r.country.ar : r.natRaw) + '</small></span><span class="chip danger">' + esc(ST_LABEL[k][r._st]) + '</span><span class="c">' + (r.when ? '<span class="cd" data-w="' + r.when.getTime() + '"></span>' : '') + '</span></a>').join('') + (items.length > 12 ? '<div class="hint" style="padding:6px">+ ' + (items.length - 12) + ' أخرى — افتح صفحة الوصول/المغادرة وصفِّ بـ «حرجة»</div>' : '') : '<div class="empty" style="padding:18px">لا توجد تنبيهات حرجة حالياً ✓</div>';
-    ovrPanel(now); latePanel(now); issPanel(); peaksPanel(); cityPanel(A, D); tpPanel(A, D);
+    ovrPanel(now); latePanel(now); issPanel(now); peaksPanel(); cityPanel(A, D); tpPanel(A, D);
     tick();
   }
   $('#xPrint').insertAdjacentHTML('beforebegin', '<button class="btn" id="xWa">📋 ملخص اليوم</button>'); $('#xWa').onclick = openDaily;

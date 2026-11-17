@@ -418,7 +418,7 @@ function summarize(recs, now, c) {
 function groupFlights(recs) {
   const m = new Map();
   for (const r of recs) {
-    const k = (r.flight || '—') + '|' + (r.when ? fmtDay(r.when) : '');
+    const k = (r.flight || '—') + '|' + ((r.when0 || r.when) ? fmtDay(r.when0 || r.when) : '');
     let g = m.get(k);
     if (!g) { g = { key: k, flight: r.flight || '—', airline: r.airline, when: r.when, rows: [], pax: 0, done: 0, kind: r.kind }; m.set(k, g); }
     g.rows.push(r); g.pax += r.pax; if (r.done) g.done += r.pax;
@@ -473,7 +473,7 @@ function airportName(raw) {
 
 /* ---------------- تجميع الحجاج: نفس الرحلة + نفس اليوم + نفس الفندق ---------------- */
 const natKey = r => r.country ? r.country.iso2 : '?' + normAr(r.natRaw);
-const groupKey = r => (r.flight || '—') + '|' + (r.when ? fmtDay(r.when) : '') + '|' + normAr(r.hotel) + '|' + (r.stayCity || '');
+const groupKey = r => (r.flight || '—') + '|' + ((r.when0 || r.when) ? fmtDay(r.when0 || r.when) : '') + '|' + normAr(r.hotel) + '|' + (r.stayCity || '');
 function groupRecords(recs) {
   const m = new Map();
   for (const r of recs) {
