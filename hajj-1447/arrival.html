@@ -1609,6 +1609,27 @@ function initTracker(kind) {
       '<div class="cd-wrap">' + (ref ? '<span class="cd" data-w="' + t + '" style="font-size:18px;font-weight:700"></span>' : '') + '</div>' +
       rdy + prepHtml(g) + notesHtml(g) + '<div class="bar" style="margin-top:8px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' +
       '<div class="row"><span class="num">' + g.done + ' / ' + g.pax + '</span>' + (full ? '<span class="okmark">✓ مكتمل</span>' : '<button class="btn sm" data-fok="' + esc(g.key) + '">' + ICON.check + (dep ? 'مغادرة الكل' : 'تأكيد الكل') + '</button>') + '<button class="btn sm" data-fshare="' + esc(g.key) + '" title="مشاركة ملخص الرحلة" aria-label="مشاركة ملخص الرحلة">📤 مشاركة</button>' + (kind === 'arrival' ? '<button class="btn sm" data-fready="' + esc(g.key) + '" title="الاستعداد المسبق للرحلة" aria-label="الاستعداد المسبق">🛬 الاستعداد</button>' : '<button class="btn sm" data-fappr="' + esc(g.key) + '" title="اعتماد المغادرة لهذه الرحلة" aria-label="اعتماد الرحلة">🧾 الاعتماد</button>') + '</div></div>';
+  };
+  // أقسام مختصرة بأعلى الصفحة؛ الضغط على قسم يعرض رحلاته (خمس كحد أقصى) أسفله، والجدول كما هو
+  function drawRail(fl, now) {
+    lastFl = fl;
+    const defs = SEC_DEFS[kind], T = fl.map(g => ({ g, ref: refOf(g) })).filter(x => x.ref), w = x => x.ref.getTime();
+    const lists = {
+      cur: T.filter(x => Math.abs(w(x) - now) <= SEC_MS).sort((a, b) => w(a) - w(b)),
+      arr: T.filter(x => now - w(x) > SEC_MS).sort((a, b) => w(b) - w(a)),
+      soon: T.filter(x => w(x) - now > SEC_MS).sort((a, b) => w(a) - w(b))
+    };
+    $('#secTiles').innerHTML = defs.map(x => {
+      const l = lists[x.id], f = l[0];
+      return '<button type="button" class="stile ' + x.cls + (ui.sec === x.id ? ' on' : '') + '" data-sec="' + x.id + '" aria-expanded="' + (ui.sec === x.id) + '"><span class="st">' + x.t + '</span><span class="sn">' + l.length + '</span>' +
+        '<span class="ss">' + (f ? '<b>' + esc(f.g.flight) + '</b> <span class="cd" data-w="' + w(f) + '"></span>' : '—') + '</span></button>';
+    }).join('');
+    const pn = $('#secPanel'), cur = defs.find(x => x.id === ui.sec);
+    if (!cur) { pn.hidden = true; pn.innerHTML = ''; return; }
+    const l = lists[cur.id];
+    pn.hidden = false;
+    pn.innerHTML = '<div class="sec ' + cur.cls + '"><div class="sec-h"><b>' + cur.t + '</b><span class="cnt">' + l.length + '</span><span class="hint">' + cur.s + ' · اضغط رحلة لتصفية الجدول' + (l.length > SEC_N ? ' · اسحب يميناً لعرض البقية ›' : '') + '</span></div>' +
+      '<div class="rail">' + (l.length ? l.slice(0, SEC_MAX).map(x => flCard(x.g, now, x.ref)).join('') : '<div class="empty" style="width:100%;padding:12px">لا توجد رحلات في هذا القسم</div>') + '</div></div>';
   }
   setInterval(() => { if (lastFl) drawRail(lastFl, Date.now()); }, 20000);   // تنتقل الرحلات بين الأقسام مع الوقت
 
