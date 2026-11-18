@@ -1,1 +1,1 @@
-window.HAJJ_CONFIG = { webapp: "https://script.google.com/macros/s/AKfycbzCDOUTr-fGwx1iwLmsgh0xTkQWc8r43KA_sPF6SLPspAwQIs94tfbt-9t7AZHligmp/exec" };
+window.HAJJ_CONFIG = { webapp: "https://script.google.com/macros/s/AKfycbyVjqP_BW7pzvtdQbLC63KU7kmOvxAh8UrQVbffdLbOp7-BkyXX9ZX3QVRWnp8oi5tukw/exec" };
