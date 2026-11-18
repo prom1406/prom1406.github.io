@@ -98,6 +98,13 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 .kpi .l{color:var(--mut);font-size:13px;display:flex;gap:6px;align-items:center}
 .kpi .v{font-size:32px;font-weight:800;line-height:1.15;margin-top:4px;color:var(--accent,var(--ink));font-variant-numeric:tabular-nums}
 .kpi .s{font-size:12.5px;color:var(--mut);margin-top:2px;min-height:18px}
+.rgc{margin:6px 0 0;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;display:inline-block;border:1px solid var(--line)}
+.rgc.ok{background:rgba(52,196,122,.14);border-color:#34C47A;color:#86efac}
+.rgc.pend{background:rgba(14,165,233,.12);border-color:#0EA5E9;color:#7dd3fc}
+.rgc.na{background:rgba(139,92,246,.16);border-color:#8b5cf6;color:#c4b5fd}
+[data-theme=light] .rgc.ok{color:#116b3c}[data-theme=light] .rgc.pend{color:#0369a1}[data-theme=light] .rgc.na{color:#6d28d9}
+.prep.na{border-color:#8b5cf6;color:#c4b5fd;background:rgba(139,92,246,.12)}[data-theme=light] .prep.na{color:#6d28d9}
+.kpi.na{--accent:#8b5cf6}
 .kpi.gold{--accent:var(--gold)}.kpi.ok{--accent:var(--ok)}.kpi.sky{--accent:var(--sky)}.kpi.red{--accent:var(--red)}.kpi.amber{--accent:var(--amber)}
 .kpi.red.pulse{animation:redpulse 2s infinite}
 @keyframes redpulse{0%,100%{box-shadow:var(--shadow)}50%{box-shadow:0 0 0 1px var(--red),0 0 22px rgba(229,72,77,.35)}}
@@ -1116,6 +1123,25 @@ function rdyOf(fg) {
   const w = es.find(x => x.eta) || {}, h = es.find(x => x.hall) || {}, gt = es.find(x => x.gate) || {};
   return { key: fg.key, status: st, eta: w.eta || '', hall: h.hall || '', gate: gt.gate || '', note: '', by: es[0].by };
 }
+// ---- حالة الاستعداد/الاعتماد للمؤشرات وعلامات البطاقات ----
+// استعداد مسجّل = «تم التسجيل في نسك مسار» (أو جاهزة) لمجموعة/بطاقة؛ اعتماد مسجّل = تم الاعتماد على مستوى الرحلة
+const rdyReg = g => { const e = state.ready[rk(g.key)] || state.ready[rKey(g.rows[0] || {})]; return e && (e.status === 'entered' || e.status === 'approved') ? e : null; };
+const apprOkOf = fg => { const e = state.appr[fg.key]; return !!(e && e.status === 'approved'); };
+// لكل مجموعة مغادرة: هل يمكن إصدار اعتماد لها؟ وإن لم يمكن فلماذا
+function apprStatusMap(records) {
+  const ok = new Set(), m = new Map();
+  buildApprFrom(records, +lsGet('hajj1447.apprWin') || 60, 'all').list.forEach(a => a.items.forEach(x => ok.add(x.g.key)));
+  C.groupRecords(records).forEach(g => {
+    if (!(g.open > 0)) return;
+    if (ok.has(g.key)) { m.set(g.key, { ok: true }); return; }
+    let why = 'سيارة (أقل من ' + Math.max(8, +(S.transport && S.transport.busMin) || 0) + ' أفراد)';
+    if (!g.stayCity || !g.airCity) why = 'بلا مدينة فندق/مطار';
+    else if (!C.movementTime(g.when, g.stayCity, g.airCity, S.lead)) why = 'بلا وقت تحرك';
+    else if (!C.transportFor(g.airCity, g.stayCity, 999, 1)) why = 'مسار غير مدعوم';
+    m.set(g.key, { ok: false, why });
+  });
+  return m;
+}
 // يبدّل وقت الوصول بالـETA المحدّث (مع حفظ الأصلي في when0 كي لا تتغير مفاتيح الرحلات والملاحظات)
 function applyReady() {
   const d = state.data.arrival; if (!d) return;
@@ -1675,11 +1701,33 @@ function initTracker(kind) {
   // موعد المرجع للرحلة: الوصول، أو في المغادرة أبكر موعد تحرك بين سجلاتها (وإلا الإقلاع)
   // أوامر الاستعداد والاعتماد لا تُقبل إلا قبل الرحلة بأسبوعين على الأقل
   // تنبيه الاستعداد/الاعتماد: يبدأ قبل الرحلة بأسبوعين، يعلو قبل أسبوع، ويصبح حرجاً قبل يومين، ويتوقف عند الإنجاز
+  // علامة على البطاقة: استعداد مسجّل (وصول) / اعتماد مسجّل أو متعذّر (مغادرة)
+  let apSt = new Map();
+  const regChip = g => {
+    if (kind === 'arrival') {
+      const e = state.ready[rk(g.key)] || state.ready[rKey(g.rows[0] || {})]; if (!e || !e.status) return '';
+      return (e.status === 'entered' || e.status === 'approved') ? '<div class="rgc ok">🛬 استعداد مسبق مسجّل في نسك مسار</div>' : (e.status === 'pending' ? '<div class="rgc pend">✗ لم يُسجَّل في نسك مسار بعد</div>' : '<div class="rgc pend">⚠ الاستعداد يحتاج تعديلاً</div>');
+    }
+    if (!(g.open > 0)) return '';
+    const a = state.appr[rKey(g.rows[0] || {})]; if (a && a.status === 'approved') return '<div class="rgc ok">🧾 اعتماد مسجّل' + (a.by ? ' — ' + esc(a.by) : '') + '</div>';
+    const s = apSt.get(g.key); if (s && !s.ok) return '<div class="rgc na">🚫 لا يمكن عمل اعتماد — ' + esc(s.why) + '</div>';
+    return '<div class="rgc pend">⏳ بانتظار إصدار الاعتماد</div>';
+  };
+  // بطاقات مؤشرات إضافية: الاستعداد المسجّل (وصول) / الاعتماد المسجّل وما لا يمكن اعتماده (مغادرة)
+  const extraKpis = (gs, fl, sm) => {
+    const pc = (p) => sm.total ? Math.round(p / sm.total * 100) : 0, sum = a => a.reduce((n, g) => n + g.pax, 0);
+    if (kind === 'arrival') { const reg = gs.filter(rdyReg), p = sum(reg); return '<div class="kpi sky"><div class="l">🛬 استعداد مسبق مسجّل</div><div class="v">' + reg.length + '</div><div class="s">مجموعة · ' + p + ' حاج من ' + sm.total + ' (' + pc(p) + '%)</div></div>'; }
+    const ap = fl.filter(apprOkOf), p = sum(ap), na = gs.filter(g => g.open > 0 && apSt.get(g.key) && !apSt.get(g.key).ok), np = sum(na);
+    return '<div class="kpi ok"><div class="l">🧾 اعتماد مسجّل</div><div class="v">' + ap.length + '</div><div class="s">رحلة · ' + p + ' حاج من ' + sm.total + ' (' + pc(p) + '%)</div></div>' +
+      '<div class="kpi na"><div class="l">🚫 لا يمكن اعتمادها</div><div class="v">' + na.length + '</div><div class="s">مجموعة · ' + np + ' حاج (سيارة أو بلا وقت تحرك)</div></div>';
+  };
   const prepHtml = g => {
     const cur = kind === 'arrival' ? rdyOf(g) : state.appr[g.key];
     const done = kind === 'arrival' ? readyOk(cur) : !!(cur && cur.status === 'approved');
     const label = kind === 'arrival' ? 'الاستعداد' : 'الاعتماد';
     if (done) return '<div class="prep ok">✓ ' + label + ' مكتمل' + (cur && cur.by ? ' — ' + esc(cur.by) : '') + '</div>';
+    if (kind === 'arrival' && cur && cur.status === 'entered') return '<div class="prep ok">✓ مسجّل في نسك مسار' + (cur.by ? ' — ' + esc(cur.by) : '') + '</div>';
+    if (kind === 'departure') { const og = C.groupRecords(g.rows).filter(x => x.open > 0); if (og.length && og.every(x => apSt.get(x.key) && !apSt.get(x.key).ok)) return '<div class="prep na">🚫 لا يمكن عمل اعتماد — ' + esc([...new Set(og.map(x => apSt.get(x.key).why))].join('، ')) + '</div>'; }
     if (!g.when) return '';
     const h = (g.when.getTime() - Date.now()) / 36e5;
     if (h > 336) return '';
@@ -1956,7 +2004,7 @@ function initTracker(kind) {
         case 'pax': return '<td><b class="num" style="font-size:17px">' + g.pax + '</b><div class="bar" style="width:70px;margin-top:4px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div></td>';
         case 'nat': return '<td>' + natChips(g, 3) + '</td>';
         case 'pp': return '<td>' + ppBtn(g) + '</td>';
-        case 'st': return '<td>' + stChip(g) + noteChip(g) + '</td>';
+        case 'st': return '<td>' + stChip(g) + noteChip(g) + regChip(g) + '</td>';
         case 'act': return '<td>' + gAct(g) + '</td>';
       }
       return '<td></td>';
@@ -1972,7 +2020,7 @@ function initTracker(kind) {
       '<article class="gcard ' + (g.open === 0 ? 'done ' : '') + (g.open && g.cls === 'danger' ? 'danger ' : g.open && g.cls === 'warn' ? 'warn ' : '') + '">' +
       '<header><label class="chk"><input type="checkbox" data-sel="' + esc(g.key) + '"' + (ui.sel.has(g.key) ? ' checked' : '') + ' aria-label="تحديد"></label><div class="gt"><b class="no">' + esc(g.flight) + '</b>' + (g.airline ? '<div class="sub">' + esc(g.airline) + '</div>' : '') + '</div><div class="gs">' + stChip(g) + '</div></header>' +
       '<div class="gbig"><div><b class="num">' + g.pax + '</b><span>فرد</span></div><div class="gcd">' + gCd(g) + '</div></div>' +
-      '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' + noteChip(g) +
+      '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' + noteChip(g) + regChip(g) +
       '<dl class="gkv"><div><dt>' + (kind === 'arrival' ? 'الموعد' : 'الإقلاع') + '</dt><dd>' + gWhen(g) + mvHtml(g) + '</dd></div>' + (ci.air ? '<div><dt>' + (kind === 'arrival' ? 'مطار الوصول' : 'مطار المغادرة') + '</dt><dd>' + twoLine(g.airport, airCityTxt(g)) + '</dd></div>' : '') + ((g.hotel || ci.stay) ? '<div><dt>الفندق</dt><dd>' + twoLine(g.hotel, stayCityTxt(g)) + '</dd></div>' : '') + (ci.tp ? '<div><dt>وسيلة النقل</dt><dd>' + tpHtml(gTransport(g)) + '</dd></div>' : '') + '</dl>' +
       natChips(g, 4) + '<footer>' + ppBtn(g) + gAct(g) + fBtns(g) + '</footer></article>').join('') + '</div>';
   }
@@ -2095,6 +2143,7 @@ function initTracker(kind) {
     stale.innerHTML = state.err[kind] ? '<div class="stale">⚠ تعذّر التحديث الأخير (' + esc(state.err[kind]) + ') — تُعرض آخر بيانات محفوظة قبل ' + fmtAge(now - (state.sync[kind] || now)) + '.</div>' : (d.warn ? '<div class="stale">⚠ ' + esc(d.warn) + ' <button class="btn sm" id="stSet2">الإعدادات</button></div>' : '');
     if ($('#stSet2')) $('#stSet2').onclick = () => openSettings(false);
     const R = recs(); ridx = new Map(R.map(r => [r.row, r]));
+    if (kind === 'departure') apSt = apprStatusMap(R);
     const sm = C.summarize(R, now, S);
     const allGroups = C.groupRecords(R); gmap = new Map(allGroups.map(g => [g.key, g]));
     [...ui.sel].forEach(k => { if (!gmap.has(k)) ui.sel.delete(k); });
@@ -2106,7 +2155,7 @@ function initTracker(kind) {
       '<div class="kpi ok"><div class="l">' + K.doneL + '</div><div class="v">' + sm.done + '</div><div class="s"><div class="bar"><i style="width:' + sm.pct + '%"></i></div>' + sm.pct + '%</div></div>' +
       '<div class="kpi amber"><div class="l">' + K.openL + '</div><div class="v">' + sm.pending + '</div><div class="s">تستدعي الانتباه: ' + sm.warn + '</div></div>' +
       '<div class="kpi red click' + (sm.dangerRows ? ' pulse' : '') + '" data-kpi="danger"><div class="l">حالات حرجة / متأخرة</div><div class="v">' + sm.danger + '</div><div class="s">' + sm.dangerRows + ' سجل — اضغط للتصفية</div></div>' +
-      '<div class="kpi sky"><div class="l">أقرب رحلة</div><div class="v" style="font-size:25px;padding-top:5px">' + (nextG ? '<span class="cd" data-w="' + nextG.when.getTime() + '"></span>' : '—') + '</div><div class="s">' + (nextG ? esc(nextG.flight) + ' · ' + C.fmtTime(nextG.when) + ' · ' + nextG.pax + ' فرد' : 'لا توجد رحلات قادمة') + '</div></div>';
+      '<div class="kpi sky"><div class="l">أقرب رحلة</div><div class="v" style="font-size:25px;padding-top:5px">' + (nextG ? '<span class="cd" data-w="' + nextG.when.getTime() + '"></span>' : '—') + '</div><div class="s">' + (nextG ? esc(nextG.flight) + ' · ' + C.fmtTime(nextG.when) + ' · ' + nextG.pax + ' فرد' : 'لا توجد رحلات قادمة') + '</div></div>' + extraKpis(allGroups, fl, sm);
     $('#alertbar').innerHTML = sm.dangerRows ? '<div class="alertbar" data-kpi="danger"><span class="dot"></span><b>تنبيه:</b> ' + sm.dangerRows + ' سجل في حالة حرجة أو متأخرة ويحتاج إلى إجراء فوري <span class="sp"></span><span class="hint">عرض</span></div>' : '';
     const dk = new Set(R.filter(r => ST[r._st].cls === 'danger').map(r => pkey(r)));
     if (prevDanger) { let n = 0; dk.forEach(k => { if (!prevDanger.has(k)) n++; }); if (n) { toast('تنبيه: ' + n + ' حالة حرجة جديدة', 'err'); notifyNew(n); } }
