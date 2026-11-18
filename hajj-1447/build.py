@@ -32,7 +32,7 @@ TPL = """<!doctype html>
 <body data-page="{page}">
 <header id="nav"></header>
 <main id="app"></main>
-<script src="config.js"></script>
+<script src="config.js?v=20261118"></script>
 <script>
 {js}
 </script>
