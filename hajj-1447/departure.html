@@ -1060,8 +1060,36 @@ function buildApprFrom(records, win, dayF) {
     const L = by.get(k).sort((a, b) => a.mv - b.mv); let cur = null;
     L.forEach(x => { if (!cur || x.mv - cur.items[0].mv > win * 60000) { cur = { tp: x.tp, st: x.g.stayCity, air: x.g.airCity, items: [] }; out.push(cur); } cur.items.push(x); });
   });
-  out.forEach(a => { a.pax = a.items.reduce((n, x) => n + x.g.pax, 0); a.t0 = a.items[0].mv; a.t1 = a.items[a.items.length - 1].mv; a.fl = [...new Set(a.items.map(x => x.g.flight))]; a.ho = [...new Set(a.items.map(x => x.g.hotel || 'فندق غير محدد'))]; });
+  out.forEach(a => { a.pax = a.items.reduce((n, x) => n + x.g.open, 0); a.t0 = a.items[0].mv; a.t1 = a.items[a.items.length - 1].mv; a.fl = [...new Set(a.items.map(x => x.g.flight))]; a.ho = [...new Set(a.items.map(x => x.g.hotel || 'فندق غير محدد'))]; a.buses = splitBuses(a); });
   out.sort((a, b) => a.t0 - b.t0); return { list: out, skip };
+}
+// ---- الحافلات: اعتماد نسك مسار يصدر لكل حافلة (بحد أقصى 49 راكباً) أياً كانت الوجهة (مطار أو محطة قطار) ----
+const BUS_MAX = 49;
+let BUSSEQ = 0; const BUSREG = new Map();
+const natTxt = r => r.country ? r.country.ar : (r.natRaw || 'غير محدد');
+// يوزّع ركاب الاعتماد على حافلات: المجموعة (فندق/رحلة) تبقى معاً ما أمكن، وتُجزَّأ فقط إن زادت عن حافلة كاملة
+function splitBuses(a) {
+  const buses = []; let cur = null;
+  const fresh = () => { cur = { tp: a.tp, st: a.st, air: a.air, rows: [], parts: [], t0: null, t1: null }; buses.push(cur); };
+  const add = (x, rows) => { cur.rows.push(...rows); cur.parts.push({ g: x.g, mv: x.mv, n: rows.length }); if (!cur.t0 || x.mv < cur.t0) cur.t0 = x.mv; if (!cur.t1 || x.mv > cur.t1) cur.t1 = x.mv; };
+  a.items.forEach(x => {
+    let rest = x.g.rows.filter(r => !r.done); if (!rest.length) return;
+    if (rest.length <= BUS_MAX) { if (!cur || cur.rows.length + rest.length > BUS_MAX) fresh(); add(x, rest); return; }
+    while (rest.length) { if (!cur || cur.rows.length >= BUS_MAX) fresh(); const take = rest.slice(0, BUS_MAX - cur.rows.length); add(x, take); rest = rest.slice(take.length); }
+  });
+  return buses;
+}
+function busHtml(b, j, n) {
+  const id = 'b' + (++BUSSEQ); BUSREG.set(id, b);
+  const masked = b.rows.some(r => String(r.passport || '').charAt(0) === '•'), same = C.fmtDay(b.t0) === C.fmtDay(b.t1);
+  return '<div class="ap ' + b.tp + '"><div class="ap-h"><b>🚌 حافلة ' + (j + 1) + (n > 1 ? ' من ' + n : '') + '</b><span>' + esc(APPR_ROUTE(b.st, b.air)) + '</span><span class="num">' + C.fmtDayAr(b.t0) + ' ' + C.fmtTime(b.t0) + (b.t1 - b.t0 ? ' → ' + (same ? '' : C.fmtDayAr(b.t1) + ' ') + C.fmtTime(b.t1) : '') + '</span><b class="num">' + b.rows.length + ' / ' + BUS_MAX + ' فرد</b></div>' +
+    b.parts.map(p => '<div class="ap-r"><span class="no">' + esc(p.g.flight) + '</span><span>' + esc(p.g.hotel || '—') + '</span><span class="num">تحرك ' + C.fmtTime(p.mv) + '</span><span class="num">' + p.n + '</span></div>').join('') +
+    '<details class="rdy-more" open><summary>الجوازات والجنسيات (' + b.rows.length + ') — للإدخال في نسك مسار</summary>' +
+    (masked ? '<p class="hint" style="color:var(--amber,#f5a524)">⚠ أرقام الجوازات مخفية في وضع الزائر — سجّل دخول المالك لعرضها ونسخها كاملة.</p>'
+      : '<div class="ap-a" style="margin:6px 0"><button class="btn sm" data-bc="' + id + ':P">نسخ الجوازات</button><button class="btn sm" data-bc="' + id + ':A">نسخ الجواز + الجنسية</button><button class="btn sm" data-bc="' + id + ':T">نسخ ملخص الحافلة</button></div>') +
+    '<div class="rdy-tw"><table class="rdy-t"><thead><tr><th>#</th><th>الاسم</th><th>رقم الجواز</th><th>الجنسية</th></tr></thead><tbody>' +
+    b.rows.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name || '—') + '</td><td class="rdy-pp" dir="ltr"' + (masked ? '' : ' data-bc="' + id + ':' + i + '" title="اضغط للنسخ"') + '>' + esc(r.passport || '—') + '</td><td>' + (flagImg(r.country) || esc(r.natRaw || 'غير محدد')) + '</td></tr>').join('') +
+    '</tbody></table></div></details></div>';
 }
 /* ---------------- الاستعداد المسبق للرحلات (الوصول) ---------------- */
 const RDY_ST = { pending: 'لم تُدخل في نظام الوزارة', entered: 'أُدخلت في نظام الوزارة', approved: 'جاهزة', fix: 'تحتاج تعديلاً' };
@@ -1810,23 +1838,34 @@ function initTracker(kind) {
     $('#pgX', ov).onclick = () => ov.close();
   }
   // اعتماد مغادرة لرحلة واحدة: نص الاعتماد المقترح + تسجيل الاعتماد (يبقى زر الاعتماد على البطاقة بعد الإنجاز)
+  // نسخ بيانات الحافلة: الجوازات / الجواز + الجنسية / ملخص، أو جواز واحد بالضغط عليه
+  function busBind(ov) {
+    ov.addEventListener('click', e => {
+      const c = e.target.closest('[data-bc]'); if (!c) return;
+      const [id, m] = c.dataset.bc.split(':'), b = BUSREG.get(id); if (!b) return;
+      const rs = b.rows.filter(r => r.passport);
+      if (m === 'P') copyText(rs.map(r => r.passport).join('\n'), 'نُسخت ' + rs.length + ' جوازات');
+      else if (m === 'A') copyText(rs.map(r => r.passport + '\t' + natTxt(r)).join('\n'), 'نُسخت الجوازات مع الجنسيات');
+      else if (m === 'T') copyText('🚌 ' + APPR_ROUTE(b.st, b.air) + '\nوقت التحرك: ' + C.fmtDayAr(b.t0) + ' ' + C.fmtTime(b.t0) + '\nالعدد: ' + b.rows.length + ' فرد\n' + b.parts.map(p => '• ' + p.g.flight + ' — ' + (p.g.hotel || 'فندق غير محدد') + ' — ' + p.n).join('\n'), 'نُسخ ملخص الحافلة');
+      else { const r = b.rows[+m]; if (r) copyText(r.passport, 'نُسخ الجواز'); }
+    });
+  }
   function openTripAppr(g) {
     const cur = state.appr[g.key] || null, done = !!(cur && cur.status === 'approved');
     const D = state.data.departure;
-    let mine = [], body;
+    let mine = [], tbuses = [], body;
     if (!D || !D.records) body = '<div class="empty">تحتاج بيانات المغادرة لعرض نص الاعتماد — افتح صفحة المغادرة مرة واحدة</div>';
     else {
       const win = +lsGet('hajj1447.apprWin') || 60, { list } = buildApprFrom(D.records, win, 'all');
       mine = list.map((a, i) => ({ a, i })).filter(x => x.a.items.some(y => y.g.flight === g.flight));
-      body = mine.length ? mine.map((x, j) => '<div class="ap ' + x.a.tp + '"><div class="ap-h"><b>' + ICON[x.a.tp] + ' ' + C.TRANSPORT[x.a.tp].ar + '</b><span>' + esc(APPR_ROUTE(x.a.st, x.a.air)) + '</span><span class="num">' + C.fmtDayAr(x.a.t0) + ' ' + C.fmtTime(x.a.t0) + '</span><b class="num">' + x.a.pax + ' فرد</b></div>' +
-        '<pre style="white-space:pre-wrap;margin:8px 0 0;font:inherit;direction:rtl">' + esc(apprText(x.a, x.i)) + '</pre>' +
-        '<div class="ap-a"><button class="btn sm" data-cp="' + j + '">نسخ</button><a class="btn sm sky" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(apprText(x.a, x.i)) + '">واتساب</a></div></div>').join('')
-        : '<div class="empty">لا يوجد اعتماد مقترح لهذه الرحلة (قد تكون بسيارة، أو بلا وقت تحرك/مدينة)</div>';
+      mine.forEach(x => x.a.buses.forEach(b => { if (b.parts.some(p => p.g.flight === g.flight)) tbuses.push(b); }));
+      body = (tbuses.length ? '<p class="hint">الاعتماد يصدر لكل حافلة (حتى ' + BUS_MAX + ' فرداً) — انسخ الجوازات والجنسيات وأدخلها في نسك مسار.</p>' + tbuses.map((b, j) => busHtml(b, j, tbuses.length)).join('')
+        : '<div class="empty">لا يوجد اعتماد مقترح لهذه الرحلة (قد تكون بسيارة، أو بلا وقت تحرك/مدينة)</div>');
     }
     const ov = modal('<h3>اعتماد الرحلة ' + esc(g.flight) + '</h3><p class="sub">' + esc(gTitle(g)) + '</p>' +
       (done ? '<p class="hint" style="color:#86efac">✓ معتمدة' + (cur.by ? ' — بواسطة ' + esc(cur.by) : '') + '</p>' : '') + body +
       '<div class="act"><button class="btn green" id="taOk">' + (done ? 'إلغاء الاعتماد' : 'تم الاعتماد') + '</button><button class="btn" id="taX">إغلاق</button></div>');
-    ov.addEventListener('click', e => { const c = e.target.closest('[data-cp]'); if (c) { const x = mine[+c.dataset.cp]; copyText(apprText(x.a, x.i), 'نُسخ نص الاعتماد'); } });
+    busBind(ov);
     const save = async st => {
       const auth = await ensureAuth(); if (!auth) return;
       try {
@@ -1996,7 +2035,7 @@ function initTracker(kind) {
   const buildAppr = (win, dayF) => buildApprFrom(recs(), win, dayF);
   function apprText(a, i) {
     const same = C.fmtDay(a.t0) === C.fmtDay(a.t1), L = ['🧾 اعتماد مغادرة ' + (i + 1) + ' — ' + C.TRANSPORT[a.tp].ar, 'المسار: ' + APPR_ROUTE(a.st, a.air),
-      'وقت التحرك: ' + C.fmtDayAr(a.t0) + ' ' + C.fmtTime(a.t0) + (a.t1 - a.t0 ? ' إلى ' + (same ? '' : C.fmtDayAr(a.t1) + ' ') + C.fmtTime(a.t1) : ''), 'العدد: ' + a.pax + ' فرد', ''];
+      'وقت التحرك: ' + C.fmtDayAr(a.t0) + ' ' + C.fmtTime(a.t0) + (a.t1 - a.t0 ? ' إلى ' + (same ? '' : C.fmtDayAr(a.t1) + ' ') + C.fmtTime(a.t1) : ''), 'العدد: ' + a.pax + ' فرد' + (a.buses.length > 1 ? ' — ' + a.buses.length + ' حافلات (حتى ' + BUS_MAX + ' للحافلة)' : ''), ''];
     a.items.forEach(x => L.push('• ' + x.g.flight + ' (إقلاع ' + C.fmtTime(x.g.when) + ') — ' + (x.g.hotel || 'فندق غير محدد') + ' — ' + x.g.open + ' فرد — تحرك ' + C.fmtTime(x.mv)));
     return L.join('\n');
   }
@@ -2007,12 +2046,13 @@ function initTracker(kind) {
     const draw = () => {
       $('#apCh', ov).innerHTML = [['today', 'اليوم'], ['tomorrow', 'غداً'], ['all', 'الكل']].map(([v, l]) => '<button type="button" class="qc' + (st.day === v ? ' on' : '') + '" data-d="' + v + '">' + l + '</button>').join('') + '<span class="hint" style="align-self:center">فارق التجميع:</span>' + [30, 60, 120].map(w => '<button type="button" class="qc' + (st.win === w ? ' on' : '') + '" data-w="' + w + '">' + w + ' د</button>').join('');
       cur = buildAppr(st.win, st.day); const { list, skip } = cur;
-      $('#apBody', ov).innerHTML = (list.length ? list.map((a, i) => '<div class="ap ' + a.tp + '"><div class="ap-h"><b>' + ICON[a.tp] + ' اعتماد ' + (i + 1) + ' — ' + C.TRANSPORT[a.tp].ar + '</b><span>' + esc(APPR_ROUTE(a.st, a.air)) + '</span><span class="num">' + C.fmtDayAr(a.t0) + ' ' + C.fmtTime(a.t0) + (a.t1 - a.t0 ? ' → ' + C.fmtTime(a.t1) : '') + '</span><b class="num">' + a.pax + ' فرد</b></div>' +
-        a.items.map(x => '<div class="ap-r"><span class="no">' + esc(x.g.flight) + '</span><span>' + esc(x.g.hotel || '—') + '</span><span class="num">تحرك ' + C.fmtTime(x.mv) + '</span><span class="num">' + x.g.open + '</span></div>').join('') +
+      $('#apBody', ov).innerHTML = (list.length ? list.map((a, i) => '<div class="ap ' + a.tp + '"><div class="ap-h"><b>' + ICON[a.tp] + ' اعتماد ' + (i + 1) + ' — ' + C.TRANSPORT[a.tp].ar + '</b><span>' + esc(APPR_ROUTE(a.st, a.air)) + '</span><span class="num">' + C.fmtDayAr(a.t0) + ' ' + C.fmtTime(a.t0) + (a.t1 - a.t0 ? ' → ' + C.fmtTime(a.t1) : '') + '</span><b class="num">' + a.pax + ' فرد · ' + a.buses.length + ' حافلة</b></div>' +
+        a.buses.map((b, j) => busHtml(b, j, a.buses.length)).join('') +
         '<div class="ap-a"><button class="btn sm" data-cp="' + i + '">نسخ</button><a class="btn sm sky" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(apprText(a, i)) + '">واتساب</a></div></div>').join('') : '<div class="empty">لا توجد مجموعات تحتاج اعتماداً في هذه الفترة.</div>') +
         '<p class="hint" style="margin-top:10px">يُجمَع في اعتماد واحد ما اتفق في الوسيلة والمسار وكان فارق أوقات التحرك ضمن ' + st.win + ' دقيقة من أول مجموعة. الاعتماد بالحافلة: مكة←جدة والمدينة←المدينة، وبالقطار: مكة←المدينة والمدينة←جدة.' +
         (skip.car ? ' · ' + skip.car + ' مجموعة بسيارة (دون اعتماد)' : '') + (skip.nomove ? ' · ' + skip.nomove + ' بلا وقت تحرك (اضبط ساعات التحرك في ⚙)' : '') + (skip.nocity ? ' · ' + skip.nocity + ' بلا مدينة فندق/مطار' : '') + '</p>';
     };
+    busBind(ov);
     ov.addEventListener('click', e => {
       const d = e.target.closest('[data-d]'), w = e.target.closest('[data-w]'), c = e.target.closest('[data-cp]');
       if (d) { st.day = d.dataset.d; draw(); } else if (w) { st.win = +w.dataset.w; lsSet('hajj1447.apprWin', String(st.win)); draw(); } else if (c) copyText(apprText(cur.list[+c.dataset.cp], +c.dataset.cp), 'نُسخ نص الاعتماد');
