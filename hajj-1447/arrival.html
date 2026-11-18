@@ -1072,7 +1072,7 @@ const rk = k => String(k).slice(0, 200);
 const gkOf = r => rk(C.groupKey(r));
 // استعداد الرحلة (على مستوى الرحلة) يُشتق من استعداد مجموعاتها؛ لكل مجموعة (بطاقة) استعدادها الخاص بفندقها
 function rdyOf(fg) {
-  const e = rdyOf(fg); if (e) return e;
+  const e = state.ready[fg.key]; if (e) return e;
   const gs = C.groupRecords(fg.rows), es = gs.map(x => state.ready[rk(x.key)]).filter(Boolean);
   if (!es.length) return null;
   const okA = es.every(x => x.status === 'entered' || x.status === 'approved') && es.length === gs.length;
