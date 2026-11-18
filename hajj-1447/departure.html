@@ -234,8 +234,8 @@ tr.detail td{background:rgba(255,255,255,.03)}
 .rdy-h{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 14px;margin:8px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.03)}
 .rdy-h dt{font-size:11.5px;color:var(--mut)}.rdy-h dd{margin:2px 0 0;font-weight:700}
 .rdy-pt{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px}.rdy-pt b{margin-inline-end:auto}
-.rdy-tw{max-height:34vh;overflow:auto;border:1px solid var(--line);border-radius:12px}
-.rdy-t{width:100%;border-collapse:collapse;font-size:13px}.rdy-t th,.rdy-t td{padding:6px 10px;text-align:start;border-bottom:1px solid var(--line)}.rdy-t th{position:sticky;top:0;background:#0A2039;z-index:1}
+.rdy-tw{max-height:34vh;overflow-y:auto;overflow-x:hidden;border:1px solid var(--line);border-radius:12px}
+.rdy-t{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px}.rdy-t th:nth-child(1){width:34px}.rdy-t th:nth-child(2){width:26%}.rdy-t td{overflow-wrap:anywhere}.rdy-t th,.rdy-t td{padding:6px 10px;text-align:start;border-bottom:1px solid var(--line)}.rdy-t th{position:sticky;top:0;background:#0A2039;z-index:1}
 [data-theme=light] .rdy-t th{background:#fff}
 .rdy-pp{user-select:all;cursor:copy;font-weight:700;letter-spacing:.3px}
 .rdy-reg{margin:14px 0 6px}.rdy-reg .nsel{margin-top:6px}
@@ -392,7 +392,7 @@ body.ro [data-gnote]{display:none!important}
 .rb{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:99px;border:1px solid var(--line2);background:var(--card2);white-space:nowrap}
 .rb.approved{border-color:#34C47A;color:#86efac}.rb.entered{border-color:#0EA5E9;color:#7dd3fc}.rb.pending{border-color:#f5a524;color:#fcd34d}.rb.fix{border-color:#ef4444;color:#fca5a5}
 .rb.none{color:var(--mut)}.rb.eta{border-color:#C5A059;color:#E6C77F}.rb.miss{border-color:#f5a524;color:#fcd34d}
-body.ro [data-fready]{display:none!important}
+body.ro [data-fready],body.ro [data-gready]{display:none!important}
 
 /* ---- اعتمادات المغادرة ---- */
 .ov.wide .modal,.ov.wide>div{max-width:780px;width:94vw}
@@ -1051,12 +1051,24 @@ const RDY_ST = { pending: 'لم تُدخل في نظام الوزارة', entere
 const rKey = r => (r.flight || '—') + '|' + ((r.when0 || r.when) ? C.fmtDay(r.when0 || r.when) : '');
 const parseEta = s => { const m = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})$/.exec(s || ''); if (!m) return null; const d = new Date(m[1] + 'T' + m[2] + ':00+03:00'); return isNaN(d) ? null : d; };
 const readyOk = e => !!(e && e.status === 'approved');
+const rk = k => String(k).slice(0, 200);
+const gkOf = r => rk(C.groupKey(r));
+// استعداد الرحلة (على مستوى الرحلة) يُشتق من استعداد مجموعاتها؛ لكل مجموعة (بطاقة) استعدادها الخاص بفندقها
+function rdyOf(fg) {
+  const e = rdyOf(fg); if (e) return e;
+  const gs = C.groupRecords(fg.rows), es = gs.map(x => state.ready[rk(x.key)]).filter(Boolean);
+  if (!es.length) return null;
+  const okA = es.every(x => x.status === 'entered' || x.status === 'approved') && es.length === gs.length;
+  const st = okA ? (es.every(x => x.status === 'approved') ? 'approved' : 'entered') : (es.some(x => x.status === 'fix') ? 'fix' : 'pending');
+  const w = es.find(x => x.eta) || {}, h = es.find(x => x.hall) || {}, gt = es.find(x => x.gate) || {};
+  return { key: fg.key, status: st, eta: w.eta || '', hall: h.hall || '', gate: gt.gate || '', note: '', by: es[0].by };
+}
 // يبدّل وقت الوصول بالـETA المحدّث (مع حفظ الأصلي في when0 كي لا تتغير مفاتيح الرحلات والملاحظات)
 function applyReady() {
   const d = state.data.arrival; if (!d) return;
   d.records.forEach(r => {
     if (r.when0 === undefined) { r.when0 = r.when; r.approx0 = r.approx; }
-    const e = state.ready[rKey(r)], et = e && e.eta ? parseEta(e.eta) : null;
+    const e = state.ready[gkOf(r)] || state.ready[rKey(r)], et = e && e.eta ? parseEta(e.eta) : null;
     r.when = et || r.when0; r.approx = et ? false : r.approx0; r.eta = !!et;
   });
 }
@@ -1610,7 +1622,7 @@ function initTracker(kind) {
   // أوامر الاستعداد والاعتماد لا تُقبل إلا قبل الرحلة بأسبوعين على الأقل
   // تنبيه الاستعداد/الاعتماد: يبدأ قبل الرحلة بأسبوعين، يعلو قبل أسبوع، ويصبح حرجاً قبل يومين، ويتوقف عند الإنجاز
   const prepHtml = g => {
-    const cur = kind === 'arrival' ? state.ready[g.key] : state.appr[g.key];
+    const cur = kind === 'arrival' ? rdyOf(g) : state.appr[g.key];
     const done = kind === 'arrival' ? readyOk(cur) : !!(cur && cur.status === 'approved');
     const label = kind === 'arrival' ? 'الاستعداد' : 'الاعتماد';
     if (done) return '<div class="prep ok">✓ ' + label + ' مكتمل' + (cur && cur.by ? ' — ' + esc(cur.by) : '') + '</div>';
@@ -1686,7 +1698,7 @@ function initTracker(kind) {
     if (ui.nat !== 'all' && C.natKey(r) !== ui.nat) return false;
     if (ui.day !== 'all' && !(r.when && C.fmtDay(r.when) === ui.day)) return false;
     if (ui.flight !== 'all' && flightKey(r) !== ui.flight) return false;
-    if (ui.rdy === 'no' && (kind !== 'arrival' || r.done || readyOk(state.ready[rKey(r)]))) return false;
+    if (ui.rdy === 'no' && (kind !== 'arrival' || r.done || readyOk(state.ready[gkOf(r)] || state.ready[rKey(r)]))) return false;
     return true;
   }
   function groupPass(g) {
@@ -1718,7 +1730,7 @@ function initTracker(kind) {
   const missingOf = g => { const m = { passport: 0, nat: 0, hotel: 0 }; let rows = 0; g.rows.forEach(r => { const a = !r.passport, b = !r.natRaw, c = !r.hotel; if (a) m.passport++; if (b) m.nat++; if (c) m.hotel++; if (a || b || c) rows++; }); return { m, rows }; };
   function rdyHtml(g) {
     if (kind !== 'arrival') return '';
-    const e = state.ready[g.key], ms = missingOf(g), w0 = g.rows.reduce((a, r) => (r.when0 && (!a || r.when0 < a) ? r.when0 : a), null), out = [];
+    const e = rdyOf(g), ms = missingOf(g), w0 = g.rows.reduce((a, r) => (r.when0 && (!a || r.when0 < a) ? r.when0 : a), null), out = [];
     out.push('<span class="rb ' + (e && e.status ? e.status : 'none') + '">' + esc(e && e.status ? RDY_ST[e.status] : 'الاستعداد: غير مسجّل') + '</span>');
     if (e && e.eta && w0 && g.when) { const dm = Math.round((g.when - w0) / 60000); out.push('<span class="rb eta">ETA ' + C.fmtTime(g.when) + (dm ? ' (' + (dm > 0 ? '+' : '−') + dur0(Math.abs(dm)) + ')' : '') + '</span>'); }
     if (e && (e.hall || e.gate)) out.push('<span class="rb loc">🚪 ' + esc([e.hall, e.gate].filter(Boolean).join(' · ')) + '</span>');
@@ -1727,22 +1739,23 @@ function initTracker(kind) {
   }
   const dur0 = m => m >= 60 ? Math.floor(m / 60) + ' س' + (m % 60 ? ' ' + (m % 60) + ' د' : '') : m + ' د';
   async function openReady(g) {
-    const e = state.ready[g.key] || {}, ms = missingOf(g), w0 = g.rows.reduce((a, r) => (r.when0 && (!a || r.when0 < a) ? r.when0 : a), null);
+    const gk = rk(g.key), e = state.ready[gk] || state.ready[rKey(g.rows[0] || {})] || {}, ms = missingOf(g), w0 = g.rows.reduce((a, r) => (r.when0 && (!a || r.when0 < a) ? r.when0 : a), null);
     const fmtIn = d => d ? C.fmtDay(d) + 'T' + C.fmtTime(d) : '', cur = e.eta ? e.eta.replace(' ', 'T') : '';
     // ترتيب الأفراد كما في الجدول؛ الجوازات قابلة للنسخ لإدخالها في نسك مسار
     const pr = g.rows.filter(r => r.passport || r.name), masked = isMasked();
-    const r0 = g.rows[0] || {}, airC = C.cityName(r0.airCity, r0.airCityRaw), hotels = [...new Set(g.rows.map(r => (r.hotel || '').trim()).filter(Boolean))];
+    const r0 = g.rows[0] || {}, airC = C.cityName(r0.airCity, r0.airCityRaw), hotel = (g.hotel || (g.rows.find(r => r.hotel) || {}).hotel || '').trim();
     const natOf = r => r.country ? r.country.ar : (r.natRaw || 'غير محدد');
+    const natHtml = r => flagImg(r.country) || esc(r.natRaw || 'غير محدد');
     const rowTxt = r => r.passport + '\t' + natOf(r);
     const regSt = e.status === 'entered' || e.status === 'pending' ? e.status : '';
     const ov = modal('<h3>الاستعداد المسبق — رحلة ' + esc(g.flight) + '</h3>' +
       '<dl class="gkv rdy-h"><div><dt>رقم الرحلة</dt><dd class="num" dir="ltr">' + esc(g.flight) + '</dd></div><div><dt>تاريخ الرحلة</dt><dd>' + (w0 ? C.fmtDayAr(w0) + ' · ' + C.fmtTime(w0) : '—') + '</dd></div>' +
-      '<div><dt>مدينة الوصول</dt><dd>' + esc(airC || '—') + '</dd></div><div><dt>فندق الوجهة</dt><dd>' + (hotels.length ? hotels.map(esc).join('<br>') : '—') + '</dd></div></dl>' +
+      '<div><dt>مدينة الوصول</dt><dd>' + esc(airC || '—') + '</dd></div><div><dt>فندق الوجهة</dt><dd>' + esc(hotel || '—') + '</dd></div></dl>' +
       '<div class="rdy-pl"><div class="rdy-pt"><b>الحجاج (' + pr.length + ')</b><span class="hint">للإدخال في نسك مسار</span>' +
       (pr.length && !masked ? '<button class="btn sm" id="rCpP">نسخ الجوازات</button><button class="btn sm" id="rCpA">نسخ الجواز + الجنسية</button>' : '') + '</div>' +
       (masked && pr.length ? '<p class="hint" style="color:var(--amber,#f5a524)">⚠ أرقام الجوازات مخفية في وضع الزائر — سجّل دخول المالك لعرضها ونسخها كاملة.</p>' : '') +
       (pr.length ? '<div class="rdy-tw"><table class="rdy-t"><thead><tr><th>#</th><th>الاسم</th><th>رقم الجواز</th><th>الجنسية</th></tr></thead><tbody>' +
-        pr.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name || '—') + '</td><td class="num rdy-pp" dir="ltr"' + (masked ? '' : ' data-cp="' + i + '" title="اضغط للنسخ"') + '>' + esc(masked ? mask(r.passport) : (r.passport || '—')) + '</td><td>' + (flagImg(r.country) || '') + esc(natOf(r)) + '</td></tr>').join('') +
+        pr.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name || '—') + '</td><td class="rdy-pp" dir="ltr"' + (masked ? '' : ' data-cp="' + i + '" title="اضغط للنسخ"') + '>' + esc(masked ? mask(r.passport) : (r.passport || '—')) + '</td><td>' + natHtml(r) + '</td></tr>').join('') +
         '</tbody></table></div>' : '<div class="empty">لا توجد سجلات لهذه الرحلة</div>') + '</div>' +
       '<div class="rdy-reg"><b>التسجيل في نسك مسار</b><div class="nsel">' +
       [['entered', '✓ تم التسجيل في نسك مسار'], ['pending', '✗ لم يتم التسجيل بعد']].map(([k, l]) => '<label class="qc big ' + k + (regSt === k ? ' on' : '') + '"><input type="radio" name="rst" value="' + k + '"' + (regSt === k ? ' checked' : '') + ' hidden>' + esc(l) + '</label>').join('') + '</div></div>' +
@@ -1758,9 +1771,9 @@ function initTracker(kind) {
     const save = async v => {
       const auth = await ensureAuth(); if (!auth) return;
       try {
-        const j = await api('ready_set', {}, Object.assign({ key: g.key, label: 'رحلة ' + g.flight, by: auth.by, pin: auth.pin }, v));
+        const j = await api('ready_set', {}, Object.assign({ key: gk, label: 'رحلة ' + g.flight + (hotel ? ' — ' + hotel : ''), by: auth.by, pin: auth.pin }, v));
         if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
-        if (j.cleared) delete state.ready[g.key]; else state.ready[g.key] = Object.assign({ key: g.key }, v, { by: auth.by }); guardSet('ready', g.key, j.cleared ? null : state.ready[g.key]);
+        if (j.cleared) delete state.ready[gk]; else state.ready[gk] = Object.assign({ key: gk }, v, { by: auth.by }); guardSet('ready', gk, j.cleared ? null : state.ready[gk]);
         try { localStorage.setItem('hajj1447.ready', JSON.stringify(state.ready)); } catch (x) { }
         applyReady(); ov.close(); render(); toast(j.cleared ? 'تم مسح الاستعداد' : 'تم حفظ الاستعداد المسبق', 'ok');
       } catch (x) { toast('فشل الحفظ: ' + (x.message || x), 'err'); }
@@ -1768,6 +1781,15 @@ function initTracker(kind) {
     $('#rOk', ov).onclick = () => { const et = $('#rEta', ov).value; save({ status: (ov.querySelector('input[name=rst]:checked') || {}).value || '', eta: et ? et.replace('T', ' ').slice(0, 16) : '', hall: $('#rHall', ov).value.trim(), gate: $('#rGate', ov).value.trim(), note: $('#rNote', ov).value.trim() }); };
     if ($('#rClr', ov)) $('#rClr', ov).onclick = () => save({ status: '', eta: '', hall: '', gate: '', note: '' });
     $('#rX', ov).onclick = () => ov.close();
+  }
+  // رحلة بفنادق متعددة: اختر المجموعة (البطاقة) المراد تجهيزها
+  function openReadyPick(fg) {
+    const gs = C.groupRecords(fg.rows);
+    if (gs.length === 1) { openReady(gs[0]); return; }
+    const ov = modal('<h3>الاستعداد المسبق — رحلة ' + esc(fg.flight) + '</h3><p class="sub">اختر المجموعة (الفندق)</p><div class="nsel" style="flex-direction:column;align-items:stretch">' +
+      gs.map((x, i) => { const s = state.ready[rk(x.key)]; return '<button class="btn" data-pg="' + i + '" style="justify-content:space-between;text-align:start">' + esc(x.hotel || 'فندق غير محدد') + ' · ' + x.pax + ' فرد' + (s && s.status ? ' — ' + esc(RDY_ST[s.status] || '') : '') + '</button>'; }).join('') + '</div><div class="act"><button class="btn" id="pgX">إغلاق</button></div>');
+    ov.addEventListener('click', ev => { const b = ev.target.closest('[data-pg]'); if (b) { ov.close(); openReady(gs[+b.dataset.pg]); } });
+    $('#pgX', ov).onclick = () => ov.close();
   }
   // اعتماد مغادرة لرحلة واحدة: نص الاعتماد المقترح + تسجيل الاعتماد (يبقى زر الاعتماد على البطاقة بعد الإنجاز)
   function openTripAppr(g) {
@@ -1832,7 +1854,7 @@ function initTracker(kind) {
     : '<button class="btn sm green" data-gact="ok" data-key="' + esc(g.key) + '"' + (g.allSyncing ? ' disabled' : '') + '>' + ICON.check + (kind === 'arrival' ? 'تسكين' : 'مغادرة') + (g.done ? ' المتبقي' : ' الكل') + '</button>') + '<button class="btn sm" data-gnote="' + esc(g.key) + '" title="حالة النقل وملاحظة" aria-label="حالة النقل وملاحظة">📝</button>';
   const ppBtn = g => '<button class="btn sm sky" data-grp="' + esc(g.key) + '">' + ICON.eye + 'الجوازات (' + g.rows.length + ')</button>';
   const fkOf = g => { const r = g.rows[0] || {}; return (r.flight || '—') + '|' + ((r.when0 || r.when) ? C.fmtDay(r.when0 || r.when) : ''); };
-  const fBtns = g => { const k = esc(fkOf(g)); return '<button class="btn sm" data-fshare="' + k + '" title="مشاركة ملخص الرحلة" aria-label="مشاركة ملخص الرحلة">📤 مشاركة</button>' + (kind === 'arrival' ? '<button class="btn sm" data-fready="' + k + '" title="الاستعداد المسبق للرحلة" aria-label="الاستعداد المسبق">🛬 الاستعداد</button>' : '<button class="btn sm" data-fappr="' + k + '" title="إصدار اعتماد المغادرة لهذه الرحلة" aria-label="إصدار اعتماد">🧾 إصدار اعتماد</button>'); };
+  const fBtns = g => { const k = esc(fkOf(g)); return '<button class="btn sm" data-fshare="' + k + '" title="مشاركة ملخص الرحلة" aria-label="مشاركة ملخص الرحلة">📤 مشاركة</button>' + (kind === 'arrival' ? '<button class="btn sm" data-gready="' + esc(g.key) + '" title="الاستعداد المسبق لهذه المجموعة" aria-label="الاستعداد المسبق">🛬 الاستعداد</button>' : '<button class="btn sm" data-fappr="' + k + '" title="إصدار اعتماد المغادرة لهذه الرحلة" aria-label="إصدار اعتماد">🧾 إصدار اعتماد</button>'); };
   const tpOn = () => !!(S.transport && S.transport[kind]);
   const gTransport = g => tpOn() ? C.transportFor(g.airCity, g.stayCity, g.pax, S.transport.busMin) : null;
   const tpLabel = g => { const x = gTransport(g); return x ? C.TRANSPORT[x].ar : ''; };
@@ -1921,7 +1943,7 @@ function initTracker(kind) {
     if (dep && ref && fg.when && ref.getTime() !== fg.when.getTime()) L.push('أبكر تحرك: ' + C.fmtDayAr(ref) + ' · ' + C.fmtTime(ref));
     L.push('العدد: ' + fg.pax + ' فرد · ' + (dep ? 'غادر ' : 'سُكّن ') + fg.done);
     const air = fg.rows.find(r => r.airport); if (air) L.push('المطار: ' + air.airport);
-    { const e = kind === 'arrival' ? state.ready[fg.key] : null; if (e) { if (e.status) L.push('الاستعداد المسبق: ' + RDY_ST[e.status]); if (e.hall || e.gate) L.push('الصالة/البوابة: ' + [e.hall, e.gate].filter(Boolean).join(' · ')); if (e.note) L.push('ملاحظة: ' + e.note); } }
+    { const e = kind === 'arrival' ? rdyOf(fg) : null; if (e) { if (e.status) L.push('الاستعداد المسبق: ' + RDY_ST[e.status]); if (e.hall || e.gate) L.push('الصالة/البوابة: ' + [e.hall, e.gate].filter(Boolean).join(' · ')); if (e.note) L.push('ملاحظة: ' + e.note); } }
     L.push('');
     hotelGroups(fg).forEach(g => {
       const parts = [g.hotel || 'فندق غير محدد']; const cn = C.cityName(g.stayCity, g.stayCityRaw); if (cn) parts.push(cn);
@@ -1946,7 +1968,7 @@ function initTracker(kind) {
     const dep = kind === 'departure', ref = refOf(fg), gs = hotelGroups(fg);
     const rows = gs.map((g, i) => { const tp = gTransport(g); return '<tr><td>' + (i + 1) + '</td><td>' + esc(g.hotel || '—') + '</td><td>' + esc(C.cityName(g.stayCity, g.stayCityRaw)) + '</td><td>' + g.pax + '</td><td>' + esc(g.natList.map(n => n.label + ' (' + n.n + ')').join('، ')) + '</td><td>' + esc(tp ? C.TRANSPORT[tp].ar : '') + '</td><td>' + esc(moveTxt(g)) + '</td><td>' + esc((() => { const n = noteOf(g); return n ? [n.status ? NST()[n.status] : '', n.note].filter(Boolean).join(' — ') : ''; })()) + '</td><td>' + (g.open ? '☐' : '☑') + '</td></tr>'; }).join('');
     const html = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>رحلة ' + esc(fg.flight) + '</title><style>@page{size:A4;margin:12mm}body{font-family:Tahoma,Arial,sans-serif;color:#000;font-size:13px}h1{margin:0 0 4px;font-size:22px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px}.meta div{margin:2px 0}table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:5px 7px;text-align:right}th{background:#eee}.qr svg{width:110px;height:110px}.ft{margin-top:10px;font-size:11px;color:#555}</style></head><body><div class="top"><div class="meta"><h1>' + (dep ? 'مغادرة' : 'وصول') + ' — رحلة ' + esc(fg.flight) + '</h1>' +
-      '<div>' + (dep ? 'الإقلاع: ' : 'الوصول: ') + esc(fg.when ? C.fmtDayAr(fg.when) + ' · ' + C.fmtTime(fg.when) : '—') + (dep && ref && fg.when && ref.getTime() !== fg.when.getTime() ? ' | أبكر تحرك: ' + esc(C.fmtTime(ref)) : '') + '</div><div>الناقل: ' + esc(fg.airline || '—') + ' | العدد: ' + fg.pax + ' فرد</div>' + (() => { const e = kind === 'arrival' ? state.ready[fg.key] : null; return e ? '<div>الاستعداد: ' + esc((e.status ? RDY_ST[e.status] : '—') + (e.hall || e.gate ? ' | ' + [e.hall, e.gate].filter(Boolean).join(' · ') : '')) + '</div>' : ''; })() + '</div>' +
+      '<div>' + (dep ? 'الإقلاع: ' : 'الوصول: ') + esc(fg.when ? C.fmtDayAr(fg.when) + ' · ' + C.fmtTime(fg.when) : '—') + (dep && ref && fg.when && ref.getTime() !== fg.when.getTime() ? ' | أبكر تحرك: ' + esc(C.fmtTime(ref)) : '') + '</div><div>الناقل: ' + esc(fg.airline || '—') + ' | العدد: ' + fg.pax + ' فرد</div>' + (() => { const e = kind === 'arrival' ? rdyOf(fg) : null; return e ? '<div>الاستعداد: ' + esc((e.status ? RDY_ST[e.status] : '—') + (e.hall || e.gate ? ' | ' + [e.hall, e.gate].filter(Boolean).join(' · ') : '')) + '</div>' : ''; })() + '</div>' +
       '<div class="qr">' + (qr || '<small dir="ltr">' + esc(link) + '</small>') + '</div></div><table><thead><tr><th>#</th><th>الفندق</th><th>المدينة</th><th>العدد</th><th>الجنسيات</th><th>النقل</th><th>التحرك</th><th>ملاحظة</th><th>تم</th></tr></thead><tbody>' + rows + '</tbody></table><div class="ft">طُبع: ' + esc(C.fmtDayAr(new Date()) + ' ' + C.fmtTime(new Date())) + '</div></body></html>';
     const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0'; document.body.appendChild(fr);
     fr.contentDocument.open(); fr.contentDocument.write(html); fr.contentDocument.close();
@@ -2124,7 +2146,8 @@ function initTracker(kind) {
     if ((el = t.closest('[data-gact]'))) { const g = gmap.get(el.dataset.key); if (g) doWrite(g.rows, el.dataset.gact === 'ok', K.act + ' — ' + gTitle(g)); return; }
     if ((el = t.closest('[data-grp]'))) { openGroup(el.dataset.grp, el.dataset.nat); return; }
     if ((el = t.closest('[data-view]'))) { ui.view = el.dataset.view; try { localStorage.setItem(LS_VIEW, ui.view); } catch (x) { } render(); return; }
-    if ((el = t.closest('[data-fready]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fready); if (g) openReady(g); return; }
+    if ((el = t.closest('[data-fready]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fready); if (g) openReadyPick(g); return; }
+    if ((el = t.closest('[data-gready]'))) { e.stopPropagation(); const g = gmap.get(el.dataset.gready); if (g) openReady(g); return; }
     if ((el = t.closest('[data-fappr]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fappr); if (g) openTripAppr(g); return; }
     if ((el = t.closest('[data-fshare]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fshare); if (g) openShare(g); return; }
     if ((el = t.closest('[data-fok]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fok); if (g) doWrite(g.rows, true, K.act + ' — رحلة ' + g.flight); return; }
@@ -2227,7 +2250,7 @@ function initDashboard() {
   }
   // رحلات وصول قريبة (خلال حد التحذير) لم تُعتمد جاهزيتها في نظام الوزارة
   function nrList(now) {
-    return grps0().filter(g => g.when && g.done < g.pax && g.when.getTime() > now - 36e5 && (g.when.getTime() - now) / 36e5 <= S.warnH && !readyOk(state.ready[g.key])).map(g => ({ g, h: (g.when.getTime() - now) / 36e5, e: state.ready[g.key] || null }));
+    return grps0().filter(g => g.when && g.done < g.pax && g.when.getTime() > now - 36e5 && (g.when.getTime() - now) / 36e5 <= S.warnH && !readyOk(rdyOf(g))).map(g => ({ g, h: (g.when.getTime() - now) / 36e5, e: rdyOf(g) || null }));
   }
   const grps0 = () => state.data.arrival ? C.groupFlights(state.data.arrival.records) : [];
   const gLink = (k, g) => k + '.html?flight=' + encodeURIComponent(C.groupFlights(g.rows)[0].key);
@@ -2268,12 +2291,12 @@ function initDashboard() {
     const up = grps0().filter(g => g.when && g.done < g.pax && g.when.getTime() > now - 36e5 && g.when.getTime() < now + 864e5).sort((a, b) => a.when - b.when);
     if (!up.length) { $('#rdyP').innerHTML = '<div class="empty">لا رحلات وصول خلال 24 ساعة</div>'; return; }
     const keys = ['approved', 'entered', 'pending', 'fix', 'none'], lab = Object.assign({}, RDY_ST, { none: 'غير مسجّلة' }), c = {}; keys.forEach(k => c[k] = 0);
-    up.forEach(g => { const e = state.ready[g.key]; c[e && e.status ? e.status : 'none']++; });
+    up.forEach(g => { const e = rdyOf(g); c[e && e.status ? e.status : 'none']++; });
     const pct = Math.round(c.approved / up.length * 100), w0 = g => g.rows.reduce((a, r) => (r.when0 && (!a || r.when0 < a) ? r.when0 : a), null);
-    const shifted = up.filter(g => { const e = state.ready[g.key], o = w0(g); return e && e.eta && o && Math.abs(g.when - o) >= 10 * 60000; }).length;
+    const shifted = up.filter(g => { const e = rdyOf(g), o = w0(g); return e && e.eta && o && Math.abs(g.when - o) >= 10 * 60000; }).length;
     $('#rdyP').innerHTML = '<div class="rdyb"><div class="rdyb-t"><b class="num">' + pct + '%</b><span>جاهزة من ' + up.length + ' رحلة خلال 24 ساعة</span></div><div class="rdyb-bar">' + keys.filter(k => c[k]).map(k => '<i class="' + k + '" style="flex:' + c[k] + '" title="' + esc(lab[k]) + '"></i>').join('') + '</div>' +
       '<div class="rdyb-l">' + keys.map(k => '<span class="rb ' + k + '">' + esc(lab[k]) + ' <b>' + c[k] + '</b></span>').join('') + (shifted ? '<span class="rb eta">تغيّر ETA <b>' + shifted + '</b></span>' : '') + '</div></div>' +
-      '<div class="nxt">' + up.slice(0, 5).map(g => { const e = state.ready[g.key], o = w0(g), dm = e && e.eta && o ? Math.round((g.when - o) / 60000) : 0; return '<a class="nx" href="arrival.html?flight=' + encodeURIComponent(g.key) + '"><span class="no">' + esc(g.flight) + '</span><span class="i">' + C.fmtTime(g.when) + (dm ? ' (ETA ' + (dm > 0 ? '+' : '−') + dur(Math.abs(dm) * 60000) + ')' : '') + '<small>' + g.pax + ' فرد' + (e && (e.hall || e.gate) ? ' · ' + esc([e.hall, e.gate].filter(Boolean).join(' / ')) : '') + '</small></span><span class="c"><span class="rb ' + (e && e.status ? e.status : 'none') + '">' + esc(e && e.status ? RDY_ST[e.status] : 'غير مسجّلة') + '</span></span></a>'; }).join('') + '</div>';
+      '<div class="nxt">' + up.slice(0, 5).map(g => { const e = rdyOf(g), o = w0(g), dm = e && e.eta && o ? Math.round((g.when - o) / 60000) : 0; return '<a class="nx" href="arrival.html?flight=' + encodeURIComponent(g.key) + '"><span class="no">' + esc(g.flight) + '</span><span class="i">' + C.fmtTime(g.when) + (dm ? ' (ETA ' + (dm > 0 ? '+' : '−') + dur(Math.abs(dm) * 60000) + ')' : '') + '<small>' + g.pax + ' فرد' + (e && (e.hall || e.gate) ? ' · ' + esc([e.hall, e.gate].filter(Boolean).join(' / ')) : '') + '</small></span><span class="c"><span class="rb ' + (e && e.status ? e.status : 'none') + '">' + esc(e && e.status ? RDY_ST[e.status] : 'غير مسجّلة') + '</span></span></a>'; }).join('') + '</div>';
   }
   // لوحة الاعتمادات المقترحة للمغادرة (نافذة التجميع المحفوظة في المتصفح، افتراضي 60 د)
   function apprPanel(now) {
@@ -2292,7 +2315,7 @@ function initDashboard() {
       L.push('', '✈️ ' + t + ': إجمالي ' + s.total + ' · ' + v + ' ' + s.done + ' (' + s.pct + '%) · متبقٍ ' + s.pending, '   اليوم: ' + gs.length + ' مجموعة · ' + gs.reduce((n, g) => n + g.pax, 0) + ' فرد · مكتمل ' + gs.filter(g => g.open === 0).length, '   أزحم ساعة اليوم: ' + peakTxt(peakOf(hourly(k, 0))));
     });
     if (state.data.departure) { const list = buildApprFrom(state.data.departure.records, +lsGet('hajj1447.apprWin') || 60, 'today').list.filter(a => a.t0.getTime() > now - 18e5); if (list.length) L.push('', '🧾 اعتمادات مغادرة اليوم المتبقية (مقترحة): ' + list.length + ' (' + list.filter(a => a.tp === 'bus').length + ' حافلة · ' + list.filter(a => a.tp === 'train').length + ' قطار)'); }
-    { const up = grps0().filter(g => g.when && g.done < g.pax && g.when.getTime() > now - 36e5 && g.when.getTime() < now + 864e5); if (up.length) L.push('', '🛬 الاستعداد المسبق (24 س): جاهزة ' + up.filter(g => readyOk(state.ready[g.key])).length + ' من ' + up.length); }
+    { const up = grps0().filter(g => g.when && g.done < g.pax && g.when.getTime() > now - 36e5 && g.when.getTime() < now + 864e5); if (up.length) L.push('', '🛬 الاستعداد المسبق (24 س): جاهزة ' + up.filter(g => readyOk(rdyOf(g))).length + ' من ' + up.length); }
     const lt = lateList(now).slice(0, 5); if (lt.length) { L.push('', '⏰ الأكثر تأخراً:'); lt.forEach(x => L.push('• ' + x.g.flight + ' (' + (x.k === 'arrival' ? 'وصول' : 'مغادرة') + ') — ' + (x.g.hotel || '—') + ' — ' + x.g.open + ' فرد — منذ ' + dur(x.w))); }
     const nl = nrList(now).sort((a, b) => a.h - b.h).slice(0, 5); if (nl.length) { L.push('', '🛬 رحلات غير جاهزة قبل الوصول:'); nl.forEach(x => L.push('• ' + x.g.flight + ' — ' + (x.h > 0 ? 'بعد ' + dur(x.h * 36e5) : 'مضى موعده بـ ' + dur(-x.h * 36e5)) + ' — ' + (x.e && x.e.status ? RDY_ST[x.e.status] : 'غير مسجّل') + ' — ' + x.g.pax + ' فرد')); }
     const is = issueList().slice(0, 5); if (is.length) { L.push('', '🚦 مشاكل النقل:'); is.forEach(x => L.push('• ' + x.g.flight + ' — ' + (x.g.hotel || '—') + ' — ' + NL[x.n.status] + (x.n.note ? ': ' + x.n.note : ''))); }
