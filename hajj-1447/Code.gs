@@ -138,7 +138,7 @@ function clean_(o, old) {
     dateOrder: o.dateOrder === 'MDY' ? 'MDY' : 'DMY',
     criticalH: num_(o.criticalH, 3, 0.1, 100), warnH: num_(o.warnH, 12, 0.1, 200), lateH: num_(o.lateH, 2, 0.1, 100),
     lead: {},
-    transport: { arrival: tp.arrival !== false, departure: tp.departure !== false, busMin: num_(tp.busMin, 4, 1, 100) },
+    transport: { arrival: tp.arrival !== false, departure: tp.departure !== false, busMin: num_(tp.busMin, 8, 1, 100) },
     map: { arrival: {}, departure: {} },
     perms: { showPassports: pm.showPassports === true, confirm: (pm.confirm === 'pin' || pm.confirm === 'off') ? pm.confirm : 'all' },
     pin: o.pin === undefined ? ((old && old.pin) || '') : str_(String(o.pin), 32),
