@@ -232,6 +232,17 @@ tr.detail td{background:rgba(255,255,255,.03)}
 .prep.l3{border-color:#ef4444;background:rgba(239,68,68,.18);color:#fca5a5;font-weight:800;animation:pz 1.6s infinite}
 .prep.ok{border-color:#34C47A;color:#86efac;background:rgba(52,196,122,.10)}
 @keyframes pz{50%{opacity:.6}}
+.rdy-h{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 14px;margin:8px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.03)}
+.rdy-h dt{font-size:11.5px;color:var(--mut)}.rdy-h dd{margin:2px 0 0;font-weight:700}
+.rdy-pt{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px}.rdy-pt b{margin-inline-end:auto}
+.rdy-tw{max-height:34vh;overflow:auto;border:1px solid var(--line);border-radius:12px}
+.rdy-t{width:100%;border-collapse:collapse;font-size:13px}.rdy-t th,.rdy-t td{padding:6px 10px;text-align:start;border-bottom:1px solid var(--line)}.rdy-t th{position:sticky;top:0;background:#0A2039;z-index:1}
+[data-theme=light] .rdy-t th{background:#fff}
+.rdy-pp{user-select:all;cursor:copy;font-weight:700;letter-spacing:.3px}
+.rdy-reg{margin:14px 0 6px}.rdy-reg .nsel{margin-top:6px}
+.qc.big{padding:10px 18px;font-size:14px;font-weight:700}
+.qc.big.entered.on{background:#006C35;border-color:#34C47A;color:#fff}.qc.big.pending.on{background:#7f1d1d;border-color:#ef4444;color:#fff}
+.rdy-more{margin-top:10px}.rdy-more summary{cursor:pointer;color:var(--mut);font-size:13px;margin-bottom:6px}
 .nh{font-size:12px;color:var(--mut);margin-top:6px}
 body.ro [data-fappr]{display:none!important}
 .ov{position:fixed;inset:0;background:rgba(3,10,20,.65);backdrop-filter:blur(4px);z-index:100;display:grid;place-items:center;padding:16px}
@@ -1719,12 +1730,32 @@ function initTracker(kind) {
   async function openReady(g) {
     const e = state.ready[g.key] || {}, ms = missingOf(g), w0 = g.rows.reduce((a, r) => (r.when0 && (!a || r.when0 < a) ? r.when0 : a), null);
     const fmtIn = d => d ? C.fmtDay(d) + 'T' + C.fmtTime(d) : '', cur = e.eta ? e.eta.replace(' ', 'T') : '';
-    const ov = modal('<h3>الاستعداد المسبق — رحلة ' + esc(g.flight) + '</h3><p class="sub">الموعد الأصلي: ' + (w0 ? C.fmtDayAr(w0) + ' · ' + C.fmtTime(w0) : '—') + ' · ' + g.pax + ' فرد</p>' +
-      '<div class="nsel">' + [['', 'غير مسجّل']].concat(Object.keys(RDY_ST).map(k => [k, RDY_ST[k]])).map(([k, l]) => '<label class="qc' + ((e.status || '') === k ? ' on' : '') + '"><input type="radio" name="rst" value="' + k + '"' + ((e.status || '') === k ? ' checked' : '') + ' hidden>' + esc(l) + '</label>').join('') + '</div>' +
-      '<div class="set"><label>الوقت المحدّث للوصول (ETA)<input id="rEta" type="datetime-local" value="' + esc(cur) + '"></label><label>الصالة<input id="rHall" maxlength="30" value="' + esc(e.hall || '') + '"></label><label>البوابة / الجسر<input id="rGate" maxlength="30" value="' + esc(e.gate || '') + '"></label><label class="full">ملاحظة<textarea id="rNote" maxlength="300" rows="2">' + esc(e.note || '') + '</textarea></label></div>' +
-      (ms.rows ? '<p class="hint" style="color:var(--amber,#f5a524)">⚠ ' + ms.rows + ' سجل ناقص قبل الإدخال في نظام الوزارة — بلا جواز: ' + ms.m.passport + ' · بلا جنسية: ' + ms.m.nat + ' · بلا فندق: ' + ms.m.hotel + '</p>' : '<p class="hint">✓ بيانات الرحلة مكتملة (جواز وجنسية وفندق لكل فرد).</p>') +
-      '<div class="act"><button class="btn green" id="rOk">حفظ</button>' + (e.status || e.eta || e.hall || e.gate || e.note ? '<button class="btn" id="rClr">مسح</button>' : '') + '<button class="btn" id="rX">إلغاء</button></div>');
-    ov.querySelectorAll('.nsel input').forEach(r => r.onchange = () => ov.querySelectorAll('.nsel .qc').forEach(l => l.classList.toggle('on', l.firstChild.checked)));
+    // ترتيب الأفراد كما في الجدول؛ الجوازات قابلة للنسخ لإدخالها في نسك مسار
+    const pr = g.rows.filter(r => r.passport || r.name), masked = isMasked();
+    const r0 = g.rows[0] || {}, airC = C.cityName(r0.airCity, r0.airCityRaw), hotels = [...new Set(g.rows.map(r => (r.hotel || '').trim()).filter(Boolean))];
+    const natOf = r => r.country ? r.country.ar : (r.natRaw || 'غير محدد');
+    const rowTxt = r => r.passport + '\t' + natOf(r);
+    const regSt = e.status === 'entered' || e.status === 'pending' ? e.status : '';
+    const ov = modal('<h3>الاستعداد المسبق — رحلة ' + esc(g.flight) + '</h3>' +
+      '<dl class="gkv rdy-h"><div><dt>رقم الرحلة</dt><dd class="num" dir="ltr">' + esc(g.flight) + '</dd></div><div><dt>تاريخ الرحلة</dt><dd>' + (w0 ? C.fmtDayAr(w0) + ' · ' + C.fmtTime(w0) : '—') + '</dd></div>' +
+      '<div><dt>مدينة الوصول</dt><dd>' + esc(airC || '—') + '</dd></div><div><dt>فندق الوجهة</dt><dd>' + (hotels.length ? hotels.map(esc).join('<br>') : '—') + '</dd></div></dl>' +
+      '<div class="rdy-pl"><div class="rdy-pt"><b>الحجاج (' + pr.length + ')</b><span class="hint">للإدخال في نسك مسار</span>' +
+      (pr.length && !masked ? '<button class="btn sm" id="rCpP">نسخ الجوازات</button><button class="btn sm" id="rCpA">نسخ الجواز + الجنسية</button>' : '') + '</div>' +
+      (masked && pr.length ? '<p class="hint" style="color:var(--amber,#f5a524)">⚠ أرقام الجوازات مخفية في وضع الزائر — سجّل دخول المالك لعرضها ونسخها كاملة.</p>' : '') +
+      (pr.length ? '<div class="rdy-tw"><table class="rdy-t"><thead><tr><th>#</th><th>الاسم</th><th>رقم الجواز</th><th>الجنسية</th></tr></thead><tbody>' +
+        pr.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name || '—') + '</td><td class="num rdy-pp" dir="ltr"' + (masked ? '' : ' data-cp="' + i + '" title="اضغط للنسخ"') + '>' + esc(masked ? mask(r.passport) : (r.passport || '—')) + '</td><td>' + (flagImg(r.country) || '') + esc(natOf(r)) + '</td></tr>').join('') +
+        '</tbody></table></div>' : '<div class="empty">لا توجد سجلات لهذه الرحلة</div>') + '</div>' +
+      '<div class="rdy-reg"><b>التسجيل في نسك مسار</b><div class="nsel">' +
+      [['entered', '✓ تم التسجيل في نسك مسار'], ['pending', '✗ لم يتم التسجيل بعد']].map(([k, l]) => '<label class="qc big ' + k + (regSt === k ? ' on' : '') + '"><input type="radio" name="rst" value="' + k + '"' + (regSt === k ? ' checked' : '') + ' hidden>' + esc(l) + '</label>').join('') + '</div></div>' +
+      (ms.rows ? '<p class="hint" style="color:var(--amber,#f5a524)">⚠ ' + ms.rows + ' سجل ناقص — بلا جواز: ' + ms.m.passport + ' · بلا جنسية: ' + ms.m.nat + ' · بلا فندق: ' + ms.m.hotel + '</p>' : '') +
+      '<details class="rdy-more"' + ((e.eta || e.hall || e.gate || e.note || e.status === 'approved' || e.status === 'fix') ? ' open' : '') + '><summary>تفاصيل إضافية (الوصول المحدّث، الصالة، ملاحظة)</summary>' +
+      '<div class="nsel">' + ['approved', 'fix'].map(k => '<label class="qc' + (e.status === k ? ' on' : '') + '"><input type="radio" name="rst" value="' + k + '"' + (e.status === k ? ' checked' : '') + ' hidden>' + esc(RDY_ST[k]) + '</label>').join('') + '</div>' +
+      '<div class="set"><label>الوقت المحدّث للوصول (ETA)<input id="rEta" type="datetime-local" value="' + esc(cur) + '"></label><label>الصالة<input id="rHall" maxlength="30" value="' + esc(e.hall || '') + '"></label><label>البوابة / الجسر<input id="rGate" maxlength="30" value="' + esc(e.gate || '') + '"></label><label class="full">ملاحظة<textarea id="rNote" maxlength="300" rows="2">' + esc(e.note || '') + '</textarea></label></div></details>' +
+      '<div class="act"><button class="btn green" id="rOk">حفظ</button>' + (e.status || e.eta || e.hall || e.gate || e.note ? '<button class="btn" id="rClr">مسح</button>' : '') + '<button class="btn" id="rX">إغلاق</button></div>');
+    ov.addEventListener('click', ev => { const c = ev.target.closest('[data-cp]'); if (c) { const r = pr[+c.dataset.cp]; if (r) copyText(r.passport, 'نُسخ الجواز'); } });
+    if ($('#rCpP', ov)) $('#rCpP', ov).onclick = () => copyText(pr.map(r => r.passport).filter(Boolean).join('\n'), 'نُسخت ' + pr.length + ' جوازات');
+    if ($('#rCpA', ov)) $('#rCpA', ov).onclick = () => copyText(pr.filter(r => r.passport).map(rowTxt).join('\n'), 'نُسخت الجوازات مع الجنسيات');
+    ov.querySelectorAll('input[name=rst]').forEach(r => r.onchange = () => ov.querySelectorAll('input[name=rst]').forEach(x => x.parentNode.classList.toggle('on', x.checked)));
     const save = async v => {
       const auth = await ensureAuth(); if (!auth) return;
       try {
