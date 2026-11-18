@@ -1015,6 +1015,23 @@ async function fetchRows(kind) {
   if (!j.ok) { const e = new Error(j.error === 'not_configured' ? 'المنظومة لم تُهيّأ بعد — يحتاج المالك إلى ضبط الإعدادات' : (j.error || 'خطأ في تطبيق الويب')); if (j.error === 'not_configured') e.code = 'nc'; throw e; }
   return j.rows;
 }
+// أسماء الحجاج من تبويب Main في الملف (First_Name + Last_Name) تُطابق بالجواز وتُملأ حيث لا يوجد اسم
+const NAMES = { map: {}, ts: 0 };
+const passKey = p => String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+function applyNames(recs) {
+  const m = NAMES.map; if (!recs) return;
+  recs.forEach(r => { if (!r.name && r.passport && String(r.passport).charAt(0) !== '\u2022') { const n = m[passKey(r.passport)]; if (n) { r.name = n; r._h = null; } } });
+}
+async function loadNames(force) {
+  if (!force && NAMES.ts && Date.now() - NAMES.ts < 600000) return;
+  NAMES.ts = Date.now();
+  try {
+    const j = await api('names_get'); if (!j.ok || !j.items) { NAMES.err = j.error || ''; return; }
+    NAMES.map = j.items; NAMES.err = '';
+    try { localStorage.setItem('hajj1447.names', JSON.stringify(j.items)); } catch (e) { }
+    ['arrival', 'departure'].forEach(k => { if (state.data[k]) applyNames(state.data[k].records); });
+  } catch (e) { NAMES.err = String(e.message || e); }
+}
 function processRows(kind, rows) {
   const res = C.toRecords(rows, kind, S), pend = state.pending[kind];
   res.records.forEach(r => {
@@ -1024,7 +1041,7 @@ function processRows(kind, rows) {
   });
   // حماية من اسم صفحة خاطئ: غياب عمود التأكيد المتوقع يعني غالباً أن الصفحة ليست المقصودة
   res.warn = (res.records.length && res.map.check == null) ? 'لم يُعثر على عمود «' + S[kind].checkHeader + '» في صفحة «' + tabOf(kind) + '» — تأكد من اسم الصفحة في الإعدادات' : '';
-  state.data[kind] = res; if (kind === 'arrival') applyReady(); return res;
+  applyNames(res.records); state.data[kind] = res; if (kind === 'arrival') applyReady(); return res;
 }
 /* ---------------- اعتمادات المغادرة: تجميع بالوسيلة والمسار وتقارب وقت التحرك ---------------- */
 const APPR_ROUTE = (st, air) => C.cityName(st, '') + ' ← ' + (air === 'jeddah' ? 'مطار جدة' : air === 'madinah' ? 'مطار المدينة المنورة' : C.cityName(air, ''));
@@ -1143,12 +1160,13 @@ async function refresh(kinds) {
   const live = $('#live'), btn = $('#bRef');
   if (live) live.className = 'live load'; if (btn) btn.classList.add('spin');
   await syncPublic();
-  await Promise.all(kinds.map(loadKind).concat(kinds.map(loadNotes), kinds.includes('arrival') ? [loadReady()] : [], kinds.includes('departure') ? [loadAppr()] : []));
+  await Promise.all(kinds.map(loadKind).concat([loadNames()], kinds.map(loadNotes), kinds.includes('arrival') ? [loadReady()] : [], kinds.includes('departure') ? [loadAppr()] : []));
   applyReady();
   if (btn) btn.classList.remove('spin');
   updateBadges(); emit(); tick(true);
 }
 function hydrate(kinds) {
+  try { NAMES.map = JSON.parse(localStorage.getItem('hajj1447.names') || '{}') || {}; } catch (e) { }
   try { state.ready = JSON.parse(localStorage.getItem('hajj1447.ready') || '{}') || {}; } catch (e) { }
   try { state.appr = JSON.parse(localStorage.getItem('hajj1447.appr') || '{}') || {}; } catch (e) { }
   kinds.forEach(k => {

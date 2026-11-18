@@ -60,6 +60,7 @@ function doGet(e) {
       case 'ready_set':   return json_(readySet_(payload_(p), isOwner_(p.s)));
       case 'appr_get':    return json_(apprGet_());
       case 'appr_set':    return json_(apprSet_(payload_(p), isOwner_(p.s)));
+      case 'names_get':   return json_(namesGet_(p));
       case 'notes_get':   return json_(notesGet_(p));
       case 'note_set':    return json_(noteSet_(payload_(p), isOwner_(p.s)));
       case 'read':        return json_(read_(p));
@@ -265,6 +266,29 @@ function write_(req, owner) {
   } finally {
     try { lock.releaseLock(); } catch (x) { }
   }
+}
+
+
+/* ============================ أسماء الحجاج من تبويب Main ============================ */
+// تعيد خريطة {رقم الجواز: «الاسم الأول الأخير»} من تبويب Main (أعمدة First_Name و Last_Name وعمود الجواز).
+// لا تُرسل إلا لمن يحق له رؤية الجوازات (المالك أو عند تفعيل إظهار الجوازات).
+const NAMES_SHEET = 'Main';
+function namesGet_(p) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  if (!isOwner_(p.s) && !(st.perms && st.perms.showPassports)) return { ok: true, items: {}, hidden: true };
+  const sh = openSS_(st).getSheetByName(NAMES_SHEET);
+  if (!sh) return { ok: false, error: 'لا يوجد تبويب باسم ' + NAMES_SHEET };
+  const rows = sh.getDataRange().getDisplayValues(), hi = headerIdx_(rows), H = rows[hi] || [];
+  const cF = findCol_(H, 'First_Name'), cL = findCol_(H, 'Last_Name');
+  let cP = -1; for (let i = 0; i < H.length; i++) if (/passport|جواز/i.test(String(H[i]))) { cP = i; break; }
+  if (cP < 0 || (cF < 0 && cL < 0)) return { ok: false, error: 'لم تُوجد أعمدة الجواز والاسم في Main', headers: H };
+  const items = {}; let n = 0;
+  for (let i = hi + 1; i < rows.length; i++) {
+    const key = String(rows[i][cP] || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); if (!key) continue;
+    const name = [cF >= 0 ? rows[i][cF] : '', cL >= 0 ? rows[i][cL] : ''].map(function (x) { return String(x || '').trim(); }).filter(Boolean).join(' ');
+    if (name) { items[key] = name; n++; }
+  }
+  return { ok: true, items: items, count: n };
 }
 
 /* ============================ الملاحظات وحالة النقل ============================ */
