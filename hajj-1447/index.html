@@ -236,7 +236,12 @@ tr.detail td{background:rgba(255,255,255,.03)}
 .rdy-h dt{font-size:11.5px;color:var(--mut)}.rdy-h dd{margin:2px 0 0;font-weight:700}
 .rdy-pt{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:6px}.rdy-pt b{margin-inline-end:auto}
 .rdy-tw{max-height:34vh;overflow-y:auto;overflow-x:hidden;border:1px solid var(--line);border-radius:12px}
-.rdy-t{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px}.rdy-t th:nth-child(1){width:34px}.rdy-t th:nth-child(2){width:26%}.rdy-t td{overflow-wrap:anywhere}.rdy-t th,.rdy-t td{padding:6px 10px;text-align:start;border-bottom:1px solid var(--line)}.rdy-t th{position:sticky;top:0;background:#0A2039;z-index:1}
+.rdy-t{width:100%;min-width:0!important;table-layout:auto;border-collapse:collapse;font-size:12.5px}
+.rdy-t th,.rdy-t td{padding:5px 6px;vertical-align:top}
+.rdy-t th:nth-child(1),.rdy-t td:nth-child(1){width:22px;padding-inline:3px;text-align:center}
+.rdy-t td:nth-child(2){overflow-wrap:anywhere;line-height:1.3}
+.rdy-t td:nth-child(4){width:76px;line-height:1.25;font-size:12px}
+.rdy-pp{white-space:nowrap}.rdy-t th,.rdy-t td{padding:6px 10px;text-align:start;border-bottom:1px solid var(--line)}.rdy-t th{position:sticky;top:0;background:#0A2039;z-index:1}
 [data-theme=light] .rdy-t th{background:#fff}
 .rdy-sub{font-size:11.5px;color:var(--mut);margin-top:2px;font-weight:400}
 .rdy-pp{user-select:all;cursor:copy;font-weight:700;letter-spacing:.3px}
@@ -1090,7 +1095,7 @@ function busHtml(b, j, n) {
     b.parts.map(p => '<div class="ap-r"><span class="no">' + esc(p.g.flight) + '</span><span>' + esc(p.g.hotel || '—') + '</span><span class="num">تحرك ' + C.fmtTime(p.mv) + '</span><span class="num">' + p.n + '</span></div>').join('') +
     '<details class="rdy-more" open><summary>الجوازات والجنسيات (' + b.rows.length + ') — للإدخال في نسك مسار</summary>' +
     (masked ? '<p class="hint" style="color:var(--amber,#f5a524)">⚠ أرقام الجوازات مخفية في وضع الزائر — سجّل دخول المالك لعرضها ونسخها كاملة.</p>'
-      : '<div class="ap-a" style="margin:6px 0"><button class="btn sm" data-bc="' + id + ':P">نسخ الجوازات</button><button class="btn sm" data-bc="' + id + ':A">نسخ الجواز + الجنسية</button><button class="btn sm" data-bc="' + id + ':F">نسخ كامل (جواز، جنسية، رحلة، فندق)</button><button class="btn sm" data-bc="' + id + ':T">نسخ ملخص الحافلة</button></div>') +
+      : '<div class="ap-a" style="margin:6px 0;display:flex;flex-wrap:wrap;gap:6px"><button class="btn sm" data-bc="' + id + ':P">نسخ الجوازات</button><button class="btn sm" data-bc="' + id + ':A">نسخ الجواز + الجنسية</button><button class="btn sm" data-bc="' + id + ':F">نسخ كامل (جواز، جنسية، رحلة، فندق)</button><button class="btn sm" data-bc="' + id + ':T">نسخ ملخص الحافلة</button></div>') +
     '<div class="rdy-tw"><table class="rdy-t"><thead><tr><th>#</th><th>الاسم</th><th>رقم الجواز</th><th>الجنسية</th></tr></thead><tbody>' +
     b.rows.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name || '—') + '<div class="rdy-sub">✈ ' + esc(r.flight || '—') + ' · ' + esc(r.hotel || 'فندق غير محدد') + '</div></td><td class="rdy-pp" dir="ltr"' + (masked ? '' : ' data-bc="' + id + ':' + i + '" title="اضغط للنسخ"') + '>' + esc(r.passport || '—') + '</td><td>' + (flagImg(r.country) || esc(r.natRaw || 'غير محدد')) + '</td></tr>').join('') +
     '</tbody></table></div></details></div>';
@@ -2047,7 +2052,7 @@ function initTracker(kind) {
   }
   function openAppr() {
     const st = { win: +lsGet('hajj1447.apprWin') || 60, day: 'today' };
-    const ov = modal('<h3>اقتراح اعتمادات المغادرة — نسك مسار</h3><div class="qchips" id="apCh" style="flex:none;padding-bottom:6px"></div><div id="apBody"></div><div class="act"><button class="btn green" id="apAll">نسخ الكل</button><button class="btn" id="apX">إغلاق</button></div>');
+    const ov = modal('<h3>اقتراح اعتمادات المغادرة — نسك مسار</h3><div class="qchips" id="apCh" style="flex:none;padding-bottom:6px;flex-wrap:wrap"></div><div id="apBody"></div><div class="act"><button class="btn green" id="apAll">نسخ الكل</button><button class="btn" id="apX">إغلاق</button></div>');
     ov.classList.add('wide'); let cur = null;
     const draw = () => {
       $('#apCh', ov).innerHTML = [['today', 'اليوم'], ['tomorrow', 'غداً'], ['all', 'الكل']].map(([v, l]) => '<button type="button" class="qc' + (st.day === v ? ' on' : '') + '" data-d="' + v + '">' + l + '</button>').join('') + '<span class="hint" style="align-self:center">فارق التجميع:</span>' + [30, 60, 120].map(w => '<button type="button" class="qc' + (st.win === w ? ' on' : '') + '" data-w="' + w + '">' + w + ' د</button>').join('');
