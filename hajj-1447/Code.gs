@@ -58,11 +58,13 @@ function doGet(e) {
       case 'owner_backup_daily': requireOwner_(p); return json_(backupDaily_(payload_(p).on === true));
       case 'ready_get':   return json_(readyGet_());
       case 'ready_set':   return json_(readySet_(payload_(p), isOwner_(p.s)));
+      case 'appr_get':    return json_(apprGet_());
+      case 'appr_set':    return json_(apprSet_(payload_(p), isOwner_(p.s)));
       case 'notes_get':   return json_(notesGet_(p));
       case 'note_set':    return json_(noteSet_(payload_(p), isOwner_(p.s)));
       case 'read':        return json_(read_(p));
       case 'write':       return json_(write_(payload_(p), isOwner_(p.s)));
-      default:            return json_({ ok: true, service: 'hajj-sync', v: 3 });
+      default:            return json_(p.action ? { ok: false, error: 'إجراء غير معروف: ' + p.action } : { ok: true, service: 'hajj-sync', v: 3 });
     }
   } catch (err) {
     return json_({ ok: false, error: String(err.message || err) });
@@ -348,6 +350,43 @@ function readySet_(req, owner) {
     SpreadsheetApp.flush();
     log_(st, 'arrival', owner, by, true, [{ ok: true }], 'استعداد: ' + (status || '—') + (eta ? ' ETA ' + eta : '') + ' | ' + clean(req.label, 80), cleared ? 'مسح استعداد' : 'استعداد مسبق');
     return { ok: true, cleared: cleared };
+  } finally { try { lock.releaseLock(); } catch (x) { } }
+}
+
+/* ============================ اعتماد المغادرة للرحلات ============================ */
+const APPR_SHEET = 'Approvals';
+const APPR_HEAD = ['المفتاح', 'الرحلة', 'الحالة', 'بواسطة', 'آخر تحديث'];
+function apprSheet_(st, create) {
+  const ss = openSS_(st); let sh = ss.getSheetByName(APPR_SHEET);
+  if (!sh && create) { sh = ss.insertSheet(APPR_SHEET); sh.appendRow(APPR_HEAD); }
+  return sh;
+}
+function apprGet_() {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const sh = apprSheet_(st, false), items = [];
+  if (sh) { const rows = sh.getDataRange().getDisplayValues(); for (let i = 1; i < rows.length; i++) if (rows[i][0] && rows[i][2] === 'approved') items.push({ key: rows[i][0], flight: rows[i][1], status: 'approved', by: rows[i][3], at: rows[i][4] }); }
+  return { ok: true, items: items, ts: Date.now() };
+}
+function apprSet_(req, owner) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const denied = visitorDenied_(st, req, owner); if (denied) return denied;
+  const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح الرحلة مفقود' };
+  const approved = String(req.status || '') === 'approved';
+  const clean = function (v) { return cell_(String(v || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 80)); };
+  const by = byOf_(req, owner);
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const sh = apprSheet_(st, true), rows = sh.getDataRange().getDisplayValues(); let at = -1;
+    for (let i = 1; i < rows.length; i++) if (rows[i][0] === key) { at = i + 1; break; }
+    if (!approved) { if (at > 0) sh.getRange(at, 1, 1, APPR_HEAD.length).clearContent(); }
+    else {
+      const rowIdx = at > 0 ? at : sh.getLastRow() + 1;
+      sh.getRange(rowIdx, 1, 1, APPR_HEAD.length).setValues([[cell_(key), clean(req.label), 'approved', by, new Date()]]);
+    }
+    SpreadsheetApp.flush();
+    log_(st, 'departure', owner, by, true, [{ ok: true }], 'اعتماد: ' + (approved ? 'معتمدة' : 'إلغاء') + ' | ' + clean(req.label), approved ? 'اعتماد رحلة' : 'إلغاء اعتماد');
+    return { ok: true, cleared: !approved };
   } finally { try { lock.releaseLock(); } catch (x) { } }
 }
 
