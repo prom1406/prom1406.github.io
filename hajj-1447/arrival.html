@@ -424,6 +424,13 @@ body.ro [data-fready],body.ro [data-gready]{display:none!important}
 .apsum{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .apc{background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}.apc span{color:var(--mut);font-size:12px}.apc b{font-size:26px;color:var(--gold)}.apc small{color:var(--mut)}
 
+
+.trday{margin:18px 0 6px}.trday h3{margin:0 0 10px;font-size:15px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.trcard .trroute{display:flex;flex-wrap:wrap;gap:6px;align-items:center;line-height:1.5}.trcard .trroute small{opacity:.7}.trcard .trroute .ar{opacity:.6}
+.trcard.train{border-top:3px solid #2fbf71}.trcard.mashaer{border-top:3px solid #f5a524}.trcard.hotel{border-top:3px solid #4aa3ff}
+.trleg{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 0;border-top:1px dashed rgba(128,128,128,.3)}
+.trleg .lr{flex:1 1 100%;font-size:13px}.trleg .btn{margin-inline-start:auto}
+.trcard .gbig{display:flex;gap:14px;margin:6px 0}.trcard .gbig b{font-size:26px;margin-inline-end:6px}
 </style>
 </head>
 <body data-page="arrival">
@@ -996,6 +1003,7 @@ const ICON = {
   dash: ic('<rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="5" rx="2"/><rect x="13" y="10" width="8" height="11" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/>'),
   land: ic(PLANE, ' style="transform:rotate(90deg)"'),
   take: ic(PLANE, ' style="transform:rotate(-45deg)"'),
+  swap: ic('<path d="M7 4 3 8l4 4"/><path d="M3 8h14"/><path d="m17 12 4 4-4 4"/><path d="M21 16H7"/>'),
   refresh: ic('<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>'),
   gear: ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
   theme: ic('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
@@ -1045,7 +1053,120 @@ async function loadNames(force) {
     ['arrival', 'departure'].forEach(k => { if (state.data[k]) applyNames(state.data[k].records); });
   } catch (e) { NAMES.err = String(e.message || e); }
 }
+/* =====================================================================
+   التنقلات الداخلية — تبويب Transfers
+   صف لكل حاج وفيه إقامات متتالية (فندق/مدينة/دخول/خروج). كل انتقال بين إقامتين متتاليتين
+   يُجمَّع مع من يشاركه اليوم والمنطلق والوجهة:
+     • مدينتان مختلفتان  → قطار، وحافلتان تحتاجان اعتماداً: الفندق ← المحطة، والمحطة ← الفندق
+     • داخل المدينة مع كدانة/المشاعر → حافلات
+     • داخل المدينة فندق ← فندق → حافلات
+   أقل من 8 أفراد بلا حافلة (سيارة)، وأقصى 49 فرداً في الحافلة.
+   ===================================================================== */
+const TR = { BUS_MAX: 49, STATION: { makkah: 'محطة قطار مكة', madinah: 'محطة قطار المدينة', jeddah: 'محطة قطار جدة' } };
+const TR_TYPES = {
+  train: { ar: 'قطار بين المدن', ic: '🚆', cls: 'train', o: 0 },
+  mashaer: { ar: 'فندق ↔ كدانة', ic: '🕋', cls: 'car', o: 1 },
+  hotel: { ar: 'فندق ← فندق', ic: '🏨', cls: 'bus', o: 2 }
+};
+const CITYTOK = /^(makk?ah|mecca|مكة|مكه|مكة المكرمة|madin[ae]h?|medina|المدينة|المدينة المنورة|jedd?ah|jidda|جدة|جده)$/i;
+const isCityTok = v => CITYTOK.test(String(v == null ? '' : v).trim());
+const isMashaer = t => /كدان|kudai|kidana|kudana|مشاعر|mashaer|عرفات|arafa|مزدلفة|muzdalif|(^|\s)منى(\s|$)|(^|\s)mina(\s|$)/i.test(String(t || ''));
+const trP2 = n => String(n).padStart(2, '0');
+const trDateKey = v => { const p = C.parseDateParts(v, S.dateOrder); return p ? p.y + '-' + trP2(p.mo) + '-' + trP2(p.d) : ''; };
+const trDate = k => new Date(k + 'T12:00:00+03:00');
+const trDayTxt = k => { const d = trDate(k); if (isNaN(d)) return k; const w = new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { timeZone: C.TZ_NAME, weekday: 'long' }).format(d); return w + ' \u2066' + k.slice(8, 10) + '/' + k.slice(5, 7) + '/' + k.slice(0, 4) + '\u2069'; };
+const trMinBus = () => Math.max(8, +(S.transport && S.transport.busMin) || 0);
+
+// يحلّل تبويب Transfers: الأعمدة تُكتشف من العناوين، والفندق/المدينة من محتوى الخلية (عناوين الإقامتين الثانية والأخيرة قد تكون معكوسة)
+function processTransfers(rows) {
+  const res = { kind: 'transfers', records: [], moves: [], warn: '', stats: { rows: 0, noStay: 0, nocity: 0 } };
+  const hi = C.findHeaderRow(rows);
+  if (hi < 0) { res.warn = 'تبويب Transfers فارغ'; return res; }
+  const raw = rows[hi].map(h => String(h == null ? '' : h).trim());
+  const pc = raw.findIndex(h => /جواز|passport/i.test(h));
+  const blocks = [];
+  raw.forEach((h, j) => {
+    if (!/تاريخ\s*الدخول|check\s*-?in/i.test(h)) return;
+    let out = -1; for (let k = j + 1; k < raw.length; k++) { if (/تاريخ\s*الخروج|check\s*-?out/i.test(raw[k])) { out = k; break; } if (/تاريخ\s*الدخول/i.test(raw[k])) break; }
+    blocks.push({ a: j - 2, b: j - 1, inn: j, out });
+  });
+  if (pc < 0 || !blocks.length) { res.warn = 'لم أجد أعمدة الجواز أو الإقامات (تاريخ الدخول/الخروج) في تبويب Transfers — الأعمدة الموجودة: ' + raw.filter(Boolean).join(' | '); return res; }
+  const cell = (row, j) => (j >= 0 && row[j] != null) ? String(row[j]).trim() : '';
+  const stayOf = (row, b) => {
+    const x = cell(row, b.a), y = cell(row, b.b);
+    let hotel = x, city = y;
+    if (isCityTok(x) && !isCityTok(y)) { hotel = y; city = x; }
+    const inn = trDateKey(cell(row, b.inn)), out = b.out >= 0 ? trDateKey(cell(row, b.out)) : '';
+    if (!hotel && !city && !inn) return null;
+    return { hotel, cityRaw: city, city: C.cityOf(city), inn, out };
+  };
+  const map = new Map();
+  for (let i = hi + 1; i < rows.length; i++) {
+    const row = rows[i]; const passport = cell(row, pc);
+    if (!passport) continue;
+    const stays = blocks.map(b => stayOf(row, b)).filter(Boolean);
+    const rec = { row: i + 1, passport, name: '', stays };
+    res.records.push(rec); res.stats.rows++;
+    if (stays.length < 2) { res.stats.noStay++; continue; }
+    for (let k = 0; k < stays.length - 1; k++) {
+      const a = stays[k], b = stays[k + 1], date = a.out || b.inn;
+      if (!date || !a.hotel || !b.hotel) continue;
+      if (a.hotel === b.hotel && a.city === b.city) continue;                       // لا تنقّل: الإقامة نفسها
+      const inter = !!(a.city && b.city && a.city !== b.city);
+      if (!a.city || !b.city) res.stats.nocity++;
+      const type = inter ? 'train' : ((isMashaer(a.hotel) || isMashaer(b.hotel)) ? 'mashaer' : 'hotel');
+      const key = [date, a.city || a.cityRaw, a.hotel, b.city || b.cityRaw, b.hotel].join('|');
+      let m = map.get(key);
+      if (!m) { m = { key, date, type, from: { hotel: a.hotel, city: a.city, cityRaw: a.cityRaw }, to: { hotel: b.hotel, city: b.city, cityRaw: b.cityRaw }, pilgrims: [], pax: 0 }; map.set(key, m); }
+      m.pilgrims.push(rec); m.pax++;
+    }
+  }
+  res.moves = [...map.values()].sort((p, q) => p.date < q.date ? -1 : p.date > q.date ? 1 : (TR_TYPES[p.type].o - TR_TYPES[q.type].o) || (p.from.hotel < q.from.hotel ? -1 : 1));
+  res.moves.forEach((m, i) => { m.id = i; });
+  if (res.stats.nocity) res.warn = res.stats.nocity + ' انتقال بلا مدينة معروفة (تُعامل كتنقل داخل المدينة)';
+  applyNames(res.records);
+  return res;
+}
+
+// يوزّع الركاب على حافلات ≤ 49؛ وإن بقيت آخر حافلة بأقل من الحد الأدنى تُكمَّل من التي قبلها
+function splitTrBuses(list, minBus) {
+  const n = list.length, out = []; if (!n) return out;
+  const nb = Math.ceil(n / TR.BUS_MAX), sizes = new Array(nb).fill(TR.BUS_MAX), rem = n - TR.BUS_MAX * (nb - 1);
+  sizes[nb - 1] = rem;
+  if (nb > 1 && rem < minBus) { sizes[nb - 1] = minBus; sizes[nb - 2] -= (minBus - rem); }
+  let p = 0; sizes.forEach(s => { out.push(list.slice(p, p + s)); p += s; });
+  return out;
+}
+// مراحل الانتقال: بين المدن = حافلة فندق←محطة (اعتماد) + قطار + حافلة محطة←فندق (اعتماد)
+function trLegs(m) {
+  const bus = m.pax >= trMinBus();
+  if (m.type === 'train') {
+    const sa = TR.STATION[m.from.city] || 'محطة القطار', sb = TR.STATION[m.to.city] || 'محطة القطار';
+    return [
+      { id: 'a', kind: bus ? 'bus' : 'car', from: m.from.hotel, to: sa, apr: bus },
+      { id: 't', kind: 'train', from: sa, to: sb, apr: false },
+      { id: 'b', kind: bus ? 'bus' : 'car', from: sb, to: m.to.hotel, apr: bus }];
+  }
+  return [{ id: 'm', kind: bus ? 'bus' : 'car', from: m.from.hotel, to: m.to.hotel, apr: false }];
+}
+const trBuses = (m, leg) => leg.kind === 'bus' ? splitTrBuses(m.pilgrims, trMinBus()) : [m.pilgrims];
+const trKey = (m, leg, i) => ('TR|' + m.date + '|' + leg.id + '|' + m.from.hotel + '>' + m.to.hotel + '|' + (i + 1)).slice(0, 200);
+const trOk = k => { const e = state.appr[k]; return !!(e && e.status === 'approved'); };
+const trOpenAppr = m => trLegs(m).some(l => l.apr && trBuses(m, l).some((b, i) => !trOk(trKey(m, l, i))));
+
+async function trSetAppr(key, label, on) {
+  const auth = await ensureAuth(); if (!auth) throw new Error('لم يُؤكَّد الدخول');
+  const st = on ? 'approved' : '';
+  const j = await api('appr_set', {}, { key, label: String(label).slice(0, 80), status: st, by: auth.by, pin: auth.pin });
+  if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
+  if (!st) delete state.appr[key]; else state.appr[key] = { key, status: st, by: auth.by };
+  guardSet('appr', key, st ? state.appr[key] : null);
+  try { localStorage.setItem('hajj1447.appr', JSON.stringify(state.appr)); } catch (x) { }
+}
+
+
 function processRows(kind, rows) {
+  if (kind === 'transfers') { const tr = processTransfers(rows); state.data.transfers = tr; return tr; }
   const res = C.toRecords(rows, kind, S), pend = state.pending[kind];
   res.records.forEach(r => {
     const p = pend[pkey(r)]; if (!p) return;
@@ -1222,7 +1343,7 @@ async function refresh(kinds) {
   const live = $('#live'), btn = $('#bRef');
   if (live) live.className = 'live load'; if (btn) btn.classList.add('spin');
   await syncPublic();
-  await Promise.all(kinds.map(loadKind).concat([loadNames()], kinds.map(loadNotes), kinds.includes('arrival') ? [loadReady()] : [], kinds.includes('departure') ? [loadAppr()] : []));
+  await Promise.all(kinds.map(loadKind).concat([loadNames()], kinds.filter(k => k !== 'transfers').map(loadNotes), kinds.includes('arrival') ? [loadReady()] : [], (kinds.includes('departure') || kinds.includes('transfers')) ? [loadAppr()] : []));
   applyReady();
   if (btn) btn.classList.remove('spin');
   updateBadges(); emit(); tick(true);
@@ -1407,7 +1528,7 @@ function tick(force) {
     el.classList.toggle('warn', !f.neg && h > S.criticalH && h <= S.warnH);
   });
   const live = $('#live'), txt = $('#syncTxt'); if (!live) return;
-  const last = Math.max(state.sync.arrival || 0, state.sync.departure || 0);
+  const last = Math.max(state.sync.arrival || 0, state.sync.departure || 0, state.sync.transfers || 0);
   const err = kindsInUse.some(k => state.err[k]);
   if (!$('#bRef').classList.contains('spin')) live.className = 'live' + (err ? ' err' : '');
   updateRole();
@@ -1418,7 +1539,7 @@ function tick(force) {
 
 /* ---------------- شريط التنقل ---------------- */
 function renderNav(page) {
-  const tabs = [['index', 'لوحة المؤشرات', 'dash'], ['arrival', 'متابعة الوصول', 'land'], ['departure', 'متابعة المغادرة', 'take']];
+  const tabs = [['index', 'لوحة المؤشرات', 'dash'], ['arrival', 'متابعة الوصول', 'land'], ['departure', 'متابعة المغادرة', 'take'], ['transfers', 'التنقلات', 'swap']];
   const nav = $('#nav'); nav.className = 'nav';
   nav.innerHTML = '<a class="brand" href="index.html"><span class="logo">' + ICON.plane + '</span><span><b>منظومة تحركات الحجاج</b><small>موسم 1447هـ</small></span></a>' +
     '<nav class="tabs" aria-label="التنقل الرئيسي">' + tabs.map(t => '<a class="tab' + (t[0] === page ? ' active' : '') + '" href="' + t[0] + '.html"' + (t[0] === page ? ' aria-current="page"' : '') + '>' + ICON[t[2]] + '<span class="tl">' + t[1] + '</span>' + (t[0] !== 'index' ? '<span class="badge" id="bd-' + t[0] + '" hidden></span>' : '') + '</a>').join('') + '</nav>' +
@@ -1440,7 +1561,7 @@ function renderNav(page) {
 /* ---------------- الاتصال بالخادم، دخول المالك، روابط الزوار ---------------- */
 const b64e = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const b64d = s => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))));
-const clearCaches = () => { try { ['arrival', 'departure'].forEach(k => localStorage.removeItem('hajj1447.cache.' + k)); localStorage.removeItem(LS_BADGE); localStorage.removeItem(LS_PUB); } catch (e) { } };
+const clearCaches = () => { try { ['arrival', 'departure', 'transfers'].forEach(k => localStorage.removeItem('hajj1447.cache.' + k)); localStorage.removeItem(LS_BADGE); localStorage.removeItem(LS_PUB); } catch (e) { } };
 const siteBase = () => new URL('index.html', location.href).href.split('#')[0];
 const visitorLink = () => siteBase() + '#w=' + b64e(CONN.webapp);
 const serverTail = () => { const m = /\/s\/([^/]+)\/exec/.exec(CONN.webapp || ''); return m ? '…' + m[1].slice(-8) : '—'; };
@@ -2561,14 +2682,159 @@ function initInstall() {
   window.addEventListener('appinstalled', () => { b.hidden = true; });
   if (ios) b.hidden = false;
 }
+function initTransfers() {
+  const app = $('#app'), ui = { q: '', day: 'all', type: 'all', city: 'all', ap: 'all' };
+  app.innerHTML = '<section class="hero"><div><h1>التنقلات <span>الداخلية</span></h1><p>فندق ← فندق · فندق ↔ كدانة · بين المدن بالقطار مع حافلات الفندق ↔ المحطة</p></div></section>' +
+    '<div id="stale"></div><div class="kpis" id="kpis"></div>' +
+    '<section class="panel"><div class="toolbar"><div class="qchips" id="qchips"></div>' +
+    '<div class="field">' + ICON.search + '<input type="search" id="fQ" placeholder="بحث: جواز، اسم، فندق…"></div>' +
+    '<select id="fDay"></select><select id="fCity"><option value="all">كل المدن</option><option value="makkah">مكة المكرمة</option><option value="madinah">المدينة المنورة</option></select>' +
+    '<span class="sp"></span><span class="hint" id="cnt"></span></div><div id="list"></div></section>';
+
+  // الجنسية والاسم: من تبويب الوصول (بالجواز) ومن Main؛ تُعطَّل عند إخفاء الجوازات لأن المطابقة بالأرقام المقنّعة غير موثوقة
+  let natMap = null, natSrc = null;
+  const natInfo = r => {
+    const A = state.data.arrival; if (isMasked() || !A) return null;
+    if (natSrc !== A) { natSrc = A; natMap = new Map(); A.records.forEach(x => { if (x.passport) natMap.set(passKey(x.passport), x); }); }
+    return natMap.get(passKey(r.passport)) || null;
+  };
+  const natTxt = r => { const a = natInfo(r); return a ? (a.country ? a.country.ar : (a.natRaw || '')) : ''; };
+  const natHtml = r => { const a = natInfo(r); return a ? (flagImg(a.country) || esc(a.natRaw || '—')) : '<span class="hint">—</span>'; };
+  const nameOf = r => r.name || NAMES.map[passKey(r.passport)] || (natInfo(r) && natInfo(r).name) || '';
+  const cityTxt = c => C.cityName(c.city, c.cityRaw);
+
+  function copyTxt(t, okMsg) {
+    const fb = () => { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); toast(okMsg, 'ok'); } catch (e) { toast('تعذّر النسخ', 'err'); } a.remove(); };
+    (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t).then(() => toast(okMsg, 'ok'), fb) : fb());
+  }
+
+  /* ---- نافذة المرحلة: حافلات (≤49) أو قائمة الركاب، مع نسخ الجواز والجنسية وتسجيل الاعتماد ---- */
+  function openLeg(m, leg) {
+    const bs = trBuses(m, leg), apr = !!leg.apr, masked = isMasked(), n = bs.length;
+    const title = leg.kind === 'train' ? '🚆 القطار — قائمة الركاب' : leg.kind === 'bus' ? '🚌 ' + (apr ? 'اعتماد الحافلات' : 'الحافلات') : '🚗 السيارات — قائمة الركاب';
+    const ov = modal('<h3>' + title + '</h3><p class="sub">' + esc(leg.from) + ' ← ' + esc(leg.to) + ' · ' + esc(trDayTxt(m.date)) + ' · ' + m.pax + ' حاج</p>' +
+      (apr ? '<p class="hint">الاعتماد يصدر لكل حافلة (حتى ' + TR.BUS_MAX + ' فرداً): انسخ الجوازات والجنسيات وأدخلها في نسك مسار، ثم اضغط «تم إصدار الاعتماد».</p>' : '') +
+      (masked ? '<p class="hint" style="color:var(--amber,#f5a524)">⚠ أرقام الجوازات مخفية في وضع الزائر — سجّل دخول المالك لعرضها ونسخها كاملة.</p>' : '') +
+      '<div id="trBody"></div><div class="act">' + (masked ? '' : '<button class="btn" data-tb="all:P">نسخ جوازات الكل</button>') + '<button class="btn" id="trX">إغلاق</button></div>');
+    ov.classList.add('wide');
+    const rowTxt = r => [r.passport, natTxt(r), nameOf(r)].join('\t');
+    const card = (b, i) => {
+      const k = trKey(m, leg, i), ok = apr && trOk(k), e = state.appr[k];
+      const head = leg.kind === 'bus' ? '🚌 حافلة ' + (i + 1) + (n > 1 ? ' من ' + n : '') : (leg.kind === 'train' ? '🚆 ركاب القطار' : '🚗 ركاب السيارات');
+      return '<div class="ap ' + (leg.kind === 'train' ? 'train' : 'bus') + '"><div class="ap-h"><b>' + head + '</b>' + (ok ? '<span class="rgc ok">✓ اعتماد مسجّل' + (e && e.by ? ' — ' + esc(e.by) : '') + '</span>' : '') + '<b class="num">' + b.length + (leg.kind === 'bus' ? ' / ' + TR.BUS_MAX : '') + ' فرد</b></div>' +
+        '<div class="ap-a" style="flex-wrap:wrap">' + (masked ? '' : '<button class="btn sm" data-tb="' + i + ':P">نسخ الجوازات</button><button class="btn sm" data-tb="' + i + ':A">نسخ الجواز + الجنسية</button><button class="btn sm" data-tb="' + i + ':F">نسخ كامل (جواز، جنسية، اسم، مسار)</button>') +
+        '<button class="btn sm" data-tb="' + i + ':T">نسخ ملخص</button>' + (apr ? '<button class="btn sm ' + (ok ? '' : 'green') + '" data-trap="' + i + '">' + (ok ? 'إلغاء الاعتماد' : '✓ تم إصدار الاعتماد') + '</button>' : '') + '</div>' +
+        '<div class="rdy-tw"><table class="rdy-t"><thead><tr><th>#</th><th>الاسم</th><th>رقم الجواز</th><th>الجنسية</th></tr></thead><tbody>' +
+        b.map((r, j) => '<tr><td>' + (j + 1) + '</td><td>' + esc(nameOf(r) || '—') + '</td><td class="rdy-pp" dir="ltr"' + (masked ? '' : ' data-tc="' + i + ':' + j + '" title="اضغط للنسخ"') + '>' + esc(r.passport || '—') + '</td><td>' + natHtml(r) + '</td></tr>').join('') +
+        '</tbody></table></div></div>';
+    };
+    const draw = () => { $('#trBody', ov).innerHTML = bs.map(card).join(''); };
+    ov.addEventListener('click', async e => {
+      const t = e.target.closest('[data-tb],[data-tc],[data-trap]'); if (!t) return;
+      if (t.dataset.trap != null) {
+        const i = +t.dataset.trap, k = trKey(m, leg, i), on = !trOk(k);
+        try { await trSetAppr(k, leg.from + ' ← ' + leg.to + ' (' + (i + 1) + ')', on); toast(on ? 'تم تسجيل الاعتماد' : 'أُلغي الاعتماد', 'ok'); draw(); render(); }
+        catch (x) { toast('فشل الحفظ: ' + (x.message || x), 'err'); }
+        return;
+      }
+      if (t.dataset.tc != null) { const [i, j] = t.dataset.tc.split(':').map(Number), r = (bs[i] || [])[j]; if (r) copyTxt(r.passport, 'نُسخ الجواز'); return; }
+      const [w, mode] = t.dataset.tb.split(':'), list = (w === 'all' ? m.pilgrims : (bs[+w] || [])), rs = list.filter(r => r.passport);
+      if (mode === 'P') copyTxt(rs.map(r => r.passport).join('\n'), 'نُسخت ' + rs.length + ' جوازات');
+      else if (mode === 'A') copyTxt(rs.map(r => r.passport + '\t' + natTxt(r)).join('\n'), 'نُسخت الجوازات مع الجنسيات');
+      else if (mode === 'F') copyTxt(rs.map(r => [r.passport, natTxt(r), nameOf(r), leg.from + ' ← ' + leg.to].join('\t')).join('\n'), 'نُسخت البيانات الكاملة');
+      else if (mode === 'T') copyTxt((leg.kind === 'bus' ? '🚌 ' : '🚆 ') + leg.from + ' ← ' + leg.to + '\nالتاريخ: ' + trDayTxt(m.date) + '\nالعدد: ' + list.length + ' فرد', 'نُسخ الملخص');
+    });
+    $('#trX', ov).onclick = () => ov.close();
+    draw();
+  }
+
+  /* ---- بطاقات التنقلات ---- */
+  const legHtml = (m, l) => {
+    const bs = trBuses(m, l), n = bs.length;
+    const tp = l.kind === 'train' ? '<span class="tp train">🚆 قطار</span>' : l.kind === 'bus' ? '<span class="tp bus">🚌 حافلة</span>' : '<span class="tp car">🚗 سيارة</span>';
+    let st = '';
+    if (l.apr) { const ok = bs.filter((b, i) => trOk(trKey(m, l, i))).length; st = '<span class="rgc ' + (ok === n ? 'ok' : 'pend') + '">' + (ok === n ? '✓ اعتماد مكتمل' : 'اعتماد ' + ok + ' / ' + n) + '</span>'; }
+    const cnt = l.kind === 'bus' ? n + (n === 1 ? ' حافلة' : ' حافلات') + ' · ' + m.pax + ' حاج' : (l.kind === 'car' ? 'أقل من ' + trMinBus() + ' أفراد — بلا حافلة · ' + m.pax + ' حاج' : m.pax + ' حاج');
+    return '<div class="trleg ' + l.kind + '">' + tp + '<span class="hint">' + cnt + '</span>' + st + '<span class="lr">' + esc(l.from) + ' ← ' + esc(l.to) + '</span>' +
+      '<button class="btn sm' + (l.apr ? ' sky' : '') + '" data-leg="' + m.id + ':' + l.id + '">' + (l.apr ? '🧾 إصدار اعتماد' : 'الركاب والجوازات') + '</button></div>';
+  };
+  const cardHtml = m => {
+    const T = TR_TYPES[m.type];
+    return '<article class="gcard trcard ' + m.type + '"><header><div class="gt trroute"><b>' + esc(m.from.hotel) + '</b> <small>' + esc(cityTxt(m.from)) + '</small><span class="ar">←</span><b>' + esc(m.to.hotel) + '</b> <small>' + esc(cityTxt(m.to)) + '</small></div>' +
+      '<div class="gs"><span class="tp ' + T.cls + '">' + T.ic + ' ' + T.ar + '</span></div></header>' +
+      '<div class="gbig"><div><b class="num">' + m.pax + '</b><span>حاج</span></div></div>' + trLegs(m).map(l => legHtml(m, l)).join('') + '</article>';
+  };
+
+  const passes = m => {
+    if (ui.type !== 'all' && m.type !== ui.type) return false;
+    if (ui.day !== 'all' && m.date !== ui.day) return false;
+    if (ui.city !== 'all' && m.from.city !== ui.city && m.to.city !== ui.city) return false;
+    if (ui.ap === 'open' && !trOpenAppr(m)) return false;
+    if (ui.q) {
+      const q = C.normAr(ui.q);
+      if (!C.normAr(m.from.hotel + ' ' + m.to.hotel).includes(q) && !m.pilgrims.some(r => C.normAr(r.passport + ' ' + nameOf(r)).includes(q))) return false;
+    }
+    return true;
+  };
+
+  function render() {
+    const d = state.data.transfers, stale = $('#stale');
+    if (!d) {
+      stale.innerHTML = state.err.transfers ? '<div class="stale">⚠ ' + esc(state.err.transfers) + ' <button class="btn sm" id="stSet">الإعدادات</button></div>' : '';
+      if ($('#stSet')) $('#stSet').onclick = () => openSettings(false);
+      $('#kpis').innerHTML = '<div class="empty" style="grid-column:1/-1">' + (state.err.transfers ? 'تعذّر تحميل بيانات التنقلات.' : 'جارٍ تحميل البيانات…') + '</div>';
+      $('#list').innerHTML = ''; $('#cnt').textContent = ''; return;
+    }
+    stale.innerHTML = state.err.transfers ? '<div class="stale">⚠ تعذّر التحديث الأخير (' + esc(state.err.transfers) + ') — تُعرض آخر بيانات محفوظة.</div>' : (d.warn ? '<div class="stale">⚠ ' + esc(d.warn) + '</div>' : '');
+    const all = d.moves, sum = f => all.filter(f).reduce((n, m) => n + m.pax, 0), cnt = f => all.filter(f).length;
+    let busTot = 0, busOk = 0, covered = 0;
+    all.forEach(m => trLegs(m).filter(l => l.apr).forEach(l => trBuses(m, l).forEach((b, i) => { busTot++; if (trOk(trKey(m, l, i))) { busOk++; covered += b.length; } })));
+    $('#kpis').innerHTML =
+      '<div class="kpi gold"><div class="l">إجمالي الانتقالات</div><div class="v">' + all.reduce((n, m) => n + m.pax, 0) + '</div><div class="s">انتقال حاج · ' + all.length + ' حركة · ' + d.records.length + ' حاج</div></div>' +
+      '<div class="kpi ok"><div class="l">🚆 بالقطار بين المدن</div><div class="v">' + sum(m => m.type === 'train') + '</div><div class="s">' + cnt(m => m.type === 'train') + ' حركة</div></div>' +
+      '<div class="kpi amber"><div class="l">🕋 فندق ↔ كدانة</div><div class="v">' + sum(m => m.type === 'mashaer') + '</div><div class="s">' + cnt(m => m.type === 'mashaer') + ' حركة بالحافلات</div></div>' +
+      '<div class="kpi sky"><div class="l">🏨 فندق ← فندق</div><div class="v">' + sum(m => m.type === 'hotel') + '</div><div class="s">' + cnt(m => m.type === 'hotel') + ' حركة</div></div>' +
+      '<div class="kpi red' + (busTot > busOk ? '' : '" style="--accent:var(--ok)') + '"><div class="l">🧾 حافلات الاعتماد (بين المدن)</div><div class="v">' + busOk + ' / ' + busTot + '</div><div class="s">معتمدة · ' + covered + ' حاج' + (busTot > busOk ? ' · المتبقي ' + (busTot - busOk) : '') + '</div></div>';
+
+    const days = [...new Set(all.map(m => m.date))].sort();
+    const fd = $('#fDay'); if (fd.dataset.n !== String(days.length) + days[0]) { fd.innerHTML = '<option value="all">كل الأيام</option>' + days.map(k => '<option value="' + k + '">' + esc(trDayTxt(k)) + '</option>').join(''); fd.dataset.n = String(days.length) + days[0]; }
+    fd.value = ui.day;
+    $('#qchips').innerHTML = [['all', 'الكل', ui.type === 'all' && ui.ap === 'all'], ['train', '🚆 قطار بين المدن', ui.type === 'train'], ['mashaer', '🕋 فندق ↔ كدانة', ui.type === 'mashaer'], ['hotel', '🏨 فندق ← فندق', ui.type === 'hotel'], ['open', '🧾 اعتماد غير مسجّل', ui.ap === 'open']]
+      .map(c => '<button type="button" class="qc' + (c[2] ? ' on' : '') + '" data-qc="' + c[0] + '">' + c[1] + '</button>').join('');
+
+    const shown = all.filter(passes);
+    $('#cnt').textContent = shown.length + ' من ' + all.length + ' حركة';
+    const byDay = new Map(); shown.forEach(m => { if (!byDay.has(m.date)) byDay.set(m.date, []); byDay.get(m.date).push(m); });
+    $('#list').innerHTML = shown.length ? [...byDay.entries()].map(([k, ms]) => '<div class="trday"><h3>' + esc(trDayTxt(k)) + ' <span class="hint">' + ms.reduce((n, m) => n + m.pax, 0) + ' حاج · ' + ms.length + ' حركة</span></h3><div class="cards">' + ms.map(cardHtml).join('') + '</div></div>').join('')
+      : '<div class="empty">لا توجد تنقلات مطابقة</div>';
+  }
+
+  $('#fQ').oninput = e => { ui.q = e.target.value.trim(); render(); };
+  $('#fDay').onchange = e => { ui.day = e.target.value; render(); };
+  $('#fCity').onchange = e => { ui.city = e.target.value; render(); };
+  $('#qchips').onclick = e => {
+    const b = e.target.closest('[data-qc]'); if (!b) return; const v = b.dataset.qc;
+    if (v === 'all') { ui.type = 'all'; ui.ap = 'all'; ui.day = 'all'; ui.city = 'all'; ui.q = ''; $('#fQ').value = ''; $('#fCity').value = 'all'; }
+    else if (v === 'open') ui.ap = ui.ap === 'open' ? 'all' : 'open';
+    else ui.type = ui.type === v ? 'all' : v;
+    render();
+  };
+  $('#list').onclick = e => {
+    const b = e.target.closest('[data-leg]'); if (!b) return;
+    const [id, lid] = b.dataset.leg.split(':'), m = (state.data.transfers ? state.data.transfers.moves : [])[+id]; if (!m) return;
+    const leg = trLegs(m).find(l => l.id === lid); if (leg) openLeg(m, leg);
+  };
+  onData(render); render();
+}
+
 async function boot() {
   let th = 'dark'; try { th = localStorage.getItem(LS_THEME) || 'dark'; } catch (e) { }
   document.documentElement.dataset.theme = th;
   const page = document.body.dataset.page;
-  kindsInUse = page === 'index' ? ['arrival', 'departure'] : [page];
+  kindsInUse = page === 'index' ? ['arrival', 'departure'] : page === 'transfers' ? ['transfers', 'arrival'] : [page];
   await initConnection();
   renderNav(page); initInstall(); if (REMOTE.configured) hydrate(kindsInUse); else if (!REMOTE.error) clearCaches();
-  if (page === 'index') initDashboard(); else initTracker(page);
+  if (page === 'index') initDashboard(); else if (page === 'transfers') initTransfers(); else initTracker(page);
   setInterval(() => tick(), 1000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && sourceReady() && Date.now() - lastTry > S.refreshSec * 1000) refresh(); });
   if (!CONN.webapp) { openConnect(); return; }

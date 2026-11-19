@@ -175,7 +175,7 @@ function ownerTest_(req) {
 function read_(p) {
   const st = settings_();
   if (!st) return { ok: false, error: 'not_configured' };
-  if (p.kind !== 'arrival' && p.kind !== 'departure') return { ok: false, error: 'kind غير صالح' };
+  if (p.kind !== 'arrival' && p.kind !== 'departure' && p.kind !== 'transfers') return { ok: false, error: 'kind غير صالح' };
   const sh = sheetOf_(st, p.kind);
   const rows = sh.getDataRange().getDisplayValues();
   if (!isOwner_(p.s) && !(st.perms && st.perms.showPassports)) {
@@ -488,7 +488,7 @@ function openSS_(st) {
   return ss;
 }
 function sheetOf_(st, kind) {
-  const tab = kind === 'arrival' ? st.source.arrivalTab : st.source.departureTab;
+  const tab = kind === 'transfers' ? 'Transfers' : (kind === 'arrival' ? st.source.arrivalTab : st.source.departureTab);
   const sh = openSS_(st).getSheetByName(tab);
   if (!sh) throw new Error('لا توجد صفحة باسم «' + tab + '» في الملف');
   return sh;
