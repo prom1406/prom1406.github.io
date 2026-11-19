@@ -1039,6 +1039,59 @@ async function fetchRows(kind) {
   return j.rows;
 }
 // أسماء الحجاج من تبويب Main في الملف (First_Name + Last_Name) تُطابق بالجواز وتُملأ حيث لا يوجد اسم
+/* ---------------- تصدير القوائم: Excel (xlsx حقيقي) و PDF (طباعة → حفظ كـ PDF) ---------------- */
+const EXP = (() => {
+  const enc = new TextEncoder(), CT = (() => { const t = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crc = b => { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CT[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  const xe = s => String(s == null ? '' : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const col = i => { let s = ''; for (i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s; return s; };
+  function zip(files) {
+    const parts = [], cen = []; let off = 0;
+    files.forEach(([name, text]) => {
+      const nb = enc.encode(name), d = enc.encode(text), c = crc(d);
+      const h = new DataView(new ArrayBuffer(30)); h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint32(14, c, true); h.setUint32(18, d.length, true); h.setUint32(22, d.length, true); h.setUint16(26, nb.length, true);
+      parts.push(new Uint8Array(h.buffer), nb, d);
+      const g = new DataView(new ArrayBuffer(46)); g.setUint32(0, 0x02014b50, true); g.setUint16(4, 20, true); g.setUint16(6, 20, true); g.setUint16(8, 0x0800, true); g.setUint32(16, c, true); g.setUint32(20, d.length, true); g.setUint32(24, d.length, true); g.setUint16(28, nb.length, true); g.setUint32(42, off, true);
+      cen.push(new Uint8Array(g.buffer), nb); off += 30 + nb.length + d.length;
+    });
+    const cs = cen.reduce((n, a) => n + a.length, 0), e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cs, true); e.setUint32(16, off, true);
+    return new Blob(parts.concat(cen, [new Uint8Array(e.buffer)]), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+  function save(blob, name) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 4000);
+  }
+  const safe = s => String(s || 'قائمة').replace(/[\\/:*?"<>|\[\]\n\r]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  // rows: مصفوفة صفوف نصية؛ كل الخلايا نص (فتبقى الجوازات كما هي دون حذف الأصفار أو تحويلها لأرقام علمية)
+  function xlsx(filename, title, meta, headers, rows) {
+    const all = [], put = (r, bold) => all.push({ r, bold });
+    if (title) put([title], true); (meta || []).forEach(m => put([m], false)); if (title || (meta && meta.length)) put([], false);
+    put(headers, true); rows.forEach(r => put(r, false));
+    const hRow = all.findIndex(x => x.bold && x.r === headers) + 1;
+    const widths = headers.map((h, j) => Math.min(48, Math.max(6, ...[h].concat(rows.map(r => r[j])).map(v => String(v == null ? '' : v).length + 3))));
+    const sd = all.map((x, i) => '<row r="' + (i + 1) + '">' + x.r.map((v, j) => v === '' || v == null ? '' : '<c r="' + col(j) + (i + 1) + '" t="inlineStr"' + (x.bold ? ' s="1"' : '') + '><is><t xml:space="preserve">' + xe(v) + '</t></is></c>').join('') + '</row>').join('');
+    const sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView rightToLeft="1" workbookViewId="0"><pane ySplit="' + hRow + '" topLeftCell="A' + (hRow + 1) + '" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>' + widths.map((w, j) => '<col min="' + (j + 1) + '" max="' + (j + 1) + '" width="' + w + '" customWidth="1"/>').join('') + '</cols><sheetData>' + sd + '</sheetData></worksheet>';
+    const files = [
+      ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+      ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+      ['xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="' + xe(safe(title).slice(0, 28) || 'قائمة') + '" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+      ['xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+      ['xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="49" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/></cellXfs></styleSheet>'],
+      ['xl/worksheets/sheet1.xml', sheet]];
+    save(zip(files), String(filename).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') + '.xlsx');
+  }
+  function pdf(title, meta, headers, rows) {
+    const html = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>' + xe(title) + '</title><style>@page{size:A4;margin:12mm}body{font-family:Tahoma,Arial,sans-serif;color:#000;font-size:12.5px}h1{margin:0 0 6px;font-size:20px}.m{margin:2px 0;color:#222}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #444;padding:4px 6px;text-align:right}th{background:#eee}tr{page-break-inside:avoid}thead{display:table-header-group}td.p{direction:ltr;text-align:left;font-family:monospace}.ft{margin-top:8px;font-size:10.5px;color:#555}</style></head><body><h1>' + xe(title) + '</h1>' + (meta || []).map(m => '<div class="m">' + xe(m) + '</div>').join('') +
+      '<table><thead><tr>' + headers.map(h => '<th>' + xe(h) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(r => '<tr>' + r.map((v, j) => '<td' + (/جواز|passport/i.test(headers[j]) ? ' class="p"' : '') + '>' + xe(v) + '</td>').join('') + '</tr>').join('') + '</tbody></table><div class="ft">العدد: ' + rows.length + ' · ' + new Date().toLocaleString('ar-SA-u-nu-latn', { timeZone: 'Asia/Riyadh' }) + '</div></body></html>';
+    const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0'; document.body.appendChild(fr);
+    fr.contentDocument.open(); fr.contentDocument.write(html); fr.contentDocument.close();
+    setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { } setTimeout(() => fr.remove(), 5000); }, 300);
+  }
+  return { xlsx, pdf, safe };
+})();
+const EXP_H = ['#', 'الاسم', 'رقم الجواز', 'الجنسية', 'الرحلة', 'الفندق'];
+const expBtns = id => '<button class="btn sm sky" data-ex="' + id + ':X">📊 تصدير Excel</button><button class="btn sm" data-ex="' + id + ':D">📄 تصدير PDF</button>';
 const NAMES = { map: {}, ts: 0 };
 const passKey = p => String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 function applyNames(recs) {
@@ -1224,7 +1277,7 @@ function busHtml(b, j, n) {
     b.parts.map(p => '<div class="ap-r"><span class="no">' + esc(p.g.flight) + '</span><span>' + esc(p.g.hotel || '—') + '</span><span class="num">تحرك ' + C.fmtTime(p.mv) + '</span><span class="num">' + p.n + '</span></div>').join('') +
     '<details class="rdy-more" open><summary>الجوازات والجنسيات (' + b.rows.length + ') — للإدخال في نسك مسار</summary>' +
     (masked ? '<p class="hint" style="color:var(--amber,#f5a524)">⚠ أرقام الجوازات مخفية في وضع الزائر — سجّل دخول المالك لعرضها ونسخها كاملة.</p>'
-      : '<div class="ap-a" style="margin:6px 0;display:flex;flex-wrap:wrap;gap:6px"><button class="btn sm" data-bc="' + id + ':P">نسخ الجوازات</button><button class="btn sm" data-bc="' + id + ':A">نسخ الجواز + الجنسية</button><button class="btn sm" data-bc="' + id + ':F">نسخ كامل (جواز، جنسية، رحلة، فندق)</button><button class="btn sm" data-bc="' + id + ':T">نسخ ملخص الحافلة</button></div>') +
+      : '<div class="ap-a" style="margin:6px 0;display:flex;flex-wrap:wrap;gap:6px"><button class="btn sm sky" data-bc="' + id + ':X">📊 تصدير Excel</button><button class="btn sm" data-bc="' + id + ':D">📄 تصدير PDF</button><button class="btn sm" data-bc="' + id + ':T">نسخ ملخص الحافلة</button></div>') +
     '<div class="rdy-tw"><table class="rdy-t"><thead><tr><th>#</th><th>الاسم</th><th>رقم الجواز</th><th>الجنسية</th></tr></thead><tbody>' +
     b.rows.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name || '—') + '<div class="rdy-sub">✈ ' + esc(r.flight || '—') + ' · ' + esc(r.hotel || 'فندق غير محدد') + '</div></td><td class="rdy-pp" dir="ltr"' + (masked ? '' : ' data-bc="' + id + ':' + i + '" title="اضغط للنسخ"') + '>' + esc(r.passport || '—') + '</td><td>' + (flagImg(r.country) || esc(r.natRaw || 'غير محدد')) + '</td></tr>').join('') +
     '</tbody></table></div></details></div>';
@@ -1979,7 +2032,7 @@ function initTracker(kind) {
       '<dl class="gkv rdy-h"><div><dt>رقم الرحلة</dt><dd class="num" dir="ltr">' + esc(g.flight) + '</dd></div><div><dt>تاريخ الرحلة</dt><dd>' + (w0 ? C.fmtDayAr(w0) + ' · ' + C.fmtTime(w0) : '—') + '</dd></div>' +
       '<div><dt>مدينة الوصول</dt><dd>' + esc(airC || '—') + '</dd></div><div><dt>فندق الوجهة</dt><dd>' + esc(hotel || '—') + '</dd></div></dl>' +
       '<div class="rdy-pl"><div class="rdy-pt"><b>الحجاج (' + pr.length + ')</b><span class="hint">للإدخال في نسك مسار</span>' +
-      (pr.length && !masked ? '<button class="btn sm" id="rCpP">نسخ الجوازات</button><button class="btn sm" id="rCpA">نسخ الجواز + الجنسية</button>' : '') + '</div>' +
+      (pr.length && !masked ? '<button class="btn sm sky" id="rXx">📊 تصدير Excel</button><button class="btn sm" id="rXp">📄 تصدير PDF</button>' : '') + '</div>' +
       (masked && pr.length ? '<p class="hint" style="color:var(--amber,#f5a524)">⚠ أرقام الجوازات مخفية في وضع الزائر — سجّل دخول المالك لعرضها ونسخها كاملة.</p>' : '') +
       (pr.length ? '<div class="rdy-tw"><table class="rdy-t"><thead><tr><th>#</th><th>الاسم</th><th>رقم الجواز</th><th>الجنسية</th></tr></thead><tbody>' +
         pr.map((r, i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(r.name || '—') + '</td><td class="rdy-pp" dir="ltr"' + (masked ? '' : ' data-cp="' + i + '" title="اضغط للنسخ"') + '>' + esc(masked ? mask(r.passport) : (r.passport || '—')) + '</td><td>' + natHtml(r) + '</td></tr>').join('') +
@@ -1992,8 +2045,10 @@ function initTracker(kind) {
       '<div class="set"><label>الوقت المحدّث للوصول (ETA)<input id="rEta" type="datetime-local" value="' + esc(cur) + '"></label><label>الصالة<input id="rHall" maxlength="30" value="' + esc(e.hall || '') + '"></label><label>البوابة / الجسر<input id="rGate" maxlength="30" value="' + esc(e.gate || '') + '"></label><label class="full">ملاحظة<textarea id="rNote" maxlength="300" rows="2">' + esc(e.note || '') + '</textarea></label></div></details>' +
       '<div class="act"><button class="btn green" id="rOk">حفظ</button>' + (e.status || e.eta || e.hall || e.gate || e.note ? '<button class="btn" id="rClr">مسح</button>' : '') + '<button class="btn" id="rX">إغلاق</button></div>');
     ov.addEventListener('click', ev => { const c = ev.target.closest('[data-cp]'); if (c) { const r = pr[+c.dataset.cp]; if (r) copyText(r.passport, 'نُسخ الجواز'); } });
-    if ($('#rCpP', ov)) $('#rCpP', ov).onclick = () => copyText(pr.map(r => r.passport).filter(Boolean).join('\n'), 'نُسخت ' + pr.length + ' جوازات');
-    if ($('#rCpA', ov)) $('#rCpA', ov).onclick = () => copyText(pr.filter(r => r.passport).map(rowTxt).join('\n'), 'نُسخت الجوازات مع الجنسيات');
+    const xRows = () => pr.map((r, i) => [i + 1, r.name || '', r.passport || '', natOf(r), g.flight || '', hotel || r.hotel || '']);
+    const xTitle = 'استعداد مسبق — رحلة ' + g.flight, xMeta = ['التاريخ: ' + (w0 ? C.fmtDay(w0) + ' ' + C.fmtTime(w0) : '—'), 'مدينة الوصول: ' + (airC || '—'), 'الفندق: ' + (hotel || '—'), 'عدد الحجاج: ' + pr.length];
+    if ($('#rXx', ov)) $('#rXx', ov).onclick = () => { EXP.xlsx('readiness-' + g.flight + (w0 ? '-' + C.fmtDay(w0) : ''), xTitle, xMeta, EXP_H, xRows()); toast('تم إنشاء ملف Excel', 'ok'); };
+    if ($('#rXp', ov)) $('#rXp', ov).onclick = () => EXP.pdf(xTitle, xMeta, EXP_H, xRows());
     ov.querySelectorAll('input[name=rst]').forEach(r => r.onchange = () => ov.querySelectorAll('input[name=rst]').forEach(x => x.parentNode.classList.toggle('on', x.checked)));
     const save = async v => {
       const auth = await ensureAuth(); if (!auth) return;
@@ -2020,14 +2075,18 @@ function initTracker(kind) {
   }
   // اعتماد مغادرة لرحلة واحدة: نص الاعتماد المقترح + تسجيل الاعتماد (يبقى زر الاعتماد على البطاقة بعد الإنجاز)
   // نسخ بيانات الحافلة: الجوازات / الجواز + الجنسية / ملخص، أو جواز واحد بالضغط عليه
+  function busRows(b) { return b.rows.map((r, i) => [i + 1, r.name || '', r.passport || '', natTxt(r), r.flight || '', r.hotel || '']); }
+  function busExport(b, m) {
+    const ttl = 'اعتماد حافلة — ' + APPR_ROUTE(b.st, b.air), meta = ['وقت التحرك: ' + C.fmtDayAr(b.t0) + ' ' + C.fmtTime(b.t0) + (b.t1 - b.t0 ? ' إلى ' + C.fmtTime(b.t1) : ''), 'العدد: ' + b.rows.length + ' فرد (الحد ' + BUS_MAX + ')'];
+    if (m === 'X') { EXP.xlsx('approval-bus-' + C.fmtDay(b.t0) + '-' + C.fmtTime(b.t0).replace(':', ''), ttl, meta, EXP_H, busRows(b)); toast('تم إنشاء ملف Excel', 'ok'); }
+    else EXP.pdf(ttl, meta, EXP_H, busRows(b));
+  }
   function busBind(ov) {
     ov.addEventListener('click', e => {
       const c = e.target.closest('[data-bc]'); if (!c) return;
       const [id, m] = c.dataset.bc.split(':'), b = BUSREG.get(id); if (!b) return;
       const rs = b.rows.filter(r => r.passport);
-      if (m === 'P') copyText(rs.map(r => r.passport).join('\n'), 'نُسخت ' + rs.length + ' جوازات');
-      else if (m === 'A') copyText(rs.map(r => r.passport + '\t' + natTxt(r)).join('\n'), 'نُسخت الجوازات مع الجنسيات');
-      else if (m === 'F') copyText(rs.map(r => [r.passport, natTxt(r), r.flight || '', r.hotel || '', r.name || ''].join('\t')).join('\n'), 'نُسخت البيانات الكاملة');
+      if (m === 'X' || m === 'D') busExport(b, m);
       else if (m === 'T') copyText('🚌 ' + APPR_ROUTE(b.st, b.air) + '\nوقت التحرك: ' + C.fmtDayAr(b.t0) + ' ' + C.fmtTime(b.t0) + '\nالعدد: ' + b.rows.length + ' فرد\n' + b.parts.map(p => '• ' + p.g.flight + ' — ' + (p.g.hotel || 'فندق غير محدد') + ' — ' + p.n).join('\n'), 'نُسخ ملخص الحافلة');
       else { const r = b.rows[+m]; if (r) copyText(r.passport, 'نُسخ الجواز'); }
     });
@@ -2047,8 +2106,11 @@ function initTracker(kind) {
     }
     const ov = modal('<h3>اعتماد الرحلة ' + esc(g.flight) + '</h3><p class="sub">' + esc(gTitle(g)) + '</p>' +
       (done ? '<p class="hint" style="color:#86efac">✓ معتمدة' + (cur.by ? ' — بواسطة ' + esc(cur.by) : '') + '</p>' : '') + body +
-      '<div class="act"><button class="btn green" id="taOk">' + (done ? 'إلغاء الاعتماد' : 'تم الاعتماد') + '</button><button class="btn" id="taX">إغلاق</button></div>');
+      '<div class="act"><button class="btn green" id="taOk">' + (done ? 'إلغاء الاعتماد' : 'تم الاعتماد') + '</button>' + (tbuses.length && !isMasked() ? '<button class="btn sky" id="taXx">📊 Excel لكل الحافلات</button><button class="btn" id="taXp">📄 PDF</button>' : '') + '<button class="btn" id="taX">إغلاق</button></div>');
     busBind(ov);
+    const allRows = () => { const o = []; tbuses.forEach((b, j) => busRows(b).forEach(r => o.push([r[0], r[1], r[2], r[3], r[4], r[5], 'حافلة ' + (j + 1)]))); return o; };
+    if ($('#taXx', ov)) $('#taXx', ov).onclick = () => { EXP.xlsx('approval-flight-' + g.flight, 'اعتماد رحلة ' + g.flight, ['عدد الحافلات: ' + tbuses.length], EXP_H.concat(['الحافلة']), allRows()); toast('تم إنشاء ملف Excel', 'ok'); };
+    if ($('#taXp', ov)) $('#taXp', ov).onclick = () => EXP.pdf('اعتماد رحلة ' + g.flight, ['عدد الحافلات: ' + tbuses.length], EXP_H.concat(['الحافلة']), allRows());
     const save = async st => {
       const auth = await ensureAuth(); if (!auth) return;
       try {
@@ -2790,7 +2852,7 @@ function initTransfers() {
     const ov = modal('<h3>' + (mode === 'pp' ? '🛂 جوازات الركاب' : '🧾 اعتماد الحافلات') + '</h3><p class="sub">' + sub + '</p>' +
       (mode === 'appr' ? '<p class="hint">يصدر الاعتماد لكل حافلة (حتى ' + TR.BUS_MAX + ' فرداً): انسخ الجوازات والجنسيات وأدخلها في نسك مسار، ثم اضغط «تم إصدار الاعتماد».</p>' : '') +
       (masked ? '<p class="hint" style="color:var(--amber,#f5a524)">⚠ أرقام الجوازات مخفية في وضع الزائر — سجّل دخول المالك لعرضها ونسخها كاملة.</p>' : '') +
-      '<div id="trBody"></div><div class="act">' + (masked ? '' : '<button class="btn" data-tb="*:all:P">نسخ جوازات الكل</button>') + '<button class="btn" id="trX">إغلاق</button></div>');
+      '<div id="trBody"></div><div class="act">' + (masked ? '' : '<button class="btn sky" data-tb="*:all:X">📊 Excel — كل القائمة</button><button class="btn" data-tb="*:all:D">📄 PDF — كل القائمة</button>') + '<button class="btn" id="trX">إغلاق</button></div>');
     ov.classList.add('wide');
     const legOf = id => legs.find(l => l.id === id);
     const nm = (id, i) => { const l = legOf(id); return l ? trBuses(m, l)[i] || [] : m.pilgrims; };
@@ -2798,7 +2860,7 @@ function initTransfers() {
       const k = trKey(m, l, i), ok = l.apr && trOk(k), e = state.appr[k];
       const head = l.kind === 'bus' ? '🚌 حافلة ' + (i + 1) + (n > 1 ? ' من ' + n : '') : (l.all ? '🛂 كل الركاب' : l.kind === 'train' ? '🚆 ركاب القطار' : '🚗 ركاب السيارات');
       return '<div class="ap ' + (l.kind === 'train' ? 'train' : 'bus') + '"><div class="ap-h"><b>' + head + '</b>' + (ok ? '<span class="rgc ok">✓ اعتماد مسجّل' + (e && e.by ? ' — ' + esc(e.by) : '') + '</span>' : '') + '<b class="num">' + b.length + (l.kind === 'bus' ? ' / ' + TR.BUS_MAX : '') + ' فرد</b></div>' +
-        '<div class="ap-a" style="flex-wrap:wrap">' + (masked ? '' : '<button class="btn sm" data-tb="' + l.id + ':' + i + ':P">نسخ الجوازات</button><button class="btn sm" data-tb="' + l.id + ':' + i + ':A">نسخ الجواز + الجنسية</button><button class="btn sm" data-tb="' + l.id + ':' + i + ':F">نسخ كامل</button>') +
+        '<div class="ap-a" style="flex-wrap:wrap">' + (masked ? '' : '<button class="btn sm sky" data-tb="' + l.id + ':' + i + ':X">📊 تصدير Excel</button><button class="btn sm" data-tb="' + l.id + ':' + i + ':D">📄 تصدير PDF</button>') +
         '<button class="btn sm" data-tb="' + l.id + ':' + i + ':T">نسخ ملخص</button>' + (l.apr ? '<button class="btn sm ' + (ok ? '' : 'green') + '" data-trap="' + l.id + ':' + i + '">' + (ok ? 'إلغاء الاعتماد' : '✓ تم إصدار الاعتماد') + '</button>' : '') + '</div>' +
         '<div class="rdy-tw"><table class="rdy-t"><thead><tr><th>#</th><th>الاسم</th><th>رقم الجواز</th><th>الجنسية</th></tr></thead><tbody>' +
         b.map((r, j) => '<tr><td>' + (j + 1) + '</td><td>' + esc(nameOf(r) || '—') + '</td><td class="rdy-pp" dir="ltr"' + (masked ? '' : ' data-tc="' + l.id + ':' + i + ':' + j + '" title="اضغط للنسخ"') + '>' + esc(r.passport || '—') + '</td><td>' + natHtml(r) + '</td></tr>').join('') +
@@ -2820,9 +2882,13 @@ function initTransfers() {
       }
       if (t.dataset.tc != null) { const [lid, i, j] = t.dataset.tc.split(':'); const r = (nm(lid, +i))[+j]; if (r) copyTxt(r.passport, 'نُسخ الجواز'); return; }
       const [lid, w, mode2] = t.dataset.tb.split(':'), l = legOf(lid), list = w === 'all' ? m.pilgrims : nm(lid, +w), rs = list.filter(r => r.passport), from = l ? l.from : m.from.hotel, to = l ? l.to : m.to.hotel;
-      if (mode2 === 'P') copyTxt(rs.map(r => r.passport).join('\n'), 'نُسخت ' + rs.length + ' جوازات');
-      else if (mode2 === 'A') copyTxt(rs.map(r => r.passport + '\t' + natTxt(r)).join('\n'), 'نُسخت الجوازات مع الجنسيات');
-      else if (mode2 === 'F') copyTxt(rs.map(r => [r.passport, natTxt(r), nameOf(r), from + ' ← ' + to].join('\t')).join('\n'), 'نُسخت البيانات الكاملة');
+      if (mode2 === 'X' || mode2 === 'D') {
+        const whole = w === 'all' || !!(l && l.all);
+        const hd = ['#', 'الاسم', 'رقم الجواز', 'الجنسية', 'من', 'إلى'], rws = list.map((r, j) => [j + 1, nameOf(r), r.passport || '', natTxt(r), from, to]);
+        const ttl = (whole ? 'قائمة ركاب التنقل' : 'اعتماد حافلة') + ' — ' + from + ' ← ' + to, meta = ['التاريخ: ' + m.date, 'العدد: ' + list.length + ' فرد'];
+        if (mode2 === 'X') { EXP.xlsx((whole ? 'transfer-passengers-' : 'transfer-approval-') + m.date + '-m' + m.id + (whole ? '' : '-' + lid + '-bus' + (+w + 1)), ttl, meta, hd, rws); toast('تم إنشاء ملف Excel', 'ok'); }
+        else EXP.pdf(ttl, meta, hd, rws);
+      }
       else if (mode2 === 'T') copyTxt('🚌 ' + from + ' ← ' + to + '\nالتاريخ: ' + trDayTxt(m.date) + '\nالعدد: ' + list.length + ' فرد', 'نُسخ الملخص');
     });
     $('#trX', ov).onclick = () => ov.close();
