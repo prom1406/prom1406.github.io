@@ -212,6 +212,7 @@ function visitorDenied_(st, req, owner) {
   }
   return null;
 }
+function pgOf_(kind) { return kind === 'arrival' ? 'الوصول' : kind === 'transfers' ? 'التنقلات' : 'المغادرة'; }
 function byOf_(req, owner) { return cell_(String(req.by || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 40)) || (owner ? 'المالك' : 'زائر'); }
 function write_(req, owner) {
   const st = settings_();
@@ -302,23 +303,23 @@ function notesSheet_(st, create) {
 }
 function notesGet_(p) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
-  if (p.kind !== 'arrival' && p.kind !== 'departure') return { ok: false, error: 'kind غير صالح' };
+  if (p.kind !== 'arrival' && p.kind !== 'departure' && p.kind !== 'transfers') return { ok: false, error: 'kind غير صالح' };
   const sh = notesSheet_(st, false), items = [];
   if (sh) {
     const rows = sh.getDataRange().getDisplayValues();
-    const pg = p.kind === 'arrival' ? 'الوصول' : 'المغادرة';
+    const pg = pgOf_(p.kind);
     for (let i = 1; i < rows.length; i++) if (rows[i][1] === pg && rows[i][0]) items.push({ key: rows[i][0], status: rows[i][3], note: rows[i][4], by: rows[i][5], at: rows[i][6] });
   }
   return { ok: true, items: items, ts: Date.now() };
 }
 function noteSet_(req, owner) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
-  if (req.kind !== 'arrival' && req.kind !== 'departure') return { ok: false, error: 'kind غير صالح' };
+  if (req.kind !== 'arrival' && req.kind !== 'departure' && req.kind !== 'transfers') return { ok: false, error: 'kind غير صالح' };
   const denied = visitorDenied_(st, req, owner); if (denied) return denied;
   const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح المجموعة مفقود' };
   const status = NOTE_STATUS.indexOf(String(req.status || '')) >= 0 ? String(req.status || '') : '';
   const note = cell_(String(req.note || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 300));
-  const pg = req.kind === 'arrival' ? 'الوصول' : 'المغادرة', by = byOf_(req, owner);
+  const pg = pgOf_(req.kind), by = byOf_(req, owner);
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
@@ -468,7 +469,7 @@ function log_(st, kind, owner, by, on, results, ctx, label) {
     const ss = openSS_(st);
     let sh = ss.getSheetByName(CONFIG.LOG_SHEET);
     if (!sh) { sh = ss.insertSheet(CONFIG.LOG_SHEET); sh.appendRow(['الوقت', 'الصفحة', 'الدور', 'الاسم', 'الإجراء', 'العدد', 'التفاصيل']); }
-    sh.appendRow([new Date(), kind === 'arrival' ? 'الوصول' : 'المغادرة', owner ? 'المالك' : 'زائر', by,
+    sh.appendRow([new Date(), pgOf_(kind), owner ? 'المالك' : 'زائر', by,
       label || (on ? (kind === 'arrival' ? 'تسكين' : 'مغادرة') : 'تراجع'), okN, cell_(ctx)]);
   } catch (e) { /* السجل لا يُفشل الكتابة */ }
 }
