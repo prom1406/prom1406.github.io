@@ -1105,11 +1105,11 @@ const EXP = (() => {
     save(zip(files), String(filename).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') + '.xlsx');
   }
   function pdf(title, meta, headers, rows) {
-    const html = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>' + xe(title) + '</title><style>@page{size:A4;margin:12mm}body{font-family:Tahoma,Arial,sans-serif;color:#000;font-size:12.5px}h1{margin:0 0 6px;font-size:20px}.m{margin:2px 0;color:#222}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #444;padding:4px 6px;text-align:right}th{background:#eee}tr{page-break-inside:avoid}thead{display:table-header-group}td.p{direction:ltr;text-align:left;font-family:monospace}.ft{margin-top:8px;font-size:10.5px;color:#555}</style></head><body><h1>' + xe(title) + '</h1>' + (meta || []).map(m => '<div class="m">' + xe(m) + '</div>').join('') +
-      '<table><thead><tr>' + headers.map(h => '<th>' + xe(h) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(r => '<tr>' + r.map((v, j) => '<td' + (/جواز|passport/i.test(headers[j]) ? ' class="p"' : '') + '>' + xe(v) + '</td>').join('') + '</tr>').join('') + '</tbody></table><div class="ft">العدد: ' + rows.length + ' · ' + new Date().toLocaleString('ar-SA-u-nu-latn', { timeZone: 'Asia/Riyadh' }) + '</div></body></html>';
-    const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0'; document.body.appendChild(fr);
-    fr.contentDocument.open(); fr.contentDocument.write(html); fr.contentDocument.close();
-    setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { } setTimeout(() => fr.remove(), 5000); }, 300);
+    const body = '<h1>' + xe(title) + '</h1>' + (meta || []).map(m => '<div class="m">' + xe(m) + '</div>').join('') +
+      '<table><thead><tr>' + headers.map(h => '<th>' + xe(h) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(r => '<tr>' + r.map((v, j) => '<td' + (/جواز|passport/i.test(headers[j]) ? ' class="p"' : '') + '>' + xe(v) + '</td>').join('') + '</tr>').join('') + '</tbody></table><div class="ft">العدد: ' + rows.length + ' · ' + new Date().toLocaleString('ar-SA-u-nu-latn', { timeZone: 'Asia/Riyadh' }) + '</div>';
+    const frag = '<div class="pdfx" dir="rtl"><style>.pdfx{font-family:Tajawal,Tahoma,Arial,sans-serif;color:#000;font-size:12px;background:#fff;padding:6px;direction:rtl}.pdfx h1{margin:0 0 6px;font-size:20px}.pdfx .m{margin:2px 0;color:#222}.pdfx table{width:100%;border-collapse:collapse;margin-top:10px}.pdfx th,.pdfx td{border:1px solid #444;padding:4px 6px;text-align:right}.pdfx th{background:#eee}.pdfx td.p{direction:ltr;text-align:left}.pdfx .ft{margin-top:8px;font-size:10.5px;color:#555}</style>' + body + '</div>';
+    toast('جارٍ تجهيز PDF…');
+    savePDF(frag, 'hajj1447-list-' + new Date().toISOString().slice(0, 10) + '.pdf', headers.length > 7).then(() => toast('تم إنشاء PDF', 'ok'), e => toast('تعذّر إنشاء PDF: ' + (e.message || e), 'err'));
   }
   return { xlsx, pdf, safe };
 })();
@@ -1862,6 +1862,19 @@ function reportHtml(o) {
     o.rows.map((r, i) => '<tr style="page-break-inside:avoid;background:' + (i % 2 ? '#faf8f3' : '#fff') + '">' + r.map(c => '<td ' + td + '>' + (c && c.html != null ? c.html : esc(c)) + '</td>').join('') + '</tr>').join('') +
     '</tbody></table></div>';
 }
+const IS_MOBILE = /iP(hone|ad|od)|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+// الجوال (آيفون خصوصاً) يمنع التنزيل التلقائي بعد عملية طويلة؛ فنعرض زراً يضغطه المستخدم للمشاركة/الحفظ/الفتح
+function pdfDeliver(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  if (!IS_MOBILE) { const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 6000); return; }
+  const file = new File([blob], filename, { type: 'application/pdf' });
+  const ov = modal('<h3>📄 ملف PDF جاهز</h3><p class="sub" dir="ltr">' + esc(filename) + ' · ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB</p><p class="hint">اضغط «مشاركة / حفظ» ثم اختر «حفظ في الملفات» أو أرسله لتطبيق آخر.</p><div class="act"><button class="btn green" id="pdS">📤 مشاركة / حفظ</button><a class="btn sky" id="pdO" href="' + url + '" target="_blank" rel="noopener">👁 فتح</a><button class="btn" id="pdX">إغلاق</button></div>');
+  $('#pdS', ov).onclick = async () => {
+    try { if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: filename }); else window.open(url, '_blank'); }
+    catch (e) { if (e && e.name !== 'AbortError') { window.open(url, '_blank'); } }
+  };
+  $('#pdX', ov).onclick = () => ov.close();
+}
 async function savePDF(html, filename, landscape) {
   await loadLib(LIBS.pdf);
   const host = document.createElement('div');
@@ -1869,7 +1882,10 @@ async function savePDF(html, filename, landscape) {
   host.innerHTML = html; document.body.appendChild(host);
   try {
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
-    await html2pdf().set({ margin: [8, 8, 10, 8], filename, image: { type: 'jpeg', quality: .95 }, html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] } }).from(host).save();
+    // حدّ الكانفاس في آيفون ≈ 16 مليون بكسل: نخفّض الدقة تلقائياً للتقارير الطويلة
+    const area = host.offsetWidth * Math.max(1, host.scrollHeight), scale = Math.max(.7, Math.min(2, Math.sqrt((IS_MOBILE ? 9e6 : 30e6) / area)));
+    const blob = await html2pdf().set({ margin: [8, 8, 10, 8], filename, image: { type: 'jpeg', quality: .92 }, html2canvas: { scale, useCORS: true, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] } }).from(host).outputPdf('blob');
+    pdfDeliver(blob, filename);
   } finally { host.remove(); }
 }
 const stamp = () => C.fmtDay(new Date());
@@ -3257,12 +3273,11 @@ async function openDailyArrival(records, busMin) {
   ['drDay', 'drLag', 'drNote'].forEach(id => $('#' + id, ov).addEventListener('input', draw)); draw();
   $('#drClose', ov).onclick = () => ov.close();
   $('#drX', ov).onclick = () => { EXP.xlsx('arrival-report-' + R.d, 'رحلات الوصول لحج 1447', [R.sub], HD, R.rows.concat([['', '', '', 'الإجمالي', R.total, '', '', '', '', '', '']])); toast('تم إنشاء ملف Excel', 'ok'); };
-  $('#drP', ov).onclick = () => {
-    const css = '@page{size:A4 landscape;margin:10mm}body{font-family:Tahoma,Arial,sans-serif;margin:0;color:#000}h1{text-align:center;font-size:18px;margin:4px 0 2px;font-weight:600}.s{text-align:center;font-size:13px;margin:0 0 8px}table{width:100%;border-collapse:collapse;font-size:10.5px}th{background:#4faa3c;color:#fff;padding:5px 3px;border:1px solid #fff;font-weight:600}td{padding:3px 4px;text-align:center;border:1px solid #cfe8c8}tbody tr:nth-child(odd) td{background:#dff1d9}tbody tr:nth-child(even) td{background:#fff}td.hl{font-size:9.5px}tfoot td{border:1px solid #4faa3c;font-size:12px;padding:4px;background:#fff}tr{page-break-inside:avoid}thead{display:table-header-group}';
-    const html = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>رحلات الوصول ' + esc(dmy(R.d)) + '</title><style>' + css + '</style></head><body><h1>رحلات الوصول لحج 1447</h1><div class="s">' + esc(R.sub) + '</div>' + tableHtml(R, true) + '</body></html>';
-    const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;width:0;height:0;border:0;right:0;bottom:0'; document.body.appendChild(fr);
-    fr.contentDocument.open(); fr.contentDocument.write(html); fr.contentDocument.close();
-    setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { } setTimeout(() => fr.remove(), 5000); }, 300);
+  $('#drP', ov).onclick = async () => {
+    const css = '.drpdf{font-family:Tajawal,Tahoma,Arial,sans-serif;color:#000;background:#fff;direction:rtl;padding:4px}.drpdf h1{text-align:center;font-size:20px;margin:4px 0 2px;font-weight:600}.drpdf .s{text-align:center;font-size:14px;margin:0 0 8px}.drpdf table{width:100%;border-collapse:collapse;font-size:11px}.drpdf th{background:#4faa3c;color:#fff;padding:6px 3px;border:1px solid #fff;font-weight:600}.drpdf td{padding:4px;text-align:center;border:1px solid #cfe8c8}.drpdf tbody tr:nth-child(odd) td{background:#dff1d9}.drpdf tbody tr:nth-child(even) td{background:#fff}.drpdf td.hl{font-size:10px}.drpdf tfoot td{border:1px solid #4faa3c;font-size:13px;padding:5px;background:#fff}';
+    const frag = '<div class="drpdf" dir="rtl"><style>' + css + '</style><h1>رحلات الوصول لحج 1447</h1><div class="s">' + esc(R.sub) + '</div>' + tableHtml(R, true) + '</div>';
+    toast('جارٍ تجهيز PDF…');
+    try { await savePDF(frag, 'arrival-report-' + R.d + '.pdf', true); toast('تم إنشاء PDF', 'ok'); } catch (e) { toast('تعذّر إنشاء PDF: ' + (e.message || e), 'err'); }
   };
 }
 
