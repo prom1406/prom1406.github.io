@@ -283,7 +283,8 @@ body.ro [data-fappr]{display:none!important}
   .tools{min-width:0}.live em{display:none}
   .tabs{position:fixed;bottom:12px;inset-inline:12px;margin:0;justify-content:space-around;background:#0C2646;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:60;border-color:var(--line)}
   [data-theme=light] .tabs{background:#fff}
-  .tab{padding:9px 12px}.tab span.tl{display:none}.tab.active span.tl{display:inline}
+  .tabs{inset-inline:8px;gap:2px;padding:4px}
+  .tab{padding:9px 0;flex:1 1 0;min-width:0;justify-content:center;gap:0}.tab span.tl{display:none}.tab.active{flex:0 0 auto;padding:9px 14px;gap:6px;font-size:13px}.tab.active span.tl{display:inline}.tab.active svg{margin-inline-start:0}.tab.active::after{display:none}
   main{padding:16px 12px 100px}
   .toasts{bottom:90px}
 }
