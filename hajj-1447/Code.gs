@@ -108,15 +108,15 @@ function settings_() {
 function publicSettings_(st) {
   const o = JSON.parse(JSON.stringify(st));
   if (o.source) delete o.source.link;
-  delete o.sheetId; delete o.passCol; delete o.pin;
-  o.pinSet = !!st.pin;
+  delete o.sheetId; delete o.passCol; delete o.pin; delete o.pinArr; delete o.pinDep;
+  o.pinSet = !!st.pin; o.pinArrSet = !!st.pinArr; o.pinDepSet = !!st.pinDep;
   return o;
 }
 function publicInfo_() {
   const st = settings_();
   return { ok: true, service: 'hajj-sync', v: 3, configured: !!st, settings: st ? publicSettings_(st) : null };
 }
-function ownerView_(st) { if (!st) return st; const o = JSON.parse(JSON.stringify(st)); o.pinSet = !!st.pin; delete o.pin; return o; }
+function ownerView_(st) { if (!st) return st; const o = JSON.parse(JSON.stringify(st)); o.pinSet = !!st.pin; o.pinArrSet = !!st.pinArr; o.pinDepSet = !!st.pinDep; delete o.pin; delete o.pinArr; delete o.pinDep; return o; }
 function ownerGet_() {
   const st = settings_();
   return { ok: true, email: CONFIG.OWNER_EMAIL, configured: !!st, settings: ownerView_(st) };
@@ -140,8 +140,10 @@ function clean_(o, old) {
     lead: {},
     transport: { arrival: tp.arrival !== false, departure: tp.departure !== false, busMin: num_(tp.busMin, 8, 1, 100) },
     map: { arrival: {}, departure: {} },
-    perms: { showPassports: pm.showPassports === true, confirm: (pm.confirm === 'pin' || pm.confirm === 'off') ? pm.confirm : 'all' },
+    perms: { showPassports: pm.showPassports === true, confirm: (pm.confirm === 'pin' || pm.confirm === 'off' || pm.confirm === 'roles') ? pm.confirm : 'all' },
     pin: o.pin === undefined ? ((old && old.pin) || '') : str_(String(o.pin), 32),
+    pinArr: o.pinArr === undefined ? ((old && old.pinArr) || '') : str_(String(o.pinArr), 32),
+    pinDep: o.pinDep === undefined ? ((old && old.pinDep) || '') : str_(String(o.pinDep), 32),
     passCol: { arrival: pcol_(pc.arrival), departure: pcol_(pc.departure) },
     updatedAt: Date.now()
   };
@@ -158,6 +160,7 @@ function pcol_(v) { if (v === null || v === undefined || v === '') return null; 
 function ownerSave_(o) {
   const st = clean_(o, settings_());
   if (st.perms.confirm === 'pin' && !st.pin) return { ok: false, error: 'حدّد رمز المشرف أولاً (وضع التأكيد بالرمز)' };
+  if (st.perms.confirm === 'roles' && !st.pin && !st.pinArr && !st.pinDep) return { ok: false, error: 'حدّد رمز مشرف واحداً على الأقل (وضع الأدوار)' };
   const ss = openSS_(st);                       // يتحقق أن الملف مفتوح
   const tabs = ss.getSheets().map(function (s) { return s.getName(); });
   const miss = [st.source.arrivalTab, st.source.departureTab].filter(function (t) { return tabs.indexOf(t) < 0; });
@@ -200,10 +203,20 @@ function passCol_(st, kind, headers) {
 
 /* ============================ الكتابة ============================ */
 // صلاحية الكتابة للزائر بحسب وضع المالك (all / pin / off)؛ تعيد null إن سُمح
-function visitorDenied_(st, req, owner) {
+// area: arrival | departure (التنقلات والاعتمادات تتبع مشرف المغادرة). في وضع roles: رمز عام، أو رمز دور المنطقة؛ ومن لا يملك رمزاً مراقب (عرض فقط)
+function visitorDenied_(st, req, owner, area) {
   if (owner) return null;
   const mode = (st.perms && st.perms.confirm) || 'all';
   if (mode === 'off') return { ok: false, error: 'readonly' };
+  if (mode === 'roles') {
+    const c = cache_(), pf = Number(c.get('pfails') || 0);
+    if (pf >= 8) return { ok: false, error: 'locked' };
+    const given = String(req.pin || ''), role = area === 'arrival' ? st.pinArr : st.pinDep;
+    const ok = given && ((st.pin && safeEq_(given, st.pin)) || (role && safeEq_(given, role)));
+    if (!ok) { c.put('pfails', String(pf + 1), 900); return { ok: false, error: 'bad_pin' }; }
+    c.remove('pfails');
+    return null;
+  }
   if (mode === 'pin') {
     const c = cache_(), pf = Number(c.get('pfails') || 0);
     if (pf >= 8) return { ok: false, error: 'locked' };
@@ -220,7 +233,7 @@ function write_(req, owner) {
   const kind = req.kind, cfg = CONFIG.KINDS[kind];
   if (!cfg) return { ok: false, error: 'kind غير صالح' };
   const ops = (req.ops || []).slice(0, CONFIG.MAX_OPS);
-  const denied = visitorDenied_(st, req, owner); if (denied) return denied;
+  const denied = visitorDenied_(st, req, owner, kind === 'arrival' ? 'arrival' : 'departure'); if (denied) return denied;
   const by = byOf_(req, owner);
   if (ops.length >= CONFIG.BACKUP_BULK_MIN) backupIfStale_(st, 'قبل تعديل جماعي');
   const lock = LockService.getScriptLock();
@@ -315,7 +328,7 @@ function notesGet_(p) {
 function noteSet_(req, owner) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
   if (req.kind !== 'arrival' && req.kind !== 'departure' && req.kind !== 'transfers') return { ok: false, error: 'kind غير صالح' };
-  const denied = visitorDenied_(st, req, owner); if (denied) return denied;
+  const denied = visitorDenied_(st, req, owner, req.kind === 'arrival' ? 'arrival' : 'departure'); if (denied) return denied;
   const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح المجموعة مفقود' };
   const status = NOTE_STATUS.indexOf(String(req.status || '')) >= 0 ? String(req.status || '') : '';
   const note = cell_(String(req.note || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 300));
@@ -354,7 +367,7 @@ function readyGet_() {
 }
 function readySet_(req, owner) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
-  const denied = visitorDenied_(st, req, owner); if (denied) return denied;
+  const denied = visitorDenied_(st, req, owner, 'arrival'); if (denied) return denied;
   const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح الرحلة مفقود' };
   const status = READY_STATUS.indexOf(String(req.status || '')) >= 0 ? String(req.status || '') : '';
   const eta = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(req.eta || '')) ? String(req.eta) : '';
@@ -394,7 +407,7 @@ function apprGet_() {
 }
 function apprSet_(req, owner) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
-  const denied = visitorDenied_(st, req, owner); if (denied) return denied;
+  const denied = visitorDenied_(st, req, owner, 'departure'); if (denied) return denied;
   const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح الرحلة مفقود' };
   const approved = String(req.status || '') === 'approved';
   const clean = function (v) { return cell_(String(v || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 80)); };
