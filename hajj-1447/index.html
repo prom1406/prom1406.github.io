@@ -445,6 +445,13 @@ body.ro [data-fready],body.ro [data-gready]{display:none!important}
 .ph{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}.ph h3{margin:0}
 .tw{overflow-x:auto}.fdy td,.fdy th{white-space:nowrap}.mb{height:7px;border-radius:6px;background:rgba(128,128,128,.25);overflow:hidden;min-width:70px}.mb i{display:block;height:100%}.mb i.ok{background:#2fbf71}.mb i.mid{background:#f5a524}.mb i.lo{background:#ff5d5d}
 .capl{display:grid;gap:8px;max-height:55vh;overflow:auto;margin:10px 0}.capl label{display:flex;justify-content:space-between;gap:8px;align-items:center}.capl input{width:110px}
+
+details.sg{border:1px solid var(--line2,rgba(128,128,128,.3));border-radius:12px;margin:10px 0;background:rgba(128,128,128,.05)}
+details.sg>summary{padding:12px 14px;cursor:pointer;font-weight:700;list-style:none;display:flex;align-items:center;gap:8px}details.sg>summary::-webkit-details-marker{display:none}
+details.sg>summary::after{content:"▾";margin-inline-start:auto;opacity:.6}details.sg[open]>summary::after{content:"▴"}
+details.sg>.set{padding:2px 14px 14px}details.sg.danger>summary{color:var(--red,#ff5d5d)}
+.mapgrid{grid-column:1/-1;display:grid;grid-template-columns:minmax(90px,1fr) 1fr 1fr;gap:6px 8px;align-items:center}.mapgrid>b{font-size:12px;opacity:.75}.mapgrid select{width:100%;min-width:0}
+.bnums{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.bnums .bn{background:rgba(74,163,255,.15);border:1px solid rgba(74,163,255,.35);border-radius:8px;padding:1px 8px;font-size:12px}.bnums .bn.ok{background:rgba(47,191,113,.15);border-color:rgba(47,191,113,.4)}
 </style>
 </head>
 <body data-page="index">
@@ -1715,56 +1722,64 @@ function openSettings(first) {
   const lab = (t, inner, full) => '<label' + (full ? ' class="full"' : '') + '>' + t + inner + '</label>';
   const inp = (id, v, ph, type, dir) => '<input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(v == null ? '' : v) + '" placeholder="' + esc(ph || '') + '" dir="' + (dir || 'ltr') + '">';
   let mapHtml = '';
-  ['arrival', 'departure'].forEach(k => {
-    const d = state.data[k]; if (!d || !d.headers.length) return;
-    mapHtml += '<h4>ربط الأعمدة — ' + (k === 'arrival' ? 'الوصول' : 'المغادرة') + ' <span class="hint">(الأعمدة المكتشفة: ' + d.headers.filter(h => h).length + ')</span></h4>';
-    Object.keys(C.FIELDS).concat('check').forEach(f => {
-      const cur = (S.map[k] || {})[f] || '', det = d.map[f];
-      const o = '<option value="">تلقائي' + (det != null ? ' ← ' + esc(d.headers[det]) : ' (غير مكتشف)') + '</option>' + d.headers.filter(h => h).map(h => '<option value="' + esc(h) + '"' + (cur === h ? ' selected' : '') + '>' + esc(h) + '</option>').join('');
-      mapHtml += lab(f === 'check' ? 'عمود التأكيد (' + S[k].checkHeader + ')' : C.FIELDS[f].ar, '<select data-map="' + k + '|' + f + '">' + o + '</select>');
-    });
-  });
+  {
+    const dA = state.data.arrival, dD = state.data.departure;
+    if ((dA && dA.headers.length) || (dD && dD.headers.length)) {
+      const sel = (k, f) => { const d = state.data[k]; if (!d || !d.headers.length) return '<span class="hint">غير محمّل</span>'; const cur = (S.map[k] || {})[f] || '', det = d.map[f];
+        return '<select data-map="' + k + '|' + f + '"><option value="">تلقائي' + (det != null ? ' ← ' + esc(d.headers[det]) : ' (غير مكتشف)') + '</option>' + d.headers.filter(h => h).map(h => '<option value="' + esc(h) + '"' + (cur === h ? ' selected' : '') + '>' + esc(h) + '</option>').join('') + '</select>'; };
+      mapHtml = '<p class="hint" style="grid-column:1/-1;margin:0">اترك «تلقائي» ما لم يخطئ النظام في اكتشاف عمود.</p><div class="mapgrid"><b>الحقل</b><b>الوصول</b><b>المغادرة</b>' +
+        Object.keys(C.FIELDS).concat('check').map(f => '<span>' + (f === 'check' ? 'عمود التأكيد' : esc(C.FIELDS[f].ar)) + '</span>' + sel('arrival', f) + sel('departure', f)).join('') + '</div>';
+    }
+  }
   const ov = modal('<h3>' + (first ? 'مرحباً — اربط ملف Google Sheets' : 'لوحة المالك والإعدادات') + '</h3>' +
     '<p class="hint">مسجَّل الدخول: <span dir="ltr">' + esc(REMOTE.email) + '</span> · ما تحفظه هنا يراه كل من يفتح الموقع (عدا رابط الملف). <button class="btn sm" id="sOut" type="button">تسجيل الخروج</button></p>' +
-    '<div class="set"><h4>ملف Google Sheets</h4>' +
+    '<details class="sg" open><summary>📄 ملف البيانات</summary><div class="set">' +
     lab('رابط الملف', inp('sLink', S.source.link, 'https://docs.google.com/spreadsheets/d/…/edit'), true) +
     lab('اسم صفحة الوصول', inp('sTabA', S.source.arrivalTab, 'Arrival', 'text', 'auto')) +
     lab('اسم صفحة المغادرة', inp('sTabD', S.source.departureTab, 'Departure', 'text', 'auto')) +
-    '<p class="hint" style="grid-column:1/-1;margin:0">يجب أن يطابق الاسمان تبويبي الملف تماماً. تُقرأ البيانات عبر السكربت، فلا حاجة لمشاركة الملف علناً. إن تركت الرابط فارغاً استُخدم الملف المربوط بالسكربت.</p>' +
-    '<h4>صلاحيات الزوار</h4>' +
+    '<p class="hint" style="grid-column:1/-1;margin:0">يجب أن يطابق الاسمان تبويبي الملف. إن تركت الرابط فارغاً استُخدم الملف المربوط بالسكربت.</p>' +
+    '</div></details><details class="sg" open><summary>🔐 الصلاحيات والرموز</summary><div class="set">' +
     '<label class="sw" style="grid-column:1/-1"><input type="checkbox" id="sShowPP"' + (S.perms && S.perms.showPassports ? ' checked' : '') + '> السماح للزوار برؤية أرقام الجوازات كاملة (الأصل: مقنّعة ••••1234)</label>' +
     lab('من يستطيع تأكيد التسكين/المغادرة؟', '<select id="sConf"><option value="all"' + (confirmMode() === 'all' ? ' selected' : '') + '>كل الزوار (يُسجَّل اسم المؤكِّد)</option><option value="pin"' + (confirmMode() === 'pin' ? ' selected' : '') + '>من يملك رمز المشرف فقط</option><option value="roles"' + (confirmMode() === 'roles' ? ' selected' : '') + '>أدوار: مشرف وصول / مشرف مغادرة / مراقب</option><option value="off"' + (confirmMode() === 'off' ? ' selected' : '') + '>لا أحد — عرض فقط</option></select>') +
     lab('رمز المشرف (اتركه فارغاً للإبقاء على الحالي)', '<input id="sPin" type="password" autocomplete="new-password" dir="ltr" placeholder="' + (S.pinSet ? '•••• (محدد)' : 'غير محدد') + '">') +
     (S.pinSet ? '<label class="sw"><input type="checkbox" id="sPinClr"> إزالة رمز المشرف</label>' : '') +
     lab('رمز مشرف الوصول (التسكين والاستعداد) — وضع الأدوار', '<input id="sPinA" type="password" autocomplete="new-password" dir="ltr" placeholder="' + (S.pinArrSet ? '•••• (محدد)' : 'غير محدد') + '">') + (S.pinArrSet ? '<label class="sw"><input type="checkbox" id="sPinAClr"> إزالة رمز مشرف الوصول</label>' : '') +
     lab('رمز مشرف المغادرة (المغادرة والتنقلات والاعتمادات) — وضع الأدوار', '<input id="sPinD" type="password" autocomplete="new-password" dir="ltr" placeholder="' + (S.pinDepSet ? '•••• (محدد)' : 'غير محدد') + '">') + (S.pinDepSet ? '<label class="sw"><input type="checkbox" id="sPinDClr"> إزالة رمز مشرف المغادرة</label>' : '') +
-    '<p class="hint" style="grid-column:1/-1;margin:0">الزائر يرى البيانات ويصدّر، ولا يرى الإعدادات ولا رابط الملف. الإخفاء يتم في الخادم قبل وصول البيانات للمتصفح. كل تأكيد يُسجَّل في عمود Check_By وفي صفحة Log بالملف.</p>' +
-    '<div style="grid-column:1/-1"><button class="btn" type="button" id="sQual">فحص جودة البيانات</button></div>' +
-    '<div style="grid-column:1/-1" class="bk"><b>النسخ الاحتياطي</b><div class="hint" id="sBkInfo">جارٍ التحقق…</div><div class="act" style="margin-top:6px"><button class="btn" type="button" id="sBkNow">نسخة الآن</button><button class="btn" type="button" id="sBkDaily">—</button></div><div class="hint">تُحفظ النسخ كتبويبات مخفية Backup_… في الملف نفسه (آخر 12). وتُؤخذ نسخة تلقائياً قبل أي تأكيد جماعي (10 فأكثر). للاستعادة: أظهر التبويب وانسخ محتواه.</div></div>' +
-    '<h4>التوقيت والتنبيهات</h4>' +
+    '<p class="hint" style="grid-column:1/-1;margin:0">الزائر يرى ويصدّر ولا يرى الإعدادات ولا رابط الملف، والإخفاء يتم في الخادم. كل تأكيد يُسجَّل في Check_By وفي Log.</p>' +
+    '</div></details><details class="sg"><summary>⏱ التوقيت والتنبيهات</summary><div class="set">' +
     lab('فاصل التحديث (ثوانٍ)', inp('sRef', S.refreshSec, '', 'number')) +
     lab('ترتيب التاريخ في الجدول', '<select id="sOrd"><option value="DMY"' + (S.dateOrder === 'DMY' ? ' selected' : '') + '>يوم/شهر/سنة</option><option value="MDY"' + (S.dateOrder === 'MDY' ? ' selected' : '') + '>شهر/يوم/سنة</option></select>') +
     lab('«حرج» قبل الرحلة بـ (ساعات)', inp('sCrit', S.criticalH, '', 'number')) +
     lab('«قريب» قبل الرحلة بـ (ساعات)', inp('sWarn', S.warnH, '', 'number')) +
     lab('تأخر التسكين بعد الهبوط بـ (ساعات)', inp('sLate', S.lateH, '', 'number')) +
-    '<h4>وقت التحرك من الفندق قبل الإقلاع (ساعات) — صفحة المغادرة</h4>' +
+    '</div></details><details class="sg"><summary>🚌 النقل ووقت التحرك</summary><div class="set"><h4>وقت التحرك من الفندق قبل الإقلاع (ساعات)</h4>' +
     lab('مكة ← مطار جدة', inp('sLdMJ', S.lead['makkah>jeddah'], '', 'number')) + lab('مكة ← مطار المدينة', inp('sLdMM', S.lead['makkah>madinah'], '', 'number')) +
     lab('المدينة ← مطار المدينة', inp('sLdDM', S.lead['madinah>madinah'], '', 'number')) + lab('المدينة ← مطار جدة', inp('sLdDJ', S.lead['madinah>jeddah'], '', 'number')) +
-    '<p class="hint" style="grid-column:1/-1;margin:0">يُحسب وقت التحرك = وقت الإقلاع − هذه الساعات. اترك الخانة 0 لإلغاء الحساب لتلك الوجهة.</p>' +
+    '<p class="hint" style="grid-column:1/-1;margin:0">وقت التحرك = الإقلاع − هذه الساعات (0 = بلا حساب).</p>' +
     '<h4>وسيلة النقل (مدينة المطار ← مدينة الفندق)</h4>' +
     '<label class="sw"><input type="checkbox" id="sTpA"' + (S.transport.arrival ? ' checked' : '') + '> تفعيل في صفحة الوصول</label>' +
     '<label class="sw"><input type="checkbox" id="sTpD"' + (S.transport.departure ? ' checked' : '') + '> تفعيل في صفحة المغادرة</label>' +
     lab('أقل عدد أفراد لاستخدام الحافلة (الأقل = سيارة)', inp('sBus', S.transport.busMin, '', 'number')) +
-    mapHtml +
-    '<h4>رابط الزوار</h4><p class="hint" style="grid-column:1/-1;margin:0">أرسله لأي شخص: يفتح الموقع ويرى ما سمحت به. لا يحمل أي سر.</p>' +
+    (mapHtml ? '</div></details><details class="sg"><summary>🔗 ربط الأعمدة (متقدم)</summary><div class="set">' + mapHtml : '') +
+    '</div></details><details class="sg"><summary>🧰 الأدوات والمشاركة</summary><div class="set">' +
+    '<div style="grid-column:1/-1"><button class="btn" type="button" id="sQual">فحص جودة البيانات</button></div>' +
+    '<div style="grid-column:1/-1" class="bk"><b>النسخ الاحتياطي</b><div class="hint" id="sBkInfo">جارٍ التحقق…</div><div class="act" style="margin-top:6px"><button class="btn" type="button" id="sBkNow">نسخة الآن</button><button class="btn" type="button" id="sBkDaily">—</button></div><div class="hint">تُحفظ النسخ كتبويبات مخفية Backup_… في الملف نفسه (آخر 12). وتُؤخذ نسخة تلقائياً قبل أي تأكيد جماعي (10 فأكثر). للاستعادة: أظهر التبويب وانسخ محتواه.</div></div>' +
+    '<h4>رابط الزوار</h4><p class="hint" style="grid-column:1/-1;margin:0">يفتح الموقع ويرى ما سمحت به، ولا يحمل أي سر.</p>' +
     '<div class="full" style="grid-column:1/-1;display:flex;gap:8px"><input id="sShare" readonly dir="ltr" style="flex:1" value="' + esc(visitorLink()) + '"><button class="btn sky" type="button" id="sCopy">نسخ الرابط</button></div>' +
-    '<p class="hint" style="grid-column:1/-1;margin:0">لتثبيته لكل الزوار دون رابط خاص: أنشئ ملفاً اسمه <b>config.js</b> بجانب صفحات الموقع في GitHub بهذا المحتوى:</p>' +
+    '<p class="hint" style="grid-column:1/-1;margin:0">لتثبيته لكل الزوار: ضع هذا في ملف <b>config.js</b> بجانب الصفحات:</p>' +
     '<input class="full" style="grid-column:1/-1" readonly dir="ltr" id="sCfg" value="' + esc('window.HAJJ_CONFIG = { webapp: "' + CONN.webapp + '" };') + '">' +
-    '<h4>حذف</h4>' +
+    '</div></details><details class="sg danger"><summary>⚠ منطقة الخطر</summary><div class="set">' +
     '<div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="sWipe" style="color:var(--red)">حذف كل الإعدادات من الخادم</button>' +
     (REMOTE.locked ? '' : '<button class="btn" type="button" id="sUnlink" style="color:var(--red)">فصل هذا المتصفح عن الخادم</button>') + '</div>' +
-    '<p class="hint" style="grid-column:1/-1;margin:0">الحذف يمسح الإعدادات ورابط الملف فيرى الزوار «لم تُهيّأ بعد». ولقطع الخادم كلياً: أرشِف نشر السكربت من Apps Script ← إدارة عمليات النشر.</p>' +
-    '</div><div class="act"><button class="btn gold" id="sOk">حفظ واعتماد</button><button class="btn" id="sClose">إغلاق</button></div><div id="sMsg" class="hint" style="margin-top:10px"></div>');
+    '<p class="hint" style="grid-column:1/-1;margin:0">الحذف يمسح الإعدادات ورابط الملف فيرى الزوار «لم تُهيّأ بعد».</p>' +
+    '</div></details><div id="sMsg" class="hint" style="margin-top:6px"></div><div class="act"><button class="btn gold" id="sOk">حفظ واعتماد</button><button class="btn" id="sClose">إغلاق</button></div>');
+  // إظهار حقول الرموز بحسب وضع التأكيد
+  const syncPin = () => {
+    const m = $('#sConf', ov).value, show = (id, on) => { const e = $('#' + id, ov); if (e) { const l = e.closest('label'); if (l) l.hidden = !on; } };
+    show('sPin', m === 'pin' || m === 'roles'); show('sPinClr', m === 'pin' || m === 'roles');
+    ['sPinA', 'sPinAClr', 'sPinD', 'sPinDClr'].forEach(id => show(id, m === 'roles'));
+  };
+  $('#sConf', ov).onchange = syncPin; syncPin();
   const val = id => $('#' + id, ov).value.trim();
   const passIdx = (k, map) => { const d = state.data[k]; if (d) { const h = (map[k] || {}).passport; const i = h ? d.headers.indexOf(h) : d.map.passport; if (i != null && i >= 0) return i; } return (S.passCol || {})[k]; };
   const collect = () => {
@@ -2851,7 +2866,7 @@ function initTransfers() {
   function moveText(m) {
     const T = TR_TYPES[m.type], L = ['🚌 تنقل داخلي — ' + T.ar, 'التاريخ: ' + trDayTxt(m.date), 'من: ' + m.from.hotel + (cityTxt(m.from) ? ' (' + cityTxt(m.from) + ')' : ''), 'إلى: ' + m.to.hotel + (cityTxt(m.to) ? ' (' + cityTxt(m.to) + ')' : ''), 'العدد: ' + m.pax + ' حاج'];
     trLegs(m).forEach(l => {
-      const n = trBuses(m, l).length, k = l.kind === 'bus' ? '🚌 ' + n + (n === 1 ? ' حافلة' : ' حافلات') : l.kind === 'train' ? '🚆 قطار' : '🚗 سيارات';
+      const n = trBuses(m, l).length, k = l.kind === 'bus' ? '🚌 ' + n + (n === 1 ? ' حافلة' : ' حافلات') + ' (' + trBuses(m, l).map(b => b.length).join(' + ') + ')' : l.kind === 'train' ? '🚆 قطار' : '🚗 سيارات';
       let st = ''; if (l.apr) { const ok = trBuses(m, l).filter((b, i) => trOk(trKey(m, l, i))).length; st = ' — اعتماد ' + ok + '/' + n; }
       L.push('• ' + k + ': ' + l.from + ' ← ' + l.to + st);
     });
@@ -2923,6 +2938,14 @@ function initTransfers() {
     const n = trBuses(m, l).length;
     return l.kind === 'train' ? '<span class="tp train">🚆 قطار</span>' : l.kind === 'bus' ? '<span class="tp bus">🚌 ' + n + (n === 1 ? ' حافلة' : ' حافلات') + '</span>' : '<span class="tp car">🚗 سيارة</span>';
   };
+  const trBusRows = m => {
+    const bl = trLegs(m).filter(l => l.kind === 'bus'); if (!bl.length) return '';
+    if (bl.length === 2) { // مرحلتا الحافلة (فندق←محطة ومحطة←فندق) بنفس التوزيع: صف واحد
+      const b0 = trBuses(m, bl[0]), b1 = trBuses(m, bl[1]);
+      if (b0.length === b1.length && b0.every((b, i) => b.length === b1[i].length)) return '<div><dt>أفراد الحافلات (ذهاباً للمحطة وإياباً منها)</dt><dd><b>' + b0.length + (b0.length === 1 ? ' حافلة' : ' حافلات') + ' · ' + m.pax + ' فرد لكل مرحلة</b><div class="bnums">' + b0.map((b, i) => '<span class="bn' + (bl.every(l => !l.apr || trOk(trKey(m, l, i))) && bl.some(l => l.apr) ? ' ok' : '') + '" title="حافلة ' + (i + 1) + '">' + (i + 1) + ': ' + b.length + '</span>').join('') + '</div></dd></div>';
+    }
+    return bl.map(l => { const bs = trBuses(m, l); return '<div><dt>أفراد الحافلات — ' + esc(l.from) + ' ← ' + esc(l.to) + '</dt><dd><b>' + bs.length + (bs.length === 1 ? ' حافلة' : ' حافلات') + ' · ' + m.pax + ' فرد</b><div class="bnums">' + bs.map((b, i) => '<span class="bn' + (l.apr && trOk(trKey(m, l, i)) ? ' ok' : '') + '" title="حافلة ' + (i + 1) + '">' + (i + 1) + ': ' + b.length + '</span>').join('') + '</div></dd></div>'; }).join('');
+  };
   const cardHtml = m => {
     const T = TR_TYPES[m.type], st = aprStat(m), legs = trLegs(m), hasApr = st.tot > 0, full = hasApr && st.ok === st.tot;
     const chip = !hasApr ? '<span class="chip info">' + T.ic + ' ' + T.ar + '</span>' : (full ? '<span class="chip ok">✓ اعتماد مكتمل</span>' : '<span class="chip warn">بانتظار الاعتماد ' + st.ok + '/' + st.tot + '</span>');
@@ -2935,7 +2958,7 @@ function initTransfers() {
       '<dl class="gkv"><div><dt>التاريخ</dt><dd><b>' + esc(trDayTxt(m.date)) + '</b></dd></div>' +
       '<div><dt>من</dt><dd><b>' + esc(m.from.hotel) + '</b><div class="sub">' + esc(cityTxt(m.from)) + '</div></dd></div>' +
       '<div><dt>إلى</dt><dd><b>' + esc(m.to.hotel) + '</b><div class="sub">' + esc(cityTxt(m.to)) + '</div></dd></div>' +
-      '<div><dt>الوسيلة</dt><dd>' + legs.map(l => legChip(m, l)).join(' ') + '</dd></div></dl>' +
+      '<div><dt>الوسيلة</dt><dd>' + legs.map(l => legChip(m, l)).join(' ') + '</dd></div>' + trBusRows(m) + '</dl>' +
       '<footer>' + (hasApr ? '<button class="btn sm gold" data-mact="appr">🧾 اعتماد</button>' : '') + '<button class="btn sm sky" data-mact="pp">' + ICON.eye + 'الجوازات (' + m.pax + ')</button><button class="btn sm" data-mact="note" title="حالة النقل وملاحظة" aria-label="حالة النقل وملاحظة">📝</button><button class="btn sm" data-mact="share" title="مشاركة ملخص الحركة">📤 مشاركة</button></footer></article>';
   };
 
@@ -2997,7 +3020,7 @@ function initTransfers() {
   const expRows = () => {
     const o = []; (state.data.transfers ? state.data.transfers.moves : []).filter(passes).forEach(m => {
       const veh = trLegs(m).map(l => l.kind === 'train' ? 'قطار' : l.kind === 'bus' ? 'حافلة (' + trBuses(m, l).length + ')' : 'سيارة').join(' + ');
-      const busOf = {}; trLegs(m).filter(l => l.kind === 'bus').forEach(l => trBuses(m, l).forEach((b, i) => b.forEach(r => { (busOf[r.passport] = busOf[r.passport] || []).push((l.apr ? 'حافلة ' + (i + 1) + (trOk(trKey(m, l, i)) ? ' ✓' : ' ✗') : 'حافلة ' + (i + 1))); })));
+      const busOf = {}; trLegs(m).filter(l => l.kind === 'bus').forEach(l => trBuses(m, l).forEach((b, i) => b.forEach(r => { (busOf[r.passport] = busOf[r.passport] || []).push((l.apr ? 'حافلة ' + (i + 1) + ' (' + b.length + ' فرد)' + (trOk(trKey(m, l, i)) ? ' ✓' : ' ✗') : 'حافلة ' + (i + 1) + ' (' + b.length + ' فرد)')); })));
       m.pilgrims.forEach((r, j) => o.push([m.date, TR_TYPES[m.type].ar, m.from.hotel, m.to.hotel, veh, j + 1, nameOf(r), r.passport || '', natTxt(r), (busOf[r.passport] || []).join(' / ')]));
     }); return o;
   };
