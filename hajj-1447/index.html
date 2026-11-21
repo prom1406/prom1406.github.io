@@ -1879,12 +1879,14 @@ async function savePDF(html, filename, landscape) {
   await loadLib(LIBS.pdf);
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:-99999px;top:0;width:' + (landscape ? 1100 : 760) + 'px;background:#fff';
-  host.innerHTML = html; document.body.appendChild(host);
+  // html2pdf ينسخ العنصر الممرَّر بأنماطه؛ فلو مُرِّر العنصر المزاح خارج الشاشة (left:-99999px) لخرج الملف أبيض. لذا نمرّر جذراً داخلياً بلا تموضع.
+  const root = document.createElement('div'); root.style.cssText = 'width:' + (landscape ? 1100 : 760) + 'px;background:#fff'; root.innerHTML = html;
+  host.appendChild(root); document.body.appendChild(host);
   try {
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
     // حدّ الكانفاس في آيفون ≈ 16 مليون بكسل: نخفّض الدقة تلقائياً للتقارير الطويلة
-    const area = host.offsetWidth * Math.max(1, host.scrollHeight), scale = Math.max(.7, Math.min(2, Math.sqrt((IS_MOBILE ? 9e6 : 30e6) / area)));
-    const blob = await html2pdf().set({ margin: [8, 8, 10, 8], filename, image: { type: 'jpeg', quality: .92 }, html2canvas: { scale, useCORS: true, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] } }).from(host).outputPdf('blob');
+    const area = root.offsetWidth * Math.max(1, root.scrollHeight), scale = Math.max(.7, Math.min(2, Math.sqrt((IS_MOBILE ? 9e6 : 30e6) / area)));
+    const blob = await html2pdf().set({ margin: [8, 8, 10, 8], filename, image: { type: 'jpeg', quality: .92 }, html2canvas: { scale, useCORS: true, backgroundColor: '#ffffff' }, jsPDF: { unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] } }).from(root).outputPdf('blob');
     pdfDeliver(blob, filename);
   } finally { host.remove(); }
 }
