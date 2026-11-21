@@ -8,7 +8,7 @@ dist.mkdir(exist_ok=True)
 css = (src / "shared.css").read_text(encoding="utf-8")
 js = (src / "core.js").read_text(encoding="utf-8") + "\n" + (src / "ui.js").read_text(encoding="utf-8")
 
-CHART = '<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>\n'
+CHART = ''   # Chart.js يُحمَّل ديناميكياً من ui.js بعد ظهور الصفحة
 PAGES = {
     "index": ("لوحة المؤشرات التنفيذية", CHART),
     "arrival": ("متابعة الوصول", ""),

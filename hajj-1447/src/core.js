@@ -44,11 +44,14 @@ const toLatinDigits = s => String(s == null ? '' : s)
   .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
 
 // تطبيع عربي/إنجليزي للمقارنة: يزيل التشكيل والمسافات والرموز ويوحّد الهمزات والتاء المربوطة
-const normAr = s => toLatinDigits(s).toLowerCase()
+const normAr0 = s => toLatinDigits(s).toLowerCase()
   .replace(/[ً-ٰٟـ]/g, '')
   .replace(/[إأآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
   .replace(/[^a-z0-9؀-ۿ]+/g, '');
 
+// ذاكرة مؤقتة للدوال النقية المكلفة (تتكرر نفس القيم آلاف المرات: الجنسية والفندق والمطار)
+const _memo = (fn, cap) => { const m = new Map(); return s => { const k = s == null ? '' : String(s); let v = m.get(k); if (v === undefined) { v = fn(k); if (m.size >= cap) m.clear(); m.set(k, v); } return v; }; };
+const normAr = _memo(normAr0, 20000);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* ---------------- محلل CSV (RFC 4180) ---------------- */
@@ -210,7 +213,7 @@ COUNTRY_TABLE.trim().split('\n').forEach(line => {
     if (s.length >= 3) CLONG.push([s, c]);
   });
 });
-function countryOf(str) {
+function countryOf0(str) {
   const k = normAr(str); if (!k) return null;
   if (CIDX.has(k)) return CIDX.get(k);
   const s = k.replace(/^ال/, ''); if (CIDX.has(s)) return CIDX.get(s);
@@ -222,6 +225,7 @@ function countryOf(str) {
   }
   return best;
 }
+const countryOf = _memo(countryOf0, 5000);
 const flagUrl = (iso2, w) => 'https://flagcdn.com/w' + (w || 40) + '/' + iso2 + '.png';
 
 /* ---------------- اكتشاف الأعمدة ---------------- */
@@ -333,9 +337,13 @@ function buildWhen(dateStr, timeStr, order, tz) {
   return { when: isNaN(dt) ? null : dt, approx };
 }
 const TZ_NAME = 'Asia/Riyadh';
-const fmtDay = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ_NAME }).format(d);
-const fmtTime = d => new Intl.DateTimeFormat('en-GB', { timeZone: TZ_NAME, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
-const fmtDayAr = d => new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { timeZone: TZ_NAME, weekday: 'short', day: '2-digit', month: '2-digit' }).format(d);
+// تُنشأ منسّقات Intl مرة واحدة: إنشاؤها عند كل استدعاء بطيء جداً (يُستدعى لكل سجل في التجميع)
+const _fDay = new Intl.DateTimeFormat('en-CA', { timeZone: TZ_NAME });
+const _fTime = new Intl.DateTimeFormat('en-GB', { timeZone: TZ_NAME, hour: '2-digit', minute: '2-digit', hour12: false });
+const _fDayAr = new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { timeZone: TZ_NAME, weekday: 'short', day: '2-digit', month: '2-digit' });
+const fmtDay = d => _fDay.format(d);
+const fmtTime = d => _fTime.format(d);
+const fmtDayAr = d => _fDayAr.format(d);
 function fmtCountdown(ms) {
   const neg = ms < 0; let s = Math.floor(Math.abs(ms) / 1000);
   const d = Math.floor(s / 86400); s -= d * 86400;
@@ -437,13 +445,14 @@ const CITY_DEF = {
 };
 const CITY_CODE = { jeddah: /\bjed\b/i, madinah: /\bmed\b/i };
 const AIRPORT_KW = { jeddah: ['الملكعبدالعزيز'], madinah: ['الاميرمحمدبنعبدالعزيز'] };
-function cityOf(text) {
+function cityOf0(text) {
   const raw = String(text == null ? '' : text); if (!raw.trim()) return null;
   const n = normAr(raw);
   for (const id of ['makkah', 'madinah', 'jeddah']) if (CITY_DEF[id].kw.some(k => n.includes(k))) return id;
   for (const id of ['jeddah', 'madinah']) if (CITY_CODE[id].test(raw) || AIRPORT_KW[id].some(k => n.includes(k))) return id;
   return null;
 }
+const cityOf = _memo(cityOf0, 5000);
 const TRANSPORT = { bus: { ar: 'حافلة' }, car: { ar: 'سيارة' }, train: { ar: 'قطار' } };
 // مدينة المطار × مدينة الفندق → الوسيلة. المحلي (جدة↔مكة، المدينة↔المدينة): حافلة إن كان العدد ≥ busMin وإلا سيارة. بين المدينتين: قطار للجميع.
 function transportFor(airCity, stayCity, pax, busMin) {
@@ -464,13 +473,14 @@ function movementTime(when, stayCity, airCity, lead) {
 const cityName = (id, raw) => (id && CITY_DEF[id] ? CITY_DEF[id].ar : (raw || ''));
 // توحيد أسماء المطارات المعروفة (JED / MED / الأسماء الإنجليزية) إلى العربية؛ غير المعروف يبقى كما هو
 const AIRPORT_AR = { jeddah: 'مطار الملك عبدالعزيز الدولي', madinah: 'مطار الأمير محمد بن عبدالعزيز الدولي' };
-function airportName(raw) {
+function airportName0(raw) {
   const t = String(raw == null ? '' : raw).trim(); if (!t) return '';
   if (/(^|[^a-z])jed([^a-z]|$)|jeddah|jiddah|king\s*abdul\s*aziz|الملك\s*عبد\s*العزيز/i.test(t)) return AIRPORT_AR.jeddah;
   if (/(^|[^a-z])med([^a-z]|$)|madinah|medina|prince\s*mohammad|الأمير\s*محمد|الامير\s*محمد/i.test(t)) return AIRPORT_AR.madinah;
   return t;
 }
 
+const airportName = _memo(airportName0, 2000);
 /* ---------------- تجميع الحجاج: نفس الرحلة + نفس اليوم + نفس الفندق ---------------- */
 const natKey = r => r.country ? r.country.iso2 : '?' + normAr(r.natRaw);
 const groupKey = r => (r.flight || '—') + '|' + ((r.when0 || r.when) ? fmtDay(r.when0 || r.when) : '') + '|' + normAr(r.hotel) + '|' + (r.stayCity || '');

@@ -50,18 +50,18 @@ function doGet(e) {
       case 'whoami':      return json_({ ok: true, owner: isOwner_(p.s) });
       case 'logout':      cache_().remove('s_' + p.s); return json_({ ok: true });
       case 'owner_get':   requireOwner_(p); return json_(ownerGet_());
-      case 'owner_save':  requireOwner_(p); return json_(ownerSave_(payload_(p)));
+      case 'owner_save':  requireOwner_(p); { const r = ownerSave_(payload_(p)); bumpData_(); return json_(r); }
       case 'owner_test':  requireOwner_(p); return json_(ownerTest_(payload_(p)));
-      case 'owner_reset': requireOwner_(p); PropertiesService.getScriptProperties().deleteProperty(PROP_KEY); return json_({ ok: true });
+      case 'owner_reset': requireOwner_(p); PropertiesService.getScriptProperties().deleteProperty(PROP_KEY); bumpData_(); return json_({ ok: true });
       case 'owner_backup':       requireOwner_(p); return json_(backupNow_('يدوي'));
       case 'owner_backup_info':  requireOwner_(p); return json_(backupInfo_());
       case 'owner_backup_daily': requireOwner_(p); return json_(backupDaily_(payload_(p).on === true));
-      case 'ready_get':   return json_(readyGet_());
+      case 'ready_get':   return json_(memo_('ready', 15, readyGet_));
       case 'ready_set':   return json_(readySet_(payload_(p), isOwner_(p.s)));
-      case 'appr_get':    return json_(apprGet_());
+      case 'appr_get':    return json_(memo_('appr', 15, apprGet_));
       case 'appr_set':    return json_(apprSet_(payload_(p), isOwner_(p.s)));
-      case 'names_get':   return json_(namesGet_(p));
-      case 'notes_get':   return json_(notesGet_(p));
+      case 'names_get':   return json_(namesCached_(p));
+      case 'notes_get':   return json_(notesCached_(p));
       case 'note_set':    return json_(noteSet_(payload_(p), isOwner_(p.s)));
       case 'read':        return json_(read_(p));
       case 'write':       return json_(write_(payload_(p), isOwner_(p.s)));
@@ -91,6 +91,41 @@ function login_(req) {
 function isOwner_(s) { return !!s && cache_().get('s_' + s) === '1'; }
 function requireOwner_(p) { if (!isOwner_(p.s)) throw new Error('غير مصرّح — سجّل دخول المالك'); }
 function cache_() { return CacheService.getScriptCache(); }
+
+/* ---- ذاكرة مؤقتة للقراءة: تقلّل فتح الملف وقراءة الأوراق كاملة عند كل طلب (أكبر مصدر لبطء الخادم) ----
+   تُبطَل فوراً عند أي كتابة عبر bumpData_()، وتنتهي وحدها خلال ثوانٍ إن عُدّل الجدول يدوياً. */
+const CHUNK_ = 25000;
+function dv_() { return cache_().get('dv') || '0'; }
+function bumpData_() { try { cache_().put('dv', String(Date.now()), 21600); } catch (e) { } }
+function dataGet_(name) {
+  try {
+    const c = cache_(), key = name + '_' + dv_(), n = Number(c.get(key + ':n') || 0); if (!n) return null;
+    const keys = []; for (let i = 0; i < n; i++) keys.push(key + ':' + i);
+    const parts = c.getAll(keys); let s = '';
+    for (let i = 0; i < n; i++) { const x = parts[key + ':' + i]; if (x == null) return null; s += x; }
+    return JSON.parse(s);
+  } catch (e) { return null; }
+}
+function dataPut_(name, val, ttl) {
+  try {
+    const key = name + '_' + dv_(), s = JSON.stringify(val), n = Math.ceil(s.length / CHUNK_); if (n > 90) return;
+    const o = {}; for (let i = 0; i < n; i++) o[key + ':' + i] = s.substr(i * CHUNK_, CHUNK_);
+    o[key + ':n'] = String(n); cache_().putAll(o, ttl);
+  } catch (e) { }
+}
+function memo_(name, ttl, fn) {
+  const hit = dataGet_(name); if (hit) return hit;
+  const v = fn(); if (v && v.ok) dataPut_(name, v, ttl); return v;
+}
+function namesCached_(p) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  if (!isOwner_(p.s) && !(st.perms && st.perms.showPassports)) return { ok: true, items: {}, hidden: true };
+  return memo_('names', 60, function () { return namesGet_(p); });
+}
+function notesCached_(p) {
+  if (p.kind !== 'arrival' && p.kind !== 'departure' && p.kind !== 'transfers') return notesGet_(p);
+  return memo_('notes_' + p.kind, 15, function () { return notesGet_(p); });
+}
 function safeEq_(a, b) {
   a = String(a); b = String(b);
   let d = a.length ^ b.length;
@@ -179,8 +214,8 @@ function read_(p) {
   const st = settings_();
   if (!st) return { ok: false, error: 'not_configured' };
   if (p.kind !== 'arrival' && p.kind !== 'departure' && p.kind !== 'transfers') return { ok: false, error: 'kind غير صالح' };
-  const sh = sheetOf_(st, p.kind);
-  const rows = sh.getDataRange().getDisplayValues();
+  let rows = dataGet_('rows_' + p.kind);
+  if (!rows) { rows = sheetOf_(st, p.kind).getDataRange().getDisplayValues(); dataPut_('rows_' + p.kind, rows, 20); }   // تُحفظ الصفوف الخام قبل التقنيع
   if (!isOwner_(p.s) && !(st.perms && st.perms.showPassports)) {
     const hi = headerIdx_(rows), col = passCol_(st, p.kind, rows[hi] || []);
     if (col >= 0) for (let i = hi + 1; i < rows.length; i++) rows[i][col] = mask_(rows[i][col]);
@@ -274,7 +309,7 @@ function write_(req, owner) {
         return { ok: false, error: String(err.message || err) };
       }
     });
-    SpreadsheetApp.flush();
+    SpreadsheetApp.flush(); bumpData_();
     log_(st, kind, owner, by, ops[0] && ops[0].value === true, results, String(req.ctx || '').slice(0, 120));
     return { ok: true, results: results, v: 3 };
   } finally {
@@ -345,7 +380,7 @@ function noteSet_(req, owner) {
       const rec = [cell_(key), pg, cell_(String(req.label || '').slice(0, 120)), status, note, by, new Date()];
       if (at > 0) sh.getRange(at, 1, 1, rec.length).setValues([rec]); else sh.appendRow(rec);
     }
-    SpreadsheetApp.flush();
+    SpreadsheetApp.flush(); bumpData_();
     log_(st, req.kind, owner, by, true, [{ ok: true }], 'ملاحظة/حالة: ' + (status || '—') + ' | ' + String(req.label || '').slice(0, 80), cleared ? 'مسح ملاحظة' : 'ملاحظة');
     return { ok: true, cleared: cleared };
   } finally { try { lock.releaseLock(); } catch (x) { } }
@@ -385,7 +420,7 @@ function readySet_(req, owner) {
       sh.getRange(rowIdx, 4).setNumberFormat('@');      // ETA نص صريح كي لا يتحول إلى تاريخ
       sh.getRange(rowIdx, 1, 1, rec.length).setValues([rec]);
     }
-    SpreadsheetApp.flush();
+    SpreadsheetApp.flush(); bumpData_();
     log_(st, 'arrival', owner, by, true, [{ ok: true }], 'استعداد: ' + (status || '—') + (eta ? ' ETA ' + eta : '') + ' | ' + clean(req.label, 80), cleared ? 'مسح استعداد' : 'استعداد مسبق');
     return { ok: true, cleared: cleared };
   } finally { try { lock.releaseLock(); } catch (x) { } }
@@ -422,7 +457,7 @@ function apprSet_(req, owner) {
       const rowIdx = at > 0 ? at : sh.getLastRow() + 1;
       sh.getRange(rowIdx, 1, 1, APPR_HEAD.length).setValues([[cell_(key), clean(req.label), 'approved', by, new Date()]]);
     }
-    SpreadsheetApp.flush();
+    SpreadsheetApp.flush(); bumpData_();
     log_(st, 'departure', owner, by, true, [{ ok: true }], 'اعتماد: ' + (approved ? 'معتمدة' : 'إلغاء') + ' | ' + clean(req.label), approved ? 'اعتماد رحلة' : 'إلغاء اعتماد');
     return { ok: true, cleared: !approved };
   } finally { try { lock.releaseLock(); } catch (x) { } }

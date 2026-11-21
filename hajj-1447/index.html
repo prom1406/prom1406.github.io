@@ -9,7 +9,6 @@
 <title>لوحة المؤشرات التنفيذية — حجاج 1447هـ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'"><noscript><link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet"></noscript>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
 <style>
 :root{
   --navy:#07182D;--navy2:#0B2342;--navy3:#12335E;
@@ -507,11 +506,14 @@ const toLatinDigits = s => String(s == null ? '' : s)
   .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
 
 // تطبيع عربي/إنجليزي للمقارنة: يزيل التشكيل والمسافات والرموز ويوحّد الهمزات والتاء المربوطة
-const normAr = s => toLatinDigits(s).toLowerCase()
+const normAr0 = s => toLatinDigits(s).toLowerCase()
   .replace(/[ً-ٰٟـ]/g, '')
   .replace(/[إأآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
   .replace(/[^a-z0-9؀-ۿ]+/g, '');
 
+// ذاكرة مؤقتة للدوال النقية المكلفة (تتكرر نفس القيم آلاف المرات: الجنسية والفندق والمطار)
+const _memo = (fn, cap) => { const m = new Map(); return s => { const k = s == null ? '' : String(s); let v = m.get(k); if (v === undefined) { v = fn(k); if (m.size >= cap) m.clear(); m.set(k, v); } return v; }; };
+const normAr = _memo(normAr0, 20000);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /* ---------------- محلل CSV (RFC 4180) ---------------- */
@@ -673,7 +675,7 @@ COUNTRY_TABLE.trim().split('\n').forEach(line => {
     if (s.length >= 3) CLONG.push([s, c]);
   });
 });
-function countryOf(str) {
+function countryOf0(str) {
   const k = normAr(str); if (!k) return null;
   if (CIDX.has(k)) return CIDX.get(k);
   const s = k.replace(/^ال/, ''); if (CIDX.has(s)) return CIDX.get(s);
@@ -685,6 +687,7 @@ function countryOf(str) {
   }
   return best;
 }
+const countryOf = _memo(countryOf0, 5000);
 const flagUrl = (iso2, w) => 'https://flagcdn.com/w' + (w || 40) + '/' + iso2 + '.png';
 
 /* ---------------- اكتشاف الأعمدة ---------------- */
@@ -796,9 +799,13 @@ function buildWhen(dateStr, timeStr, order, tz) {
   return { when: isNaN(dt) ? null : dt, approx };
 }
 const TZ_NAME = 'Asia/Riyadh';
-const fmtDay = d => new Intl.DateTimeFormat('en-CA', { timeZone: TZ_NAME }).format(d);
-const fmtTime = d => new Intl.DateTimeFormat('en-GB', { timeZone: TZ_NAME, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
-const fmtDayAr = d => new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { timeZone: TZ_NAME, weekday: 'short', day: '2-digit', month: '2-digit' }).format(d);
+// تُنشأ منسّقات Intl مرة واحدة: إنشاؤها عند كل استدعاء بطيء جداً (يُستدعى لكل سجل في التجميع)
+const _fDay = new Intl.DateTimeFormat('en-CA', { timeZone: TZ_NAME });
+const _fTime = new Intl.DateTimeFormat('en-GB', { timeZone: TZ_NAME, hour: '2-digit', minute: '2-digit', hour12: false });
+const _fDayAr = new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { timeZone: TZ_NAME, weekday: 'short', day: '2-digit', month: '2-digit' });
+const fmtDay = d => _fDay.format(d);
+const fmtTime = d => _fTime.format(d);
+const fmtDayAr = d => _fDayAr.format(d);
 function fmtCountdown(ms) {
   const neg = ms < 0; let s = Math.floor(Math.abs(ms) / 1000);
   const d = Math.floor(s / 86400); s -= d * 86400;
@@ -900,13 +907,14 @@ const CITY_DEF = {
 };
 const CITY_CODE = { jeddah: /\bjed\b/i, madinah: /\bmed\b/i };
 const AIRPORT_KW = { jeddah: ['الملكعبدالعزيز'], madinah: ['الاميرمحمدبنعبدالعزيز'] };
-function cityOf(text) {
+function cityOf0(text) {
   const raw = String(text == null ? '' : text); if (!raw.trim()) return null;
   const n = normAr(raw);
   for (const id of ['makkah', 'madinah', 'jeddah']) if (CITY_DEF[id].kw.some(k => n.includes(k))) return id;
   for (const id of ['jeddah', 'madinah']) if (CITY_CODE[id].test(raw) || AIRPORT_KW[id].some(k => n.includes(k))) return id;
   return null;
 }
+const cityOf = _memo(cityOf0, 5000);
 const TRANSPORT = { bus: { ar: 'حافلة' }, car: { ar: 'سيارة' }, train: { ar: 'قطار' } };
 // مدينة المطار × مدينة الفندق → الوسيلة. المحلي (جدة↔مكة، المدينة↔المدينة): حافلة إن كان العدد ≥ busMin وإلا سيارة. بين المدينتين: قطار للجميع.
 function transportFor(airCity, stayCity, pax, busMin) {
@@ -927,13 +935,14 @@ function movementTime(when, stayCity, airCity, lead) {
 const cityName = (id, raw) => (id && CITY_DEF[id] ? CITY_DEF[id].ar : (raw || ''));
 // توحيد أسماء المطارات المعروفة (JED / MED / الأسماء الإنجليزية) إلى العربية؛ غير المعروف يبقى كما هو
 const AIRPORT_AR = { jeddah: 'مطار الملك عبدالعزيز الدولي', madinah: 'مطار الأمير محمد بن عبدالعزيز الدولي' };
-function airportName(raw) {
+function airportName0(raw) {
   const t = String(raw == null ? '' : raw).trim(); if (!t) return '';
   if (/(^|[^a-z])jed([^a-z]|$)|jeddah|jiddah|king\s*abdul\s*aziz|الملك\s*عبد\s*العزيز/i.test(t)) return AIRPORT_AR.jeddah;
   if (/(^|[^a-z])med([^a-z]|$)|madinah|medina|prince\s*mohammad|الأمير\s*محمد|الامير\s*محمد/i.test(t)) return AIRPORT_AR.madinah;
   return t;
 }
 
+const airportName = _memo(airportName0, 2000);
 /* ---------------- تجميع الحجاج: نفس الرحلة + نفس اليوم + نفس الفندق ---------------- */
 const natKey = r => r.country ? r.country.iso2 : '?' + normAr(r.natRaw);
 const groupKey = r => (r.flight || '—') + '|' + ((r.when0 || r.when) ? fmtDay(r.when0 || r.when) : '') + '|' + normAr(r.hotel) + '|' + (r.stayCity || '');
@@ -1456,7 +1465,7 @@ function roleInfo() {
 }
 function updateRole() {
   const b = $('#bRole'); document.body.classList.toggle('ro', !canConfirm());
-  if (!b) return; const r = roleInfo(); b.textContent = r.t; b.className = 'pill ' + r.c; b.title = r.d;
+  if (!b) return; const r = roleInfo(), cn = 'pill ' + r.c; if (b.textContent !== r.t) b.textContent = r.t; if (b.className !== cn) b.className = cn; if (b.title !== r.d) b.title = r.d;
 }
 // الاسم (للزائر) ورمز المشرف عند الحاجة؛ تعيد null عند الإلغاء أو المنع
 async function ensureAuth() {
@@ -1600,13 +1609,14 @@ const cdHtml = (r) => r.when && !r.done ? '<span class="cd" data-w="' + r.when.g
 
 /* ---------------- العدّ التنازلي الحي ---------------- */
 function tick(force) {
+  if (document.hidden && !force) return;   // لا عمل في تبويب مخفي
   const now = Date.now();
   $$('.cd[data-w]').forEach(el => {
     const ms = +el.dataset.w - now, f = C.fmtCountdown(ms), h = ms / 36e5;
-    el.innerHTML = (f.neg ? '<span dir="rtl">منذ</span> ' : '') + (f.d ? '<span dir="rtl">' + f.d + ' يوم</span> ' : '') + f.hms;
-    el.classList.toggle('neg', f.neg);
-    el.classList.toggle('crit', !f.neg && h <= S.criticalH);
-    el.classList.toggle('warn', !f.neg && h > S.criticalH && h <= S.warnH);
+    const html = (f.neg ? '<span dir="rtl">منذ</span> ' : '') + (f.d ? '<span dir="rtl">' + f.d + ' يوم</span> ' : '') + f.hms;
+    if (el._h !== html) { el.innerHTML = html; el._h = html; }
+    const cl = f.neg ? 'neg' : (h <= S.criticalH ? 'crit' : (h <= S.warnH ? 'warn' : ''));
+    if (el._c !== cl) { el.classList.toggle('neg', cl === 'neg'); el.classList.toggle('crit', cl === 'crit'); el.classList.toggle('warn', cl === 'warn'); el._c = cl; }
   });
   const live = $('#live'), txt = $('#syncTxt'); if (!live) return;
   const last = Math.max(state.sync.arrival || 0, state.sync.departure || 0, state.sync.transfers || 0);
@@ -2575,9 +2585,18 @@ function initTracker(kind) {
    ===================================================================== */
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const charts = {};
+// Chart.js يُحمَّل بعد ظهور الصفحة (لا يؤخر البدء)، وعند وصوله تُعاد الرسوم
+let chartLoad = 0;
+function ensureChart() {
+  if (typeof Chart !== 'undefined' || chartLoad) return; chartLoad = 1;
+  const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js'; s.async = true;
+  s.onload = () => { try { emit(); } catch (e) { } };
+  s.onerror = () => { chartLoad = 2; try { emit(); } catch (e) { } };
+  document.head.appendChild(s);
+}
 function chart(id, type, data, extra) {
   const el = $('#' + id); if (!el) return;
-  if (typeof Chart === 'undefined') { el.parentNode.innerHTML = '<div class="empty">تعذّر تحميل مكتبة الرسوم (Chart.js) — تحقق من الاتصال</div>'; return; }
+  if (typeof Chart === 'undefined') { if (chartLoad === 2) el.parentNode.innerHTML = '<div class="empty">تعذّر تحميل مكتبة الرسوم (Chart.js) — تحقق من الاتصال</div>'; else ensureChart(); return; }
   if (charts[id]) { charts[id].data = data; charts[id].update('none'); return; }
   Chart.defaults.font.family = 'Tajawal,Tahoma,sans-serif';
   const tc = css('--mut'), gc = 'rgba(147,166,191,.15)';
@@ -3298,6 +3317,7 @@ async function boot() {
   let th = 'dark'; try { th = localStorage.getItem(LS_THEME) || 'dark'; } catch (e) { }
   document.documentElement.dataset.theme = th;
   const page = document.body.dataset.page;
+  if (page === 'index') ensureChart();
   kindsInUse = page === 'index' ? ['arrival', 'departure'] : (page === 'pilgrim' || page === 'follow') ? ['arrival', 'departure', 'transfers'] : page === 'transfers' ? ['transfers', 'arrival'] : [page];
   const startUi = () => { if (page === 'index') initDashboard(); else if (page === 'transfers') initTransfers(); else if (page === 'pilgrim') initPilgrim(); else if (page === 'follow') initFollow(); else initTracker(page); };
   // مسار سريع: إن وُجدت إعدادات وبيانات محفوظة تُعرض فوراً دون انتظار الخادم، ثم يُحدَّث في الخلفية

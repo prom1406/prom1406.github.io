@@ -201,7 +201,7 @@ function roleInfo() {
 }
 function updateRole() {
   const b = $('#bRole'); document.body.classList.toggle('ro', !canConfirm());
-  if (!b) return; const r = roleInfo(); b.textContent = r.t; b.className = 'pill ' + r.c; b.title = r.d;
+  if (!b) return; const r = roleInfo(), cn = 'pill ' + r.c; if (b.textContent !== r.t) b.textContent = r.t; if (b.className !== cn) b.className = cn; if (b.title !== r.d) b.title = r.d;
 }
 // الاسم (للزائر) ورمز المشرف عند الحاجة؛ تعيد null عند الإلغاء أو المنع
 async function ensureAuth() {
@@ -345,13 +345,14 @@ const cdHtml = (r) => r.when && !r.done ? '<span class="cd" data-w="' + r.when.g
 
 /* ---------------- العدّ التنازلي الحي ---------------- */
 function tick(force) {
+  if (document.hidden && !force) return;   // لا عمل في تبويب مخفي
   const now = Date.now();
   $$('.cd[data-w]').forEach(el => {
     const ms = +el.dataset.w - now, f = C.fmtCountdown(ms), h = ms / 36e5;
-    el.innerHTML = (f.neg ? '<span dir="rtl">منذ</span> ' : '') + (f.d ? '<span dir="rtl">' + f.d + ' يوم</span> ' : '') + f.hms;
-    el.classList.toggle('neg', f.neg);
-    el.classList.toggle('crit', !f.neg && h <= S.criticalH);
-    el.classList.toggle('warn', !f.neg && h > S.criticalH && h <= S.warnH);
+    const html = (f.neg ? '<span dir="rtl">منذ</span> ' : '') + (f.d ? '<span dir="rtl">' + f.d + ' يوم</span> ' : '') + f.hms;
+    if (el._h !== html) { el.innerHTML = html; el._h = html; }
+    const cl = f.neg ? 'neg' : (h <= S.criticalH ? 'crit' : (h <= S.warnH ? 'warn' : ''));
+    if (el._c !== cl) { el.classList.toggle('neg', cl === 'neg'); el.classList.toggle('crit', cl === 'crit'); el.classList.toggle('warn', cl === 'warn'); el._c = cl; }
   });
   const live = $('#live'), txt = $('#syncTxt'); if (!live) return;
   const last = Math.max(state.sync.arrival || 0, state.sync.departure || 0);
@@ -1146,9 +1147,18 @@ function initTracker(kind) {
    ===================================================================== */
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const charts = {};
+// Chart.js يُحمَّل بعد ظهور الصفحة (لا يؤخر البدء)، وعند وصوله تُعاد الرسوم
+let chartLoad = 0;
+function ensureChart() {
+  if (typeof Chart !== 'undefined' || chartLoad) return; chartLoad = 1;
+  const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js'; s.async = true;
+  s.onload = () => { try { emit(); } catch (e) { } };
+  s.onerror = () => { chartLoad = 2; try { emit(); } catch (e) { } };
+  document.head.appendChild(s);
+}
 function chart(id, type, data, extra) {
   const el = $('#' + id); if (!el) return;
-  if (typeof Chart === 'undefined') { el.parentNode.innerHTML = '<div class="empty">تعذّر تحميل مكتبة الرسوم (Chart.js) — تحقق من الاتصال</div>'; return; }
+  if (typeof Chart === 'undefined') { if (chartLoad === 2) el.parentNode.innerHTML = '<div class="empty">تعذّر تحميل مكتبة الرسوم (Chart.js) — تحقق من الاتصال</div>'; else ensureChart(); return; }
   if (charts[id]) { charts[id].data = data; charts[id].update('none'); return; }
   Chart.defaults.font.family = 'Tajawal,Tahoma,sans-serif';
   const tc = css('--mut'), gc = 'rgba(147,166,191,.15)';
@@ -1391,6 +1401,7 @@ async function boot() {
   let th = 'dark'; try { th = localStorage.getItem(LS_THEME) || 'dark'; } catch (e) { }
   document.documentElement.dataset.theme = th;
   const page = document.body.dataset.page;
+  if (page === 'index') ensureChart();
   kindsInUse = page === 'index' ? ['arrival', 'departure'] : [page];
   await initConnection();
   renderNav(page); initInstall(); if (REMOTE.configured) hydrate(kindsInUse); else if (!REMOTE.error) clearCaches();
