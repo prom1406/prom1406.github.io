@@ -1875,28 +1875,30 @@ function pdfDeliver(blob, filename) {
   $('#pdX', ov).onclick = () => ov.close();
 }
 async function savePDF(html, filename, landscape) {
-  // PDF حقيقي (نص قابل للتحديد والنسخ، لا صورة): نفتح صفحة طباعة نظيفة ونترك المتصفح يحفظها PDF
+  // PDF حقيقي (نص قابل للتحديد والنسخ، لا صورة): نعرض التقرير في طبقة داخل الصفحة (زر رجوع + زر طباعة/حفظ) ونترك المتصفح يحفظه PDF
   const title = String(filename).replace(/\.pdf$/i, '');
   const page = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + title + '</title>'
     + '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">'
     + '<style>@page{size:A4 ' + (landscape ? 'landscape' : 'portrait') + ';margin:8mm}html,body{margin:0;background:#fff;font-family:Tajawal,Tahoma,Arial,sans-serif}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-    + 'table{table-layout:fixed;width:100%}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}'
-    + '.pbar{position:sticky;top:0;display:flex;gap:10px;align-items:center;justify-content:center;padding:10px;background:#0b5d3b;color:#fff;font-size:14px;z-index:9}.pbar button{font:inherit;padding:8px 18px;border:0;border-radius:8px;background:#fff;color:#0b5d3b;font-weight:700}'
-    + '@media print{.pbar{display:none}}</style></head><body>'
-    + '<div class="pbar"><span>لحفظ الملف: اختر «حفظ كـ PDF» من نافذة الطباعة</span><button onclick="window.print()">طباعة / حفظ PDF</button></div>'
-    + html
-    + '<script>addEventListener("load",function(){var go=function(){setTimeout(function(){try{print()}catch(e){}},400)};(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(go,go)})<\/script></body></html>';
-  const w = window.open('', '_blank');
-  if (w && w.document) { w.document.open(); w.document.write(page); w.document.close(); toast('اختر «حفظ كـ PDF» من نافذة الطباعة', 'ok'); return; }
-  // النوافذ المنبثقة محجوبة: نطبع عبر إطار مخفي
-  await new Promise(res => {
-    const fr = document.createElement('iframe');
-    fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
-    fr.onload = () => setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) {} setTimeout(() => { fr.remove(); res(); }, 60000); }, 700);
-    fr.srcdoc = page.replace('<script>', '<script data-x>').replace(/<script data-x>[\s\S]*?<\/script>/, '');
-    document.body.appendChild(fr);
-    setTimeout(res, 1500);
-  });
+    + 'table{table-layout:fixed;width:100%}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}</style></head><body>' + html + '</body></html>';
+  const old = document.getElementById('pvOv'); if (old) old.remove();
+  const ov = document.createElement('div'); ov.id = 'pvOv';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#fff;display:flex;flex-direction:column;direction:rtl;font-family:Tajawal,Tahoma,Arial,sans-serif';
+  ov.innerHTML = '<div style="display:flex;gap:10px;align-items:center;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px;background:#0b5d3b;color:#fff">'
+    + '<button id="pvB" style="font:inherit;font-weight:700;padding:9px 16px;border:0;border-radius:10px;background:#fff;color:#0b5d3b">← رجوع</button>'
+    + '<button id="pvP" style="font:inherit;font-weight:700;padding:9px 16px;border:0;border-radius:10px;background:#f2c14e;color:#222">طباعة / حفظ PDF</button>'
+    + '<span style="font-size:12px;opacity:.9;flex:1">اختر «حفظ كـ PDF» أو «حفظ في الملفات»</span></div>'
+    + '<iframe id="pvF" style="flex:1;border:0;width:100%;background:#fff"></iframe>';
+  document.body.appendChild(ov);
+  const fr = ov.querySelector('#pvF');
+  const close = () => { ov.remove(); document.removeEventListener('keydown', esc); };
+  const esc = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', esc);
+  ov.querySelector('#pvB').onclick = close;
+  const doPrint = () => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { toast('تعذّرت الطباعة من هنا؛ افتح الموقع في سفاري ثم أعد المحاولة أو استخدم تصدير Excel', 'err'); } };
+  ov.querySelector('#pvP').onclick = doPrint;
+  fr.srcdoc = page;
+  if (!IS_MOBILE) fr.onload = () => setTimeout(doPrint, 600);
 }
 const stamp = () => C.fmtDay(new Date());
 const flagImg = c => c ? '<img src="' + C.flagUrl(c.iso2, 40) + '" crossorigin="anonymous" style="width:20px;height:14px;vertical-align:middle;margin-left:5px;border:1px solid #ccc" onerror="this.style.display=\'none\'">' + esc(c.ar) : '';
