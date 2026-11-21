@@ -1109,7 +1109,7 @@ const EXP = (() => {
       '<table><thead><tr>' + headers.map(h => '<th>' + xe(h) + '</th>').join('') + '</tr></thead><tbody>' + rows.map(r => '<tr>' + r.map((v, j) => '<td' + (/جواز|passport/i.test(headers[j]) ? ' class="p"' : '') + '>' + xe(v) + '</td>').join('') + '</tr>').join('') + '</tbody></table><div class="ft">العدد: ' + rows.length + ' · ' + new Date().toLocaleString('ar-SA-u-nu-latn', { timeZone: 'Asia/Riyadh' }) + '</div>';
     const frag = '<div class="pdfx" dir="rtl"><style>.pdfx{font-family:Tajawal,Tahoma,Arial,sans-serif;color:#000;font-size:12px;background:#fff;padding:6px;direction:rtl}.pdfx h1{margin:0 0 6px;font-size:20px}.pdfx .m{margin:2px 0;color:#222}.pdfx table{width:100%;border-collapse:collapse;margin-top:10px}.pdfx th,.pdfx td{border:1px solid #444;padding:4px 6px;text-align:right}.pdfx th{background:#eee}.pdfx td.p{direction:ltr;text-align:left}.pdfx .ft{margin-top:8px;font-size:10.5px;color:#555}</style>' + body + '</div>';
     toast('جارٍ تجهيز PDF…');
-    savePDF(frag, 'hajj1447-list-' + new Date().toISOString().slice(0, 10) + '.pdf', headers.length > 7).then(() => toast('تم إنشاء PDF', 'ok'), e => toast('تعذّر إنشاء PDF: ' + (e.message || e), 'err'));
+    savePDF(frag, 'hajj1447-list-' + new Date().toISOString().slice(0, 10) + '.pdf', headers.length > 7).then(() => void 0, e => toast('تعذّر إنشاء PDF: ' + (e.message || e), 'err'));
   }
   return { xlsx, pdf, safe };
 })();
@@ -1876,22 +1876,28 @@ function pdfDeliver(blob, filename) {
   $('#pdX', ov).onclick = () => ov.close();
 }
 async function savePDF(html, filename, landscape) {
-  await loadLib(LIBS.pdf);
-  const host = document.createElement('div');
-  host.style.cssText = 'position:fixed;left:-99999px;top:0;width:' + (landscape ? 1100 : 760) + 'px;background:#fff';
-  // html2pdf ينسخ العنصر الممرَّر بأنماطه؛ فلو مُرِّر العنصر المزاح خارج الشاشة (left:-99999px) لخرج الملف أبيض. لذا نمرّر جذراً داخلياً بلا تموضع.
-  const root = document.createElement('div'); root.style.cssText = 'width:' + (landscape ? 1100 : 760) + 'px;background:#fff'; root.innerHTML = html;
-  host.appendChild(root); document.body.appendChild(host);
-  try {
-    if (document.fonts && document.fonts.ready) await document.fonts.ready;
-    // حدّ الكانفاس في آيفون ≈ 16 مليون بكسل: نخفّض الدقة تلقائياً للتقارير الطويلة
-    root.style.overflow = 'hidden'; root.querySelectorAll('table').forEach(t => { t.style.tableLayout = 'fixed'; t.style.width = '100%'; });
-    const area = root.offsetWidth * Math.max(1, root.scrollHeight), scale = Math.max(.7, Math.min(2, Math.sqrt((IS_MOBILE ? 3.5e6 : 30e6) / area)));
-    const W = root.offsetWidth;
-    const job = html2pdf().set({ margin: [8, 8, 10, 8], filename, image: { type: 'jpeg', quality: IS_MOBILE ? .8 : .92 }, html2canvas: { scale, useCORS: true, backgroundColor: '#ffffff', width: W, windowWidth: W, scrollX: 0, scrollY: 0, logging: false }, jsPDF: { unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' }, pagebreak: { mode: IS_MOBILE ? ['css'] : ['css', 'legacy'], avoid: IS_MOBILE ? [] : ['tr'] } }).from(root).outputPdf('blob');
-    const blob = await Promise.race([job, new Promise((_, rj) => setTimeout(() => rj(new Error('انتهت المهلة أثناء تجهيز الملف؛ جرّب التصدير إلى Excel')), 60000))]);
-    pdfDeliver(blob, filename);
-  } finally { host.remove(); }
+  // PDF حقيقي (نص قابل للتحديد والنسخ، لا صورة): نفتح صفحة طباعة نظيفة ونترك المتصفح يحفظها PDF
+  const title = String(filename).replace(/\.pdf$/i, '');
+  const page = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + title + '</title>'
+    + '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">'
+    + '<style>@page{size:A4 ' + (landscape ? 'landscape' : 'portrait') + ';margin:8mm}html,body{margin:0;background:#fff;font-family:Tajawal,Tahoma,Arial,sans-serif}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+    + 'table{table-layout:fixed;width:100%}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}'
+    + '.pbar{position:sticky;top:0;display:flex;gap:10px;align-items:center;justify-content:center;padding:10px;background:#0b5d3b;color:#fff;font-size:14px;z-index:9}.pbar button{font:inherit;padding:8px 18px;border:0;border-radius:8px;background:#fff;color:#0b5d3b;font-weight:700}'
+    + '@media print{.pbar{display:none}}</style></head><body>'
+    + '<div class="pbar"><span>لحفظ الملف: اختر «حفظ كـ PDF» من نافذة الطباعة</span><button onclick="window.print()">طباعة / حفظ PDF</button></div>'
+    + html
+    + '<script>addEventListener("load",function(){var go=function(){setTimeout(function(){try{print()}catch(e){}},400)};(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(go,go)})<\/script></body></html>';
+  const w = window.open('', '_blank');
+  if (w && w.document) { w.document.open(); w.document.write(page); w.document.close(); toast('اختر «حفظ كـ PDF» من نافذة الطباعة', 'ok'); return; }
+  // النوافذ المنبثقة محجوبة: نطبع عبر إطار مخفي
+  await new Promise(res => {
+    const fr = document.createElement('iframe');
+    fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+    fr.onload = () => setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) {} setTimeout(() => { fr.remove(); res(); }, 60000); }, 700);
+    fr.srcdoc = page.replace('<script>', '<script data-x>').replace(/<script data-x>[\s\S]*?<\/script>/, '');
+    document.body.appendChild(fr);
+    setTimeout(res, 1500);
+  });
 }
 const stamp = () => C.fmtDay(new Date());
 const flagImg = c => c ? '<img src="' + C.flagUrl(c.iso2, 40) + '" crossorigin="anonymous" style="width:20px;height:14px;vertical-align:middle;margin-left:5px;border:1px solid #ccc" onerror="this.style.display=\'none\'">' + esc(c.ar) : '';
@@ -2492,7 +2498,7 @@ function initTracker(kind) {
           head: ['#', 'الاسم', 'الجنسية', 'رقم الجواز', 'الغرفة', 'الحالة'],
           rows: list.map((r, i) => [i + 1, r.name, { html: flagImg(r.country) || esc(r.natRaw) }, { html: '<span dir="ltr">' + esc(ui.reveal ? r.passport : mask(r.passport)) + '</span>' }, r.room, r.done ? (kind === 'arrival' ? 'تم التسكين' : 'تمت المغادرة') : (ST_LABEL[kind][r._st] || '')])
         });
-        try { await savePDF(html, 'hajj1447-' + kind + '-' + tag + '.pdf', false); toast('تم إنشاء PDF', 'ok'); } catch (x) { toast('تعذّر إنشاء PDF: ' + x.message, 'err'); }
+        try { await savePDF(html, 'hajj1447-' + kind + '-' + tag + '.pdf', false); void 0; } catch (x) { toast('تعذّر إنشاء PDF: ' + x.message, 'err'); }
       }
     }
   }
@@ -2557,7 +2563,7 @@ function initTracker(kind) {
       head: ['#', 'الرحلة', kind === 'arrival' ? 'الموعد' : 'الإقلاع / التحرك', 'المطار', 'الفندق', 'النقل', 'العدد', 'الجنسيات', 'الحالة'],
       rows: gs.map((g, i) => [i + 1, g.flight, { html: esc(gWhen(g)) + (moveTxt(g) ? '<br><small>التحرك: ' + esc(moveTxt(g)) + '</small>' : '') }, { html: esc(g.airport) + (airCityTxt(g) ? '<br><small>' + esc(airCityTxt(g)) + '</small>' : '') }, { html: esc(g.hotel) + (stayCityTxt(g) ? '<br><small>' + esc(stayCityTxt(g)) + '</small>' : '') }, tpLabel(g), g.pax, { html: g.natList.map(n => (n.c ? flagImg(n.c) : esc(n.label)) + ' (' + n.n + ')').join('&nbsp;&nbsp;') }, g.open ? (ST_LABEL[kind][g.st] || '') : ST_LABEL[kind].done])
     });
-    try { await savePDF(html, 'hajj1447-' + kind + '-' + stamp() + '.pdf', true); toast('تم إنشاء PDF', 'ok'); } catch (e) { toast('تعذّر إنشاء PDF: ' + e.message, 'err'); }
+    try { await savePDF(html, 'hajj1447-' + kind + '-' + stamp() + '.pdf', true); void 0; } catch (e) { toast('تعذّر إنشاء PDF: ' + e.message, 'err'); }
   };
   onData(render); render();
 }
@@ -2798,7 +2804,7 @@ function initDashboard() {
     if (!snap) return toast('لا توجد بيانات بعد', 'warn'); toast('جارٍ تجهيز PDF…');
     const { a, d } = snap, rows = [...$$('#nat .nr')].map((el, i) => [i + 1, el.querySelector('.nn span').textContent, el.querySelector('.nn b').textContent]);
     const html = reportHtml({ title: 'التقرير التنفيذي — حجاج 1447هـ', sub: 'ملخص الوصول والمغادرة والجوازات حسب الجنسية', kpis: [['القادمون', a.total], ['تم التسكين', a.done, '#006C35'], ['بانتظار التسكين', a.pending, '#F5A524'], ['المغادرون', d.total, '#0EA5E9'], ['تمت المغادرة', d.done, '#006C35'], ['تنبيهات حرجة', (a.dangerRows || 0) + (d.dangerRows || 0), '#E5484D']], head: ['#', 'الجنسية', 'العدد / النسبة'], rows });
-    try { await savePDF(html, 'hajj1447-dashboard-' + stamp() + '.pdf', false); toast('تم إنشاء PDF', 'ok'); } catch (e) { toast('تعذّر إنشاء PDF: ' + e.message, 'err'); }
+    try { await savePDF(html, 'hajj1447-dashboard-' + stamp() + '.pdf', false); void 0; } catch (e) { toast('تعذّر إنشاء PDF: ' + e.message, 'err'); }
   };
   onData(() => { if (window.__themeChanged) { Object.keys(charts).forEach(k => { charts[k].destroy(); delete charts[k]; }); window.__themeChanged = false; } render(); });
   render();
@@ -3282,7 +3288,7 @@ async function openDailyArrival(records, busMin) {
     const css = '.drpdf{font-family:Tajawal,Tahoma,Arial,sans-serif;color:#000;background:#fff;direction:rtl;padding:4px}.drpdf h1{text-align:center;font-size:20px;margin:4px 0 2px;font-weight:600}.drpdf .s{text-align:center;font-size:14px;margin:0 0 8px}.drpdf table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:10px}.drpdf th,.drpdf td{white-space:normal;word-break:break-word;overflow-wrap:anywhere}.drpdf th{background:#4faa3c;color:#fff;padding:6px 3px;border:1px solid #fff;font-weight:600}.drpdf td{padding:4px;text-align:center;border:1px solid #cfe8c8}.drpdf tbody tr:nth-child(odd) td{background:#dff1d9}.drpdf tbody tr:nth-child(even) td{background:#fff}.drpdf td.hl{font-size:10px}.drpdf tfoot td{border:1px solid #4faa3c;font-size:13px;padding:5px;background:#fff}';
     const frag = '<div class="drpdf" dir="rtl"><style>' + css + '</style><h1>رحلات الوصول لحج 1447</h1><div class="s">' + esc(R.sub) + '</div>' + tableHtml(R, true) + '</div>';
     toast('جارٍ تجهيز PDF…');
-    try { await savePDF(frag, 'arrival-report-' + R.d + '.pdf', true); toast('تم إنشاء PDF', 'ok'); } catch (e) { toast('تعذّر إنشاء PDF: ' + (e.message || e), 'err'); }
+    try { await savePDF(frag, 'arrival-report-' + R.d + '.pdf', true); void 0; } catch (e) { toast('تعذّر إنشاء PDF: ' + (e.message || e), 'err'); }
   };
 }
 
