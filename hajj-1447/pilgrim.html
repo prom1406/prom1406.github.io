@@ -425,7 +425,7 @@ body.ro [data-fready],body.ro [data-gready]{display:none!important}
 .rdyb-bar{display:flex;height:10px;border-radius:99px;overflow:hidden;background:rgba(147,166,191,.15);margin:8px 0}
 .rdyb-bar i{display:block}.rdyb-bar .approved{background:#34C47A}.rdyb-bar .entered{background:#0EA5E9}.rdyb-bar .pending{background:#f5a524}.rdyb-bar .fix{background:#ef4444}.rdyb-bar .none{background:#64748b}
 .rdyb-l{display:flex;flex-wrap:wrap;gap:6px}.rdyb-l .rb b{margin-inline-start:4px}
-.apsum{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.apsum{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:12px}
 .apc{background:var(--card2);border:1px solid var(--line2);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}.apc span{color:var(--mut);font-size:12px}.apc b{font-size:26px;color:var(--gold)}.apc small{color:var(--mut)}
 
 
@@ -1349,6 +1349,17 @@ function noRdyFlights(now) {
     .map(g => ({ g, h: (g.when.getTime() - now) / 36e5, e: rdyOf(g) || null })).sort((a, b) => a.h - b.h);
 }
 const apprOkOf = fg => { const e = state.appr[fg.key]; return !!(e && e.status === 'approved'); };
+// اعتماد المغادرة مطلوب قبل المغادرة بـ5 أيام، وتظهر الرحلة في الرئيسية قبل أسبوع لتسهيل عمل الاعتماد
+const APPR_DAYS = 5, APPR_MS = APPR_DAYS * 864e5, APPR_SHOW_MS = 7 * 864e5;
+const tripFlKeys = a => [...new Set(a.items.map(x => { const f = C.groupFlights(x.g.rows)[0]; return f ? f.key : ''; }).filter(Boolean))];
+const tripApproved = a => tripFlKeys(a).every(k => { const e = state.appr[k]; return !!(e && e.status === 'approved'); });
+// رحلات مغادرة (قابلة للاعتماد) دخلت مهلة الأيام الخمسة ولم يُعتمد لها، الأقرب أولاً
+function noApprFlights(now) {
+  const d = state.data.departure; if (!d) return [];
+  const ok = new Set(); buildApprFrom(d.records, +lsGet('hajj1447.apprWin') || 60, 'all').list.forEach(a => tripFlKeys(a).forEach(k => ok.add(k)));
+  return C.groupFlights(d.records).filter(fg => ok.has(fg.key) && fg.when && fg.done < fg.pax && fg.when.getTime() > now - 36e5 && fg.when.getTime() - now <= APPR_MS && !apprOkOf(fg))
+    .map(fg => ({ g: fg, h: (fg.when.getTime() - now) / 36e5, n: fg.pax - fg.done })).sort((a, b) => a.h - b.h);
+}
 // لكل مجموعة مغادرة: هل يمكن إصدار اعتماد لها؟ وإن لم يمكن فلماذا
 function apprStatusMap(records) {
   const ok = new Set(), m = new Map();
@@ -1971,7 +1982,7 @@ function initTracker(kind) {
   // أوامر الاستعداد والاعتماد لا تُقبل إلا قبل الرحلة بأسبوعين على الأقل
   // تنبيه الاستعداد/الاعتماد: يبدأ قبل الرحلة بأسبوعين، يعلو قبل أسبوع، ويصبح حرجاً قبل يومين، ويتوقف عند الإنجاز
   // علامة على البطاقة: استعداد مسجّل (وصول) / اعتماد مسجّل أو متعذّر (مغادرة)
-  let apSt = new Map();
+  let apSt = new Map(), lateAp = null;
   const regChip = g => {
     if (kind === 'arrival') {
       const e = state.ready[rk(g.key)] || state.ready[rKey(g.rows[0] || {})]; if (!e || !e.status) return '';
@@ -1991,7 +2002,7 @@ function initTracker(kind) {
       '<div class="kpi na"><div class="l">🚫 لا يمكن اعتمادها</div><div class="v">' + na.length + '</div><div class="s">مجموعة · ' + np + ' حاج (سيارة أو بلا وقت تحرك)</div></div>';
   };
   const prepHtml = g => {
-    const cur = kind === 'arrival' ? (rdyOf(g) || state.ready[rKey(g.rows[0] || {})]) : state.appr[g.key];
+    const cur = kind === 'arrival' ? (rdyOf(g) || state.ready[rKey(g.rows[0] || {})]) : (state.appr[g.key] || state.appr[rKey(g.rows[0] || {})]);
     const done = kind === 'arrival' ? readyOk(cur) : !!(cur && cur.status === 'approved');
     const label = kind === 'arrival' ? 'الاستعداد' : 'الاعتماد';
     if (done) return '<div class="prep ok">✓ ' + label + ' مكتمل' + (cur && cur.by ? ' — ' + esc(cur.by) : '') + '</div>';
@@ -1999,11 +2010,12 @@ function initTracker(kind) {
     if (kind === 'departure') { const og = C.groupRecords(g.rows).filter(x => x.open > 0); if (og.length && og.every(x => apSt.get(x.key) && !apSt.get(x.key).ok)) return '<div class="prep na">🚫 لا يمكن عمل اعتماد — ' + esc([...new Set(og.map(x => apSt.get(x.key).why))].join('، ')) + '</div>'; }
     if (!g.when) return '';
     const h = (g.when.getTime() - Date.now()) / 36e5;
-    if (h > 336) return '';
-    const lv = h <= 48 ? 3 : (h <= 168 ? 2 : 1);
+    const dl = kind === 'arrival' ? 336 : 120;   // مهلة الإنجاز بالساعات: الاستعداد أسبوعان، والاعتماد 5 أيام قبل الرحلة
+    if (h > dl) return '';
+    const lv = h <= 48 ? 3 : (h <= (kind === 'arrival' ? 168 : 96) ? 2 : 1);
     const tag = lv === 3 ? 'حرج' : (lv === 2 ? 'عالٍ' : 'تنبيه');
-    const od = Math.max(0, Math.round((336 - h) * 60)), odT = od >= 1440 ? Math.floor(od / 1440) + ' يوم' : dur0(Math.max(od, 1));
-    const when = h < 0 ? 'مضى موعد الرحلة ولم يُنجز' : (kind === 'arrival' ? 'فات موعده (قبل الوصول بأسبوعين) بـ ' + odT : (lv === 3 ? 'أقل من يومين على الرحلة' : (lv === 2 ? 'أقل من أسبوع على الرحلة' : 'قبل الرحلة بأسبوعين')));
+    const od = Math.max(0, Math.round((dl - h) * 60)), odT = od >= 1440 ? Math.floor(od / 1440) + ' يوم' : dur0(Math.max(od, 1));
+    const when = h < 0 ? 'مضى موعد الرحلة ولم يُنجز' : 'فات موعده (قبل ' + (kind === 'arrival' ? 'الوصول بأسبوعين' : 'المغادرة بـ5 أيام') + ') بـ ' + odT;
     return '<div class="prep l' + lv + '"><b>' + tag + ':</b> ' + label + ' لم يُنجز — ' + when + '</div>';
   };
   // ملاحظات النقل على الرحلة: تظهر لكل فندق في الرحلة
@@ -2070,7 +2082,8 @@ function initTracker(kind) {
     if (ui.nat !== 'all' && C.natKey(r) !== ui.nat) return false;
     if (ui.day !== 'all' && !(r.when && C.fmtDay(r.when) === ui.day)) return false;
     if (ui.flight !== 'all' && flightKey(r) !== ui.flight) return false;
-    if (ui.rdy === 'late') { const w = r.when && r.when.getTime(), n = Date.now(); if (kind !== 'arrival' || r.done || !w || w > n + RDY_MS || w < n - 36e5 || rdyDone(state.ready[gkOf(r)] || state.ready[rKey(r)])) return false; }
+    if (ui.rdy === 'late' && kind === 'departure') { if (r.done || !lateAp || !lateAp.has(rKey(r))) return false; }
+    else if (ui.rdy === 'late') { const w = r.when && r.when.getTime(), n = Date.now(); if (kind !== 'arrival' || r.done || !w || w > n + RDY_MS || w < n - 36e5 || rdyDone(state.ready[gkOf(r)] || state.ready[rKey(r)])) return false; }
     if (ui.rdy === 'no' && (kind !== 'arrival' || r.done || readyOk(state.ready[gkOf(r)] || state.ready[rKey(r)]))) return false;
     return true;
   }
@@ -2308,7 +2321,7 @@ function initTracker(kind) {
   /* ---- مرشحات سريعة ورابط العرض ---- */
   const dayOf = off => C.fmtDay(new Date(Date.now() + off * 864e5));
   function drawChips() {
-    const defs = [['all', 'الكل', ui.status === 'all' && ui.day === 'all' && ui.flight === 'all' && ui.rdy === 'all' && !ui.q && ui.nat === 'all'], ['danger', 'حرجة / متأخرة', ui.status === 'danger'], ['warn', 'تستدعي الانتباه', ui.status === 'warn'], ['open', K.openL, ui.status === 'open'], ...(kind === 'arrival' ? [['rdylate', 'بلا استعداد (أسبوعان)', ui.rdy === 'late'], ['rdy', 'غير جاهزة', ui.rdy === 'no']] : []), ['today', 'اليوم', ui.day === dayOf(0)], ['tomorrow', 'غداً', ui.day === dayOf(1)]];
+    const defs = [['all', 'الكل', ui.status === 'all' && ui.day === 'all' && ui.flight === 'all' && ui.rdy === 'all' && !ui.q && ui.nat === 'all'], ['danger', 'حرجة / متأخرة', ui.status === 'danger'], ['warn', 'تستدعي الانتباه', ui.status === 'warn'], ['open', K.openL, ui.status === 'open'], ...(kind === 'arrival' ? [['rdylate', 'بلا استعداد (أسبوعان)', ui.rdy === 'late'], ['rdy', 'غير جاهزة', ui.rdy === 'no']] : []), ...(kind === 'departure' ? [['rdylate', 'بلا اعتماد (5 أيام)', ui.rdy === 'late']] : []), ['today', 'اليوم', ui.day === dayOf(0)], ['tomorrow', 'غداً', ui.day === dayOf(1)]];
     $('#qchips').innerHTML = defs.map(d => '<button type="button" class="qc' + (d[2] ? ' on' : '') + '" data-qc="' + d[0] + '">' + d[1] + '</button>').join('') + '<button type="button" class="qc link" data-qc="link" title="نسخ رابط هذا العرض">🔗 نسخ رابط العرض</button>';
   }
   function viewLink() {
@@ -2378,8 +2391,8 @@ function initTracker(kind) {
     a.items.forEach(x => L.push('• ' + x.g.flight + ' (إقلاع ' + C.fmtTime(x.g.when) + ') — ' + (x.g.hotel || 'فندق غير محدد') + ' — ' + x.g.open + ' فرد — تحرك ' + C.fmtTime(x.mv)));
     return L.join('\n');
   }
-  function openAppr() {
-    const st = { win: +lsGet('hajj1447.apprWin') || 60, day: 'today' };
+  function openAppr(day0) {
+    const st = { win: +lsGet('hajj1447.apprWin') || 60, day: day0 || 'today' };
     const ov = modal('<h3>اقتراح اعتمادات المغادرة — نسك مسار</h3><div class="qchips" id="apCh" style="flex:none;padding-bottom:6px;flex-wrap:wrap"></div><div id="apBody"></div><div class="act"><button class="btn green" id="apAll">نسخ الكل</button><button class="btn" id="apX">إغلاق</button></div>');
     ov.classList.add('wide'); let cur = null;
     const draw = () => {
@@ -2425,6 +2438,7 @@ function initTracker(kind) {
     if ($('#stSet2')) $('#stSet2').onclick = () => openSettings(false);
     const R = recs(); ridx = new Map(R.map(r => [r.row, r]));
     if (kind === 'departure') apSt = apprStatusMap(R);
+    lateAp = (kind === 'departure' && ui.rdy === 'late') ? new Set(noApprFlights(now).map(x => x.g.key)) : null;
     const sm = C.summarize(R, now, S);
     const allGroups = C.groupRecords(R); gmap = new Map(allGroups.map(g => [g.key, g]));
     [...ui.sel].forEach(k => { if (!gmap.has(k)) ui.sel.delete(k); });
@@ -2438,7 +2452,7 @@ function initTracker(kind) {
       '<div class="kpi red click' + (sm.dangerRows ? ' pulse' : '') + '" data-kpi="danger"><div class="l">حالات حرجة / متأخرة</div><div class="v">' + sm.danger + '</div><div class="s">' + sm.dangerRows + ' سجل — اضغط للتصفية</div></div>' +
       '<div class="kpi sky"><div class="l">أقرب رحلة</div><div class="v" style="font-size:25px;padding-top:5px">' + (nextG ? '<span class="cd" data-w="' + nextG.when.getTime() + '"></span>' : '—') + '</div><div class="s">' + (nextG ? esc(nextG.flight) + ' · ' + C.fmtTime(nextG.when) + ' · ' + nextG.pax + ' فرد' : 'لا توجد رحلات قادمة') + '</div></div>' + extraKpis(allGroups, fl, sm);
     $('#alertbar').innerHTML = sm.dangerRows ? '<div class="alertbar" data-kpi="danger"><span class="dot"></span><b>تنبيه:</b> ' + sm.dangerRows + ' سجل في حالة حرجة أو متأخرة ويحتاج إلى إجراء فوري <span class="sp"></span><span class="hint">عرض</span></div>' : '';
-    { const rb = $('#rdybar'); if (rb) { const L = kind === 'arrival' ? noRdyFlights(Date.now()) : []; rb.innerHTML = L.length ? '<div class="alertbar rdyb" data-rdylate="1"><span class="dot"></span><b>تنبيه الاستعداد المسبق:</b> ' + rdyCnt(L.length) + ' (' + L.reduce((n, x) => n + x.g.pax, 0) + ' حاج) بلا استعداد وقد دخلت مهلة الأسبوعين — أقربها ' + esc(L[0].g.flight) + (L[0].h > 0 ? ' بعد ' + dur0(Math.round(L[0].h * 60)) : ' (مضى موعدها)') + ' <span class="sp"></span><span class="hint">عرض</span></div>' : ''; } }
+    { const rb = $('#rdybar'); if (rb) { const ar = kind === 'arrival', L = ar ? noRdyFlights(Date.now()) : (kind === 'departure' ? noApprFlights(Date.now()) : []); rb.innerHTML = L.length ? '<div class="alertbar rdyb" data-rdylate="1"><span class="dot"></span><b>' + (ar ? 'تنبيه الاستعداد المسبق:' : 'تنبيه اعتماد المغادرة:') + '</b> ' + rdyCnt(L.length) + ' (' + L.reduce((n, x) => n + (x.n || x.g.pax), 0) + (ar ? ' حاج) بلا استعداد وقد دخلت مهلة الأسبوعين' : ' فرد) بلا اعتماد وقد دخلت مهلة 5 أيام قبل المغادرة') + ' — أقربها ' + esc(L[0].g.flight) + (L[0].h > 0 ? ' بعد ' + dur0(Math.round(L[0].h * 60)) : ' (مضى موعدها)') + ' <span class="sp"></span><span class="hint">عرض</span></div>' : ''; } }
     const dk = new Set(R.filter(r => ST[r._st].cls === 'danger').map(r => pkey(r)));
     if (prevDanger) { let n = 0; dk.forEach(k => { if (!prevDanger.has(k)) n++; }); if (n) { toast('تنبيه: ' + n + ' حالة حرجة جديدة', 'err'); notifyNew(n); } }
     prevDanger = dk;
@@ -2566,7 +2580,7 @@ function initTracker(kind) {
     if (t.matches('[data-selall]')) { shownGroups.slice(0, ui.limit).forEach(g => t.checked ? ui.sel.add(g.key) : ui.sel.delete(g.key)); render(); }
   });
   $('#qchips').addEventListener('click', e => { const b = e.target.closest('[data-qc]'); if (b) qChip(b.dataset.qc); });
-  $('#bLegend').onclick = openLegend; drawBell(); if ($('#bAppr')) { $('#bAppr').onclick = () => openAppr(); if (qs.get('appr')) setTimeout(openAppr, 600); }
+  $('#bLegend').onclick = openLegend; drawBell(); if ($('#bAppr')) { $('#bAppr').onclick = () => openAppr(); if (qs.get('appr')) setTimeout(() => openAppr(qs.get('appr') === 'all' ? 'all' : 'today'), 600); }
   $('#bBell').onclick = () => { const on = !bellOn(); lsSet('hajj1447.bell', on ? '1' : ''); drawBell(); if (on) { beep(); try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (e) { } toast('فُعّل التنبيه الصوتي للحالات الحرجة الجديدة', 'ok'); } else toast('أُوقف التنبيه الصوتي', 'ok'); };
   $('#fQ').oninput = e => { ui.q = e.target.value; ui.limit = 150; render(); };
   $('#fStatus').onchange = e => { ui.status = e.target.value; render(); };
@@ -2633,9 +2647,9 @@ const ring = (pct, color, label, sub) => { const c = 2 * Math.PI * 54; return '<
 function initDashboard() {
   const app = $('#app');
   app.innerHTML = '<section class="hero"><div><h1>لوحة المؤشرات <span>التنفيذية</span></h1><p>نظرة لحظية على حركة وصول ومغادرة حجاج 1447هـ</p></div><div class="hero-actions"><button class="btn green" id="xXls">' + ICON.xls + 'Excel شامل</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'تقرير PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
-    '<div id="stale"></div><div id="ovr"></div><div id="rdyAl"></div><div class="kpis" id="kpis"></div>' +
+    '<div id="stale"></div><div id="ovr"></div><div id="rdyAl"></div><div id="apprAl"></div><div class="kpis" id="kpis"></div>' +
     '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الأكثر تأخراً</h2><span class="hint">وصول لم يُسكَّن · تحرك لم يغادر</span></div><div class="nxt" id="late"></div></section><section class="panel"><div class="panel-h"><h2>الجاهزية والنقل</h2><span class="hint">رحلات غير جاهزة · مشاكل النقل</span></div><div class="nxt" id="nIss"></div></section></div>' +
-    '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الاستعداد المسبق للوصول</h2><a class="hint" href="arrival.html?rdy=late">الرحلات بلا استعداد ←</a></div><div id="rdyP"></div></section><section class="panel"><div class="panel-h"><h2>اعتمادات المغادرة المقترحة</h2><a class="hint" href="departure.html?appr=1">فتح الاعتمادات ←</a></div><div id="apprP"></div></section></div>' +
+    '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الاستعداد المسبق للوصول</h2><a class="hint" href="arrival.html?rdy=late">الرحلات بلا استعداد ←</a></div><div id="rdyP"></div></section><section class="panel"><div class="panel-h"><h2>اعتمادات المغادرة المقترحة</h2><a class="hint" href="departure.html?appr=all">فتح الاعتمادات ←</a></div><div id="apprP"></div></section></div>' +
     '<div class="grid2"><section class="panel"><h2>أقرب الرحلات</h2><div class="cols2"><div><h3>الوصول</h3><div class="nxt" id="nxA"></div></div><div><h3>المغادرة</h3><div class="nxt" id="nxD"></div></div></div></section>' +
     '<section class="panel"><h2>نسب الإنجاز</h2><div class="rings" id="rings"></div></section></div>' +
     '<div class="grid2 even"><section class="panel"><h2>الوصول حسب اليوم</h2><div class="chartbox"><canvas id="chA"></canvas></div></section><section class="panel"><h2>المغادرة حسب اليوم</h2><div class="chartbox"><canvas id="chD"></canvas></div></section></div>' +
@@ -2674,13 +2688,13 @@ function initDashboard() {
   // الوضع العام من الحالات الحرجة والتأخر ومشاكل النقل
   function overall(now) {
     const cnt = c => ['arrival', 'departure'].reduce((n, k) => n + grps(k).filter(g => g.open > 0 && g.cls === c).length, 0);
-    const nl = nrList(now), nr = nl.length, nrc = nl.filter(x => x.h <= 48).length, dg = cnt('danger'), wg = cnt('warn'), is = issueList().length, lt = lateList(now).length;
-    const lv = (dg || is || nrc) ? 'crit' : (wg || lt || nr) ? 'watch' : 'ok';
-    return { lv, dg, wg, is, lt, nr, label: { crit: 'حرج', watch: 'تحت المراقبة', ok: 'طبيعي' }[lv] };
+    const nl = nrList(now), nr = nl.length, nrc = nl.filter(x => x.h <= 48).length, na = noApprFlights(now), nac = na.filter(x => x.h <= 48).length, dg = cnt('danger'), wg = cnt('warn'), is = issueList().length, lt = lateList(now).length;
+    const lv = (dg || is || nrc || nac) ? 'crit' : (wg || lt || nr || na.length) ? 'watch' : 'ok';
+    return { lv, dg, wg, is, lt, nr, na: na.length, label: { crit: 'حرج', watch: 'تحت المراقبة', ok: 'طبيعي' }[lv] };
   }
   function ovrPanel(now) {
     if (!state.data.arrival && !state.data.departure) { $('#ovr').innerHTML = ''; return; }
-    const o = overall(now), bits = [o.dg && o.dg + ' مجموعة حرجة', o.lt && o.lt + ' متأخرة', o.is && o.is + ' مشكلة نقل', o.nr && rdyCnt(o.nr) + ' بلا استعداد مسبق (مهلة الأسبوعين)', o.wg && o.wg + ' تستدعي الانتباه'].filter(Boolean);
+    const o = overall(now), bits = [o.dg && o.dg + ' مجموعة حرجة', o.lt && o.lt + ' متأخرة', o.is && o.is + ' مشكلة نقل', o.nr && rdyCnt(o.nr) + ' بلا استعداد مسبق (مهلة الأسبوعين)', o.na && rdyCnt(o.na) + ' بلا اعتماد مغادرة (مهلة 5 أيام)', o.wg && o.wg + ' تستدعي الانتباه'].filter(Boolean);
     $('#ovr').innerHTML = '<div class="ovr ' + o.lv + '"><span class="dot"></span><b>الوضع العام: ' + o.label + '</b><span>' + (bits.length ? bits.join(' · ') : 'لا توجد حالات تحتاج تدخلاً') + '</span></div>';
   }
   // تنبيه الاستعداد المسبق: رحلات دخلت مهلة الأسبوعين قبل الوصول ولم يُسجَّل استعدادها
@@ -2690,6 +2704,13 @@ function initDashboard() {
     const pax = L.reduce((n, x) => n + x.g.pax, 0);
     el.innerHTML = '<div class="rdyal l' + rdyLvl(L[0].h) + '"><div class="rdyal-h"><span class="dot"></span><b>تنبيه الاستعداد المسبق:</b><span>' + rdyCnt(L.length) + ' (' + pax + ' حاج) لم يُسجَّل استعدادها وقد دخلت مهلة الأسبوعين قبل الوصول</span><a class="hint" href="arrival.html?rdy=late">عرض الكل ←</a></div>' +
       '<div class="nxt">' + L.slice(0, 4).map(x => '<a class="nx" href="arrival.html?flight=' + encodeURIComponent(x.g.key) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">' + (x.e && x.e.status ? esc(RDY_ST[x.e.status]) : 'الاستعداد غير مسجّل') + '<small>' + (x.h > 0 ? 'الوصول بعد ' + dur(x.h * 36e5) : 'مضى موعد الوصول') + ' · ' + x.g.pax + ' فرد</small></span></a>').join('') + '</div></div>';
+  }
+  // تنبيه اعتماد المغادرة: رحلات دخلت مهلة 5 أيام قبل المغادرة ولم يُعتمد لها
+  function apprAlert(now) {
+    const el = $('#apprAl'); if (!el) return;
+    const L = noApprFlights(now); if (!L.length) { el.innerHTML = ''; return; }
+    el.innerHTML = '<div class="rdyal l' + (L[0].h <= 48 ? 3 : 2) + '"><div class="rdyal-h"><span class="dot"></span><b>تنبيه اعتماد المغادرة:</b><span>' + rdyCnt(L.length) + ' (' + L.reduce((n, x) => n + x.n, 0) + ' فرد) لم يُعتمد لها وقد دخلت مهلة 5 أيام قبل المغادرة</span><a class="hint" href="departure.html?rdy=late">عرض الكل ←</a></div>' +
+      '<div class="nxt">' + L.slice(0, 4).map(x => '<a class="nx" href="departure.html?flight=' + encodeURIComponent(x.g.key) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">بلا اعتماد<small>' + (x.h > 0 ? 'المغادرة بعد ' + dur(x.h * 36e5) : 'مضى موعد المغادرة') + ' · ' + x.n + ' فرد</small></span></a>').join('') + '</div></div>';
   }
   function latePanel(now) {
     const L = lateList(now).slice(0, 8), cn = g => C.cityName(g.stayCity, g.stayCityRaw);
@@ -2719,10 +2740,16 @@ function initDashboard() {
   // لوحة الاعتمادات المقترحة للمغادرة (نافذة التجميع المحفوظة في المتصفح، افتراضي 60 د)
   function apprPanel(now) {
     const D0 = state.data.departure; if (!D0) { $('#apprP').innerHTML = '<div class="empty">—</div>'; return; }
-    const win = +lsGet('hajj1447.apprWin') || 60, { list, skip } = buildApprFrom(D0.records, win, 'all'), live = list.filter(a => a.t0.getTime() > now - 18e5 && a.t0.getTime() < now + 36 * 36e5);
-    const t = C.fmtDay(new Date(now)), tm = C.fmtDay(new Date(now + 864e5)), cnt = (d, tp) => live.filter(a => C.fmtDay(a.t0) === d && a.tp === tp).length, sum = d => live.filter(a => C.fmtDay(a.t0) === d).reduce((n, a) => n + a.pax, 0);
-    $('#apprP').innerHTML = '<div class="apsum">' + [['اليوم', t], ['غداً', tm]].map(([l, d]) => '<div class="apc"><span>' + l + '</span><b class="num">' + (cnt(d, 'bus') + cnt(d, 'train')) + '</b><small>' + cnt(d, 'bus') + ' حافلة · ' + cnt(d, 'train') + ' قطار · ' + sum(d) + ' فرد</small></div>').join('') + '</div>' +
-      (live.length ? '<div class="nxt">' + live.slice(0, 5).map(a => '<a class="nx" href="departure.html?appr=1"><span class="no">' + C.fmtTime(a.t0) + '</span><span class="i">' + C.TRANSPORT[a.tp].ar + ' · ' + esc(APPR_ROUTE(a.st, a.air)) + '<small>' + a.fl.length + ' رحلة · ' + a.ho.length + ' فندق · ' + a.pax + ' فرد</small></span><span class="c"><span class="cd" data-w="' + a.t0.getTime() + '"></span></span></a>').join('') + '</div>' : '<div class="empty">لا اعتمادات قريبة' + (skip.nomove ? ' — ' + skip.nomove + ' مجموعة بلا وقت تحرك (اضبطه من ⚙)' : '') + '</div>');
+    const win = +lsGet('hajj1447.apprWin') || 60, { list, skip } = buildApprFrom(D0.records, win, 'all');
+    // الرحلات التي بقي على تحركها أسبوع أو أقل تظهر هنا لتسهيل عمل الاعتماد؛ غير المعتمدة أولاً
+    const live = list.filter(a => a.t0.getTime() > now - 18e5 && a.t0.getTime() <= now + APPR_SHOW_MS).map(a => ({ a, ok: tripApproved(a) })).sort((x, y) => (x.ok - y.ok) || (x.a.t0 - y.a.t0));
+    const t = C.fmtDay(new Date(now)), tm = C.fmtDay(new Date(now + 864e5)), cnt = (d, tp) => live.filter(x => C.fmtDay(x.a.t0) === d && x.a.tp === tp).length, sum = d => live.filter(x => C.fmtDay(x.a.t0) === d).reduce((n, x) => n + x.a.pax, 0);
+    const pend = live.filter(x => !x.ok);
+    $('#apprP').innerHTML = '<div class="apsum">' + [['اليوم', t], ['غداً', tm]].map(([l, d]) => '<div class="apc"><span>' + l + '</span><b class="num">' + (cnt(d, 'bus') + cnt(d, 'train')) + '</b><small>' + cnt(d, 'bus') + ' حافلة · ' + cnt(d, 'train') + ' قطار · ' + sum(d) + ' فرد</small></div>').join('') +
+      '<div class="apc"><span>خلال أسبوع</span><b class="num">' + pend.length + '</b><small>بانتظار الاعتماد · ' + pend.reduce((n, x) => n + x.a.pax, 0) + ' فرد</small></div></div>' +
+      (live.length ? '<div class="nxt">' + live.slice(0, 8).map(({ a, ok }) => '<a class="nx" href="departure.html?appr=all"><span class="no">' + C.fmtTime(a.t0) + '</span><span class="i">' + C.TRANSPORT[a.tp].ar + ' · ' + esc(APPR_ROUTE(a.st, a.air)) + '<small>' + C.fmtDayAr(a.t0) + ' · ' + a.fl.length + ' رحلة · ' + a.ho.length + ' فندق · ' + a.pax + ' فرد</small></span><span class="c">' + (ok ? '<span class="rb approved">✓ معتمدة</span>' : '<span class="rb pending">بانتظار الاعتماد</span>') + '<span class="cd" data-w="' + a.t0.getTime() + '"></span></span></a>').join('') +
+        (live.length > 8 ? '<a class="nx" href="departure.html?appr=all"><span class="i">+ ' + (live.length - 8) + ' اعتماداً آخر — عرض الكل ←</span></a>' : '') + '</div>'
+        : '<div class="empty">لا اعتمادات خلال أسبوع' + (skip.nomove ? ' — ' + skip.nomove + ' مجموعة بلا وقت تحرك (اضبطه من ⚙)' : '') + '</div>');
   }
   // ملخص اليوم للمشاركة
   function dailyText() {
@@ -2813,7 +2840,7 @@ function initDashboard() {
     const items = []; [['arrival', A], ['departure', D]].forEach(([k, d]) => d && d.records.forEach(r => { if (ST[r._st] && ST[r._st].cls === 'danger') items.push({ k, r }); }));
     items.sort((x, y) => ST[y.r._st].lv - ST[x.r._st].lv || (x.r.when || 0) - (y.r.when || 0));
     $('#feed').innerHTML = items.length ? items.slice(0, 12).map(({ k, r }) => '<a class="nx" href="' + k + '.html?q=' + encodeURIComponent(r.passport || r.name) + '"><span class="no">' + esc(r.flight || '—') + '</span><span class="i">' + esc(r.name || '—') + '<small>' + (k === 'arrival' ? 'وصول' : 'مغادرة') + ' · ' + esc(r.country ? r.country.ar : r.natRaw) + '</small></span><span class="chip danger">' + esc(ST_LABEL[k][r._st]) + '</span><span class="c">' + (r.when ? '<span class="cd" data-w="' + r.when.getTime() + '"></span>' : '') + '</span></a>').join('') + (items.length > 12 ? '<div class="hint" style="padding:6px">+ ' + (items.length - 12) + ' أخرى — افتح صفحة الوصول/المغادرة وصفِّ بـ «حرجة»</div>' : '') : '<div class="empty" style="padding:18px">لا توجد تنبيهات حرجة حالياً ✓</div>';
-    ovrPanel(now); rdyAlert(now); latePanel(now); issPanel(now); rdyPanel(now); apprPanel(now); peaksPanel(); cityPanel(A, D); tpPanel(A, D);
+    ovrPanel(now); rdyAlert(now); apprAlert(now); latePanel(now); issPanel(now); rdyPanel(now); apprPanel(now); peaksPanel(); cityPanel(A, D); tpPanel(A, D);
     tick();
   }
   $('#xPrint').insertAdjacentHTML('beforebegin', '<button class="btn" id="xWa">📋 ملخص اليوم</button>'); $('#xWa').onclick = openDaily;
