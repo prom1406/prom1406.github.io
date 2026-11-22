@@ -116,6 +116,9 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 .alertbar b{color:#ff8f93}
 [data-theme=light] .alertbar b{color:#b3262b}
 .alertbar .dot{width:10px;height:10px;border-radius:50%;background:var(--red);animation:ping3 1.4s infinite}
+.alertbar.rdyb{background:linear-gradient(90deg,rgba(245,165,36,.20),rgba(245,165,36,.06));border-color:rgba(245,165,36,.6)}.alertbar.rdyb b{color:#fcd34d}[data-theme=light] .alertbar.rdyb b{color:#b45309}.alertbar.rdyb .dot{background:#f5a524}
+.rdyal{margin-bottom:16px;padding:12px 16px;border-radius:13px;border:1px solid #f5a524;background:rgba(245,165,36,.10)}.rdyal.l2{border-color:#f97316;background:rgba(249,115,22,.14)}.rdyal.l3{border-color:#ef4444;background:rgba(239,68,68,.16)}
+.rdyal-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}.rdyal-h .hint{margin-inline-start:auto}.rdyal-h .dot{width:10px;height:10px;border-radius:50%;background:#f5a524;animation:ping3 1.4s infinite}.rdyal.l3 .dot{background:#ef4444}
 @keyframes ping3{0%{box-shadow:0 0 0 0 rgba(229,72,77,.7)}80%,100%{box-shadow:0 0 0 10px rgba(229,72,77,0)}}
 .stale{background:rgba(245,165,36,.12);border:1px solid rgba(245,165,36,.5);padding:9px 14px;border-radius:12px;margin-bottom:14px;font-size:13.5px}
 
@@ -1334,6 +1337,17 @@ function rdyOf(fg) {
 // ---- حالة الاستعداد/الاعتماد للمؤشرات وعلامات البطاقات ----
 // استعداد مسجّل = «تم التسجيل في نسك مسار» (أو جاهزة) لمجموعة/بطاقة؛ اعتماد مسجّل = تم الاعتماد على مستوى الرحلة
 const rdyReg = g => { const e = state.ready[rk(g.key)] || state.ready[rKey(g.rows[0] || {})]; return e && (e.status === 'entered' || e.status === 'approved') ? e : null; };
+// الاستعداد المسبق للوصول مطلوب قبل موعد الوصول بأسبوعين؛ المسجَّل = «أُدخلت في نظام الوزارة» أو «جاهزة»
+const RDY_DAYS = 14, RDY_MS = RDY_DAYS * 864e5;
+const rdyDone = e => !!(e && (e.status === 'entered' || e.status === 'approved'));
+const rdyCnt = n => n + ' ' + (n >= 3 && n <= 10 ? 'رحلات' : 'رحلة');
+const rdyLvl = h => h <= 48 ? 3 : (h <= 168 ? 2 : 1);
+// رحلات وصول دخلت مهلة الأسبوعين (أو فاتت) ولم يُسجَّل استعدادها، الأقرب أولاً
+function noRdyFlights(now) {
+  const d = state.data.arrival; if (!d) return [];
+  return C.groupFlights(d.records).filter(g => g.when && g.done < g.pax && g.when.getTime() > now - 36e5 && g.when.getTime() - now <= RDY_MS && !rdyDone(rdyOf(g)))
+    .map(g => ({ g, h: (g.when.getTime() - now) / 36e5, e: rdyOf(g) || null })).sort((a, b) => a.h - b.h);
+}
 const apprOkOf = fg => { const e = state.appr[fg.key]; return !!(e && e.status === 'approved'); };
 // لكل مجموعة مغادرة: هل يمكن إصدار اعتماد لها؟ وإن لم يمكن فلماذا
 function apprStatusMap(records) {
@@ -1977,7 +1991,7 @@ function initTracker(kind) {
       '<div class="kpi na"><div class="l">🚫 لا يمكن اعتمادها</div><div class="v">' + na.length + '</div><div class="s">مجموعة · ' + np + ' حاج (سيارة أو بلا وقت تحرك)</div></div>';
   };
   const prepHtml = g => {
-    const cur = kind === 'arrival' ? rdyOf(g) : state.appr[g.key];
+    const cur = kind === 'arrival' ? (rdyOf(g) || state.ready[rKey(g.rows[0] || {})]) : state.appr[g.key];
     const done = kind === 'arrival' ? readyOk(cur) : !!(cur && cur.status === 'approved');
     const label = kind === 'arrival' ? 'الاستعداد' : 'الاعتماد';
     if (done) return '<div class="prep ok">✓ ' + label + ' مكتمل' + (cur && cur.by ? ' — ' + esc(cur.by) : '') + '</div>';
@@ -1988,7 +2002,8 @@ function initTracker(kind) {
     if (h > 336) return '';
     const lv = h <= 48 ? 3 : (h <= 168 ? 2 : 1);
     const tag = lv === 3 ? 'حرج' : (lv === 2 ? 'عالٍ' : 'تنبيه');
-    const when = h < 0 ? 'مضى موعد الرحلة ولم يُنجز' : (lv === 3 ? 'أقل من يومين على الرحلة' : (lv === 2 ? 'أقل من أسبوع على الرحلة' : 'قبل الرحلة بأسبوعين'));
+    const od = Math.max(0, Math.round((336 - h) * 60)), odT = od >= 1440 ? Math.floor(od / 1440) + ' يوم' : dur0(Math.max(od, 1));
+    const when = h < 0 ? 'مضى موعد الرحلة ولم يُنجز' : (kind === 'arrival' ? 'فات موعده (قبل الوصول بأسبوعين) بـ ' + odT : (lv === 3 ? 'أقل من يومين على الرحلة' : (lv === 2 ? 'أقل من أسبوع على الرحلة' : 'قبل الرحلة بأسبوعين')));
     return '<div class="prep l' + lv + '"><b>' + tag + ':</b> ' + label + ' لم يُنجز — ' + when + '</div>';
   };
   // ملاحظات النقل على الرحلة: تظهر لكل فندق في الرحلة
@@ -2035,7 +2050,7 @@ function initTracker(kind) {
 
   app.innerHTML = '<section class="hero"><div><h1>' + K.title + '</h1><p>' + K.sub + '</p></div><div class="hero-actions">' +
     (kind === 'arrival' ? '<button class="btn gold" id="xDay">📋 تقرير الوصول اليومي</button>' : '') + '<button class="btn green" id="xXls">' + ICON.xls + 'Excel</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
-    '<div id="stale"></div><div class="kpis" id="kpis"></div><div id="alertbar"></div>' +
+    '<div id="stale"></div><div class="kpis" id="kpis"></div><div id="alertbar"></div><div id="rdybar"></div>' +
     '<section class="secs"><div class="sectiles" id="secTiles"></div><div class="secpanel panel" id="secPanel" hidden></div></section>' +
     '<section class="panel"><div id="tphint"></div><div class="toolbar">' +
     '<div class="qchips" id="qchips"></div>' +
@@ -2055,6 +2070,7 @@ function initTracker(kind) {
     if (ui.nat !== 'all' && C.natKey(r) !== ui.nat) return false;
     if (ui.day !== 'all' && !(r.when && C.fmtDay(r.when) === ui.day)) return false;
     if (ui.flight !== 'all' && flightKey(r) !== ui.flight) return false;
+    if (ui.rdy === 'late') { const w = r.when && r.when.getTime(), n = Date.now(); if (kind !== 'arrival' || r.done || !w || w > n + RDY_MS || w < n - 36e5 || rdyDone(state.ready[gkOf(r)] || state.ready[rKey(r)])) return false; }
     if (ui.rdy === 'no' && (kind !== 'arrival' || r.done || readyOk(state.ready[gkOf(r)] || state.ready[rKey(r)]))) return false;
     return true;
   }
@@ -2268,7 +2284,7 @@ function initTracker(kind) {
         case 'pax': return '<td><b class="num" style="font-size:17px">' + g.pax + '</b><div class="bar" style="width:70px;margin-top:4px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div></td>';
         case 'nat': return '<td>' + natChips(g, 3) + '</td>';
         case 'pp': return '<td>' + ppBtn(g) + '</td>';
-        case 'st': return '<td>' + stChip(g) + noteChip(g) + regChip(g) + '</td>';
+        case 'st': return '<td>' + stChip(g) + noteChip(g) + regChip(g) + prepHtml(g) + '</td>';
         case 'act': return '<td>' + gAct(g) + '</td>';
       }
       return '<td></td>';
@@ -2292,7 +2308,7 @@ function initTracker(kind) {
   /* ---- مرشحات سريعة ورابط العرض ---- */
   const dayOf = off => C.fmtDay(new Date(Date.now() + off * 864e5));
   function drawChips() {
-    const defs = [['all', 'الكل', ui.status === 'all' && ui.day === 'all' && ui.flight === 'all' && ui.rdy === 'all' && !ui.q && ui.nat === 'all'], ['danger', 'حرجة / متأخرة', ui.status === 'danger'], ['warn', 'تستدعي الانتباه', ui.status === 'warn'], ['open', K.openL, ui.status === 'open'], ...(kind === 'arrival' ? [['rdy', 'غير جاهزة', ui.rdy === 'no']] : []), ['today', 'اليوم', ui.day === dayOf(0)], ['tomorrow', 'غداً', ui.day === dayOf(1)]];
+    const defs = [['all', 'الكل', ui.status === 'all' && ui.day === 'all' && ui.flight === 'all' && ui.rdy === 'all' && !ui.q && ui.nat === 'all'], ['danger', 'حرجة / متأخرة', ui.status === 'danger'], ['warn', 'تستدعي الانتباه', ui.status === 'warn'], ['open', K.openL, ui.status === 'open'], ...(kind === 'arrival' ? [['rdylate', 'بلا استعداد (أسبوعان)', ui.rdy === 'late'], ['rdy', 'غير جاهزة', ui.rdy === 'no']] : []), ['today', 'اليوم', ui.day === dayOf(0)], ['tomorrow', 'غداً', ui.day === dayOf(1)]];
     $('#qchips').innerHTML = defs.map(d => '<button type="button" class="qc' + (d[2] ? ' on' : '') + '" data-qc="' + d[0] + '">' + d[1] + '</button>').join('') + '<button type="button" class="qc link" data-qc="link" title="نسخ رابط هذا العرض">🔗 نسخ رابط العرض</button>';
   }
   function viewLink() {
@@ -2307,6 +2323,7 @@ function initTracker(kind) {
     ui.limit = 150;
     if (v === 'link') { copyText(viewLink(), 'نُسخ رابط العرض'); return; }
     if (v === 'rdy') ui.rdy = ui.rdy === 'no' ? 'all' : 'no';
+    else if (v === 'rdylate') ui.rdy = ui.rdy === 'late' ? 'all' : 'late';
     else if (v === 'all') { ui.status = 'all'; ui.day = 'all'; ui.flight = 'all'; ui.rdy = 'all'; ui.nat = 'all'; ui.q = ''; $('#fQ').value = ''; }
     else if (v === 'today' || v === 'tomorrow') { const d = dayOf(v === 'today' ? 0 : 1); ui.day = ui.day === d ? 'all' : d; }
     else ui.status = ui.status === v ? 'all' : v;
@@ -2421,6 +2438,7 @@ function initTracker(kind) {
       '<div class="kpi red click' + (sm.dangerRows ? ' pulse' : '') + '" data-kpi="danger"><div class="l">حالات حرجة / متأخرة</div><div class="v">' + sm.danger + '</div><div class="s">' + sm.dangerRows + ' سجل — اضغط للتصفية</div></div>' +
       '<div class="kpi sky"><div class="l">أقرب رحلة</div><div class="v" style="font-size:25px;padding-top:5px">' + (nextG ? '<span class="cd" data-w="' + nextG.when.getTime() + '"></span>' : '—') + '</div><div class="s">' + (nextG ? esc(nextG.flight) + ' · ' + C.fmtTime(nextG.when) + ' · ' + nextG.pax + ' فرد' : 'لا توجد رحلات قادمة') + '</div></div>' + extraKpis(allGroups, fl, sm);
     $('#alertbar').innerHTML = sm.dangerRows ? '<div class="alertbar" data-kpi="danger"><span class="dot"></span><b>تنبيه:</b> ' + sm.dangerRows + ' سجل في حالة حرجة أو متأخرة ويحتاج إلى إجراء فوري <span class="sp"></span><span class="hint">عرض</span></div>' : '';
+    { const rb = $('#rdybar'); if (rb) { const L = kind === 'arrival' ? noRdyFlights(Date.now()) : []; rb.innerHTML = L.length ? '<div class="alertbar rdyb" data-rdylate="1"><span class="dot"></span><b>تنبيه الاستعداد المسبق:</b> ' + rdyCnt(L.length) + ' (' + L.reduce((n, x) => n + x.g.pax, 0) + ' حاج) بلا استعداد وقد دخلت مهلة الأسبوعين — أقربها ' + esc(L[0].g.flight) + (L[0].h > 0 ? ' بعد ' + dur0(Math.round(L[0].h * 60)) : ' (مضى موعدها)') + ' <span class="sp"></span><span class="hint">عرض</span></div>' : ''; } }
     const dk = new Set(R.filter(r => ST[r._st].cls === 'danger').map(r => pkey(r)));
     if (prevDanger) { let n = 0; dk.forEach(k => { if (!prevDanger.has(k)) n++; }); if (n) { toast('تنبيه: ' + n + ' حالة حرجة جديدة', 'err'); notifyNew(n); } }
     prevDanger = dk;
@@ -2535,6 +2553,7 @@ function initTracker(kind) {
     if ((el = t.closest('[data-sec]'))) { ui.sec = ui.sec === el.dataset.sec ? null : el.dataset.sec; if (lastFl) drawRail(lastFl, Date.now()); tick(); return; }
     if ((el = t.closest('[data-flight]'))) { ui.flight = ui.flight === el.dataset.flight ? 'all' : el.dataset.flight; ui.limit = 150; render(); return; }
     if ((el = t.closest('[data-sort]'))) { const k = el.dataset.sort; if (ui.sortK === k) ui.dir *= -1; else { ui.sortK = k; ui.dir = 1; } render(); return; }
+    if (t.closest('[data-rdylate]')) { ui.rdy = 'late'; ui.limit = 150; render(); return; }
     if ((el = t.closest('[data-kpi]'))) { ui.status = 'danger'; $('#fStatus').value = 'danger'; render(); return; }
     if (t.closest('[data-more]')) { ui.limit += 300; render(); return; }
     if ((el = t.closest('[data-bulk]'))) {
@@ -2614,7 +2633,7 @@ const ring = (pct, color, label, sub) => { const c = 2 * Math.PI * 54; return '<
 function initDashboard() {
   const app = $('#app');
   app.innerHTML = '<section class="hero"><div><h1>لوحة المؤشرات <span>التنفيذية</span></h1><p>نظرة لحظية على حركة وصول ومغادرة حجاج 1447هـ</p></div><div class="hero-actions"><button class="btn green" id="xXls">' + ICON.xls + 'Excel شامل</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'تقرير PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
-    '<div id="stale"></div><div id="ovr"></div><div class="kpis" id="kpis"></div>' +
+    '<div id="stale"></div><div id="ovr"></div><div id="rdyAl"></div><div class="kpis" id="kpis"></div>' +
     '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الأكثر تأخراً</h2><span class="hint">وصول لم يُسكَّن · تحرك لم يغادر</span></div><div class="nxt" id="late"></div></section><section class="panel"><div class="panel-h"><h2>الجاهزية والنقل</h2><span class="hint">رحلات غير جاهزة · مشاكل النقل</span></div><div class="nxt" id="nIss"></div></section></div>' +
     '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الاستعداد المسبق للوصول</h2><a class="hint" href="arrival.html?rdy=no">الرحلات غير الجاهزة ←</a></div><div id="rdyP"></div></section><section class="panel"><div class="panel-h"><h2>اعتمادات المغادرة المقترحة</h2><a class="hint" href="departure.html?appr=1">فتح الاعتمادات ←</a></div><div id="apprP"></div></section></div>' +
     '<div class="grid2"><section class="panel"><h2>أقرب الرحلات</h2><div class="cols2"><div><h3>الوصول</h3><div class="nxt" id="nxA"></div></div><div><h3>المغادرة</h3><div class="nxt" id="nxD"></div></div></div></section>' +
@@ -2639,9 +2658,9 @@ function initDashboard() {
     const o = []; ['arrival', 'departure'].forEach(k => grps(k).forEach(g => { const n = nOf(k, g); if (n && (n.status === 'delayed' || n.status === 'issue') && g.open > 0) o.push({ k, g, n }); }));
     return o.sort((a, b) => (a.n.status === 'issue' ? 0 : 1) - (b.n.status === 'issue' ? 0 : 1));
   }
-  // رحلات وصول قريبة (خلال حد التحذير) لم تُعتمد جاهزيتها في نظام الوزارة
+  // رحلات وصول خلال أسبوعين ولم يُسجَّل استعدادها المسبق
   function nrList(now) {
-    return grps0().filter(g => g.when && g.done < g.pax && g.when.getTime() > now - 36e5 && (g.when.getTime() - now) / 36e5 <= S.warnH && !readyOk(rdyOf(g))).map(g => ({ g, h: (g.when.getTime() - now) / 36e5, e: rdyOf(g) || null }));
+    return noRdyFlights(now);
   }
   const grps0 = () => state.data.arrival ? C.groupFlights(state.data.arrival.records) : [];
   const gLink = (k, g) => k + '.html?flight=' + encodeURIComponent(C.groupFlights(g.rows)[0].key);
@@ -2655,14 +2674,22 @@ function initDashboard() {
   // الوضع العام من الحالات الحرجة والتأخر ومشاكل النقل
   function overall(now) {
     const cnt = c => ['arrival', 'departure'].reduce((n, k) => n + grps(k).filter(g => g.open > 0 && g.cls === c).length, 0);
-    const nl = nrList(now), nr = nl.length, nrc = nl.filter(x => x.h <= S.criticalH).length, dg = cnt('danger'), wg = cnt('warn'), is = issueList().length, lt = lateList(now).length;
+    const nl = nrList(now), nr = nl.length, nrc = nl.filter(x => x.h <= 48).length, dg = cnt('danger'), wg = cnt('warn'), is = issueList().length, lt = lateList(now).length;
     const lv = (dg || is || nrc) ? 'crit' : (wg || lt || nr) ? 'watch' : 'ok';
     return { lv, dg, wg, is, lt, nr, label: { crit: 'حرج', watch: 'تحت المراقبة', ok: 'طبيعي' }[lv] };
   }
   function ovrPanel(now) {
     if (!state.data.arrival && !state.data.departure) { $('#ovr').innerHTML = ''; return; }
-    const o = overall(now), bits = [o.dg && o.dg + ' مجموعة حرجة', o.lt && o.lt + ' متأخرة', o.is && o.is + ' مشكلة نقل', o.nr && o.nr + ' رحلة غير جاهزة قبل الوصول', o.wg && o.wg + ' تستدعي الانتباه'].filter(Boolean);
+    const o = overall(now), bits = [o.dg && o.dg + ' مجموعة حرجة', o.lt && o.lt + ' متأخرة', o.is && o.is + ' مشكلة نقل', o.nr && rdyCnt(o.nr) + ' بلا استعداد مسبق (مهلة الأسبوعين)', o.wg && o.wg + ' تستدعي الانتباه'].filter(Boolean);
     $('#ovr').innerHTML = '<div class="ovr ' + o.lv + '"><span class="dot"></span><b>الوضع العام: ' + o.label + '</b><span>' + (bits.length ? bits.join(' · ') : 'لا توجد حالات تحتاج تدخلاً') + '</span></div>';
+  }
+  // تنبيه الاستعداد المسبق: رحلات دخلت مهلة الأسبوعين قبل الوصول ولم يُسجَّل استعدادها
+  function rdyAlert(now) {
+    const el = $('#rdyAl'); if (!el) return;
+    const L = noRdyFlights(now); if (!L.length) { el.innerHTML = ''; return; }
+    const pax = L.reduce((n, x) => n + x.g.pax, 0);
+    el.innerHTML = '<div class="rdyal l' + rdyLvl(L[0].h) + '"><div class="rdyal-h"><span class="dot"></span><b>تنبيه الاستعداد المسبق:</b><span>' + rdyCnt(L.length) + ' (' + pax + ' حاج) لم يُسجَّل استعدادها وقد دخلت مهلة الأسبوعين قبل الوصول</span><a class="hint" href="arrival.html?rdy=late">عرض الكل ←</a></div>' +
+      '<div class="nxt">' + L.slice(0, 4).map(x => '<a class="nx" href="arrival.html?flight=' + encodeURIComponent(x.g.key) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">' + (x.e && x.e.status ? esc(RDY_ST[x.e.status]) : 'الاستعداد غير مسجّل') + '<small>' + (x.h > 0 ? 'الوصول بعد ' + dur(x.h * 36e5) : 'مضى موعد الوصول') + ' · ' + x.g.pax + ' فرد</small></span></a>').join('') + '</div></div>';
   }
   function latePanel(now) {
     const L = lateList(now).slice(0, 8), cn = g => C.cityName(g.stayCity, g.stayCityRaw);
@@ -2670,7 +2697,7 @@ function initDashboard() {
   }
   function issPanel(now) {
     const L = issueList(), NR = nrList(now).sort((a, b) => a.h - b.h);
-    const nrRows = NR.map(x => '<a class="nx" href="arrival.html?flight=' + encodeURIComponent(x.g.key) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">' + (x.e && x.e.status ? esc(RDY_ST[x.e.status]) : 'الاستعداد غير مسجّل') + '<small>' + (x.h > 0 ? 'الوصول بعد ' + dur(x.h * 36e5) : 'مضى موعد الوصول بـ ' + dur(-x.h * 36e5)) + ' · ' + x.g.pax + ' فرد' + (x.e && (x.e.hall || x.e.gate) ? ' · ' + esc([x.e.hall, x.e.gate].filter(Boolean).join(' / ')) : '') + '</small></span><span class="c"><span class="ntag ' + (x.h <= S.criticalH ? 'issue' : 'delayed') + '" style="margin:0"><b>غير جاهزة</b></span></span></a>').join('');
+    const nrRows = NR.slice(0, 8).map(x => '<a class="nx" href="arrival.html?flight=' + encodeURIComponent(x.g.key) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">' + (x.e && x.e.status ? esc(RDY_ST[x.e.status]) : 'الاستعداد غير مسجّل') + '<small>' + (x.h > 0 ? 'الوصول بعد ' + dur(x.h * 36e5) : 'مضى موعد الوصول بـ ' + dur(-x.h * 36e5)) + ' · ' + x.g.pax + ' فرد' + (x.e && (x.e.hall || x.e.gate) ? ' · ' + esc([x.e.hall, x.e.gate].filter(Boolean).join(' / ')) : '') + '</small></span><span class="c"><span class="ntag ' + (x.h <= 48 ? 'issue' : 'delayed') + '" style="margin:0"><b>بلا استعداد</b></span></span></a>').join('') + (NR.length > 8 ? '<a class="nx" href="arrival.html?rdy=late"><span class="i">+ ' + (NR.length - 8) + ' رحلة أخرى بلا استعداد — عرض الكل ←</span></a>' : '');
     $('#nIss').innerHTML = (L.length || NR.length) ? nrRows + L.map(x => '<a class="nx" href="' + gLink(x.k, x.g) + '"><span class="no">' + esc(x.g.flight) + '</span><span class="i">' + esc(x.g.hotel || '—') + '<small>' + esc(x.n.note || '') + (x.n.by ? ' — ' + esc(x.n.by) : '') + '</small></span><span class="c"><span class="ntag ' + esc(x.n.status) + '" style="margin:0"><b>' + NL[x.n.status] + '</b></span></span></a>').join('') : '<div class="empty">لا توجد حالات نقل أو جاهزية تحتاج متابعة ✓</div>';
   }
   function peaksPanel() {
@@ -2786,7 +2813,7 @@ function initDashboard() {
     const items = []; [['arrival', A], ['departure', D]].forEach(([k, d]) => d && d.records.forEach(r => { if (ST[r._st] && ST[r._st].cls === 'danger') items.push({ k, r }); }));
     items.sort((x, y) => ST[y.r._st].lv - ST[x.r._st].lv || (x.r.when || 0) - (y.r.when || 0));
     $('#feed').innerHTML = items.length ? items.slice(0, 12).map(({ k, r }) => '<a class="nx" href="' + k + '.html?q=' + encodeURIComponent(r.passport || r.name) + '"><span class="no">' + esc(r.flight || '—') + '</span><span class="i">' + esc(r.name || '—') + '<small>' + (k === 'arrival' ? 'وصول' : 'مغادرة') + ' · ' + esc(r.country ? r.country.ar : r.natRaw) + '</small></span><span class="chip danger">' + esc(ST_LABEL[k][r._st]) + '</span><span class="c">' + (r.when ? '<span class="cd" data-w="' + r.when.getTime() + '"></span>' : '') + '</span></a>').join('') + (items.length > 12 ? '<div class="hint" style="padding:6px">+ ' + (items.length - 12) + ' أخرى — افتح صفحة الوصول/المغادرة وصفِّ بـ «حرجة»</div>' : '') : '<div class="empty" style="padding:18px">لا توجد تنبيهات حرجة حالياً ✓</div>';
-    ovrPanel(now); latePanel(now); issPanel(now); rdyPanel(now); apprPanel(now); peaksPanel(); cityPanel(A, D); tpPanel(A, D);
+    ovrPanel(now); rdyAlert(now); latePanel(now); issPanel(now); rdyPanel(now); apprPanel(now); peaksPanel(); cityPanel(A, D); tpPanel(A, D);
     tick();
   }
   $('#xPrint').insertAdjacentHTML('beforebegin', '<button class="btn" id="xWa">📋 ملخص اليوم</button>'); $('#xWa').onclick = openDaily;
