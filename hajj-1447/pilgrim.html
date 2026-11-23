@@ -93,7 +93,6 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 /* ---------- KPI ---------- */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:16px}
 .kpi{position:relative;padding:15px 16px;border-radius:var(--radius);background:var(--card);border:1px solid var(--line2);overflow:hidden;cursor:default;box-shadow:var(--shadow)}
-.kpi::after{content:"";position:absolute;inset-inline-end:-26px;top:-26px;width:90px;height:90px;border-radius:50%;background:var(--accent,var(--gold));opacity:.13}
 .kpi.click{cursor:pointer}.kpi.click:hover{border-color:var(--accent,var(--gold))}
 .kpi .l{color:var(--mut);font-size:13px;display:flex;gap:6px;align-items:center}
 .kpi .v{font-size:32px;font-weight:800;line-height:1.15;margin-top:4px;color:var(--accent,var(--ink));font-variant-numeric:tabular-nums}
@@ -107,6 +106,21 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 .kpi.na{--accent:#8b5cf6}
 .kpi.gold{--accent:var(--gold)}.kpi.ok{--accent:var(--ok)}.kpi.sky{--accent:var(--sky)}.kpi.red{--accent:var(--red)}.kpi.amber{--accent:var(--amber)}
 .kpi.red.pulse{animation:redpulse 2s infinite}
+
+/* ===== بلاطات المؤشرات بنظام الرئيسية ===== */
+.kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi{--c:var(--accent,var(--gold));padding:14px 16px 13px;border-radius:18px;background:linear-gradient(150deg,var(--card2),var(--card));display:flex;flex-direction:column;gap:6px;text-decoration:none;color:var(--ink);transition:transform .18s,border-color .18s,box-shadow .18s}
+.kpi::before{content:"";position:absolute;inset-inline-start:0;top:12px;bottom:12px;width:4px;border-radius:4px;background:var(--c)}
+.kpi::after{content:"←";inset-inline-end:12px;top:9px;width:auto;height:auto;border-radius:0;background:none;opacity:0;transform:translateX(6px);transition:.18s;color:var(--c);font-weight:800;position:absolute}
+.kpi.click:hover,a.kpi:hover{transform:translateY(-3px);border-color:var(--c);box-shadow:0 16px 34px rgba(0,0,0,.34)}.kpi.click:hover::after,a.kpi:hover::after{opacity:1;transform:none}
+.kpi .l{font-size:12.5px;font-weight:700;gap:9px;line-height:1.3}
+.kpi .ki{flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-size:18px;background:color-mix(in srgb,var(--c) 18%,transparent)}
+.kpi .v{font-size:34px;margin-top:0;color:var(--c)}
+.kpi .s{font-size:12px;line-height:1.5;margin-top:0}
+.panel{border-radius:18px;background:linear-gradient(150deg,var(--card2),var(--card))}
+.apc{border-radius:14px;border-bottom:2px solid var(--gold)}
+@media(max-width:520px){.kpi{padding:12px 13px}.kpi .v{font-size:28px}}
+
 @keyframes redpulse{0%,100%{box-shadow:var(--shadow)}50%{box-shadow:0 0 0 1px var(--red),0 0 22px rgba(229,72,77,.35)}}
 .bar{height:6px;border-radius:9px;background:var(--line2);overflow:hidden}
 .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--ok));border-radius:9px;transition:width .6s}
@@ -3470,6 +3484,26 @@ async function boot() {
 document.addEventListener('DOMContentLoaded', boot);
 })();
 
+</script>
+<script>
+/* أيقونات بلاطات المؤشرات: تُلفّ الإيموجي الأولى أو تُختار حسب نص العنوان */
+(function () {
+  var MAP = [[/مغادر/, '🛫'], [/قادم|وصول|الوصول/, '🛬'], [/حرج|عاجل|تنبيه/, '🚨'], [/متأخر/, '⏰'], [/أقرب/, '⏱'], [/بانتظار|معلق/, '⏳'], [/تسكين|مسكّن|سكن/, '🏨'], [/اعتماد/, '🧾'], [/استعداد/, '✅'], [/قطار/, '🚆'], [/حافل/, '🚌'], [/انتقال|حرك/, '🔁'], [/إجمالي|اجمالي|الحجاج/, '👥'], [/مشكل|نقل/, '🚦'], [/جاهز/, '✔️'], [/ملاحظ/, '📝']];
+  var EM = /^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*)\s*/u, q = 0;
+  function fix() {
+    q = 0;
+    var L = document.querySelectorAll('.kpi .l:not([data-ki])');
+    for (var i = 0; i < L.length; i++) {
+      var e = L[i]; e.setAttribute('data-ki', '1');
+      var tx = e.textContent || '', m = tx.match(EM), ic = '';
+      if (m && e.firstChild && e.firstChild.nodeType === 3) { ic = m[1]; e.firstChild.nodeValue = e.firstChild.nodeValue.replace(EM, ''); }
+      else { for (var j = 0; j < MAP.length; j++) if (MAP[j][0].test(tx)) { ic = MAP[j][1]; break; } if (!ic) ic = '📊'; }
+      var s = document.createElement('span'); s.className = 'ki'; s.textContent = ic; e.insertBefore(s, e.firstChild);
+    }
+  }
+  new MutationObserver(function () { if (!q) q = requestAnimationFrame(fix); }).observe(document.body, { childList: true, subtree: true });
+  fix();
+})();
 </script>
 </body>
 </html>

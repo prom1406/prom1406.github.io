@@ -1,5 +1,5 @@
 // يخزّن هيكل التطبيق فقط. بيانات الحجاج لا تمر هنا (تُحفظ في المتصفح وتُجلب من الخادم مباشرة).
-const V = 'hajj1447-shell-v16', FILES = ['./', 'index.html', 'arrival.html', 'departure.html', 'transfers.html', 'pilgrim.html', 'follow.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+const V = 'hajj1447-shell-v17', FILES = ['./', 'index.html', 'arrival.html', 'departure.html', 'transfers.html', 'pilgrim.html', 'follow.html', 'config.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => Promise.all(FILES.map(f => c.add(f).catch(() => { })))).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
