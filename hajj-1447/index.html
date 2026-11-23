@@ -103,6 +103,7 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 .bt .bl{font-size:12.5px;color:var(--mut);font-weight:700;display:flex;align-items:center;gap:8px;line-height:1.3}
 .bt .bi{flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-size:18px;background:color-mix(in srgb,var(--c) 18%,transparent)}
 .bt .bv{font-size:36px;font-weight:800;line-height:1;color:var(--c);font-variant-numeric:tabular-nums}
+.bt .bv small{font-size:15px;font-weight:700;opacity:.75}
 .bt .bs{font-size:12px;color:var(--mut);line-height:1.5}
 .bt .bm{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .bt.pulse{animation:btp 2s infinite}@keyframes btp{0%,100%{box-shadow:var(--shadow)}50%{box-shadow:0 0 0 3px rgba(229,72,77,.35),var(--shadow)}}
@@ -117,6 +118,9 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 .bt .mb div b{font-size:13px;color:var(--ink)}
 .bt .nb{display:flex;flex-direction:column;gap:5px}.bt .nb div{display:grid;grid-template-columns:70px 1fr 34px;align-items:center;gap:7px;font-size:11.5px;color:var(--mut)}.bt .nb em{display:block;height:7px;border-radius:5px;background:var(--line2)}.bt .nb em i{display:block;height:100%;border-radius:5px;background:var(--c)}.bt .nb b{color:var(--ink);text-align:end}
 .bt .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.bt .two div{background:var(--line2);border-radius:10px;padding:6px 9px;font-size:11.5px;color:var(--mut)}.bt .two div b{display:block;font-size:19px;color:var(--ink);font-variant-numeric:tabular-nums}
+.bt.big{gap:12px}.bt.big::after{display:none}.bt .bh{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit}
+.bt .rr{display:grid;grid-template-columns:1fr 1fr;gap:12px}.bt .rk{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;background:var(--line2);border-radius:14px;padding:10px 12px;transition:background .18s}.bt .rk:hover{background:color-mix(in srgb,var(--c) 18%,transparent)}
+.bt .rk .bs b{display:block;color:var(--ink);font-size:13px}.bt .rk .rg b{font-size:15px}.bt .bs b{color:var(--ink)}
 .band{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 .band a{--c:var(--gold);text-decoration:none;color:var(--ink);border-radius:14px;overflow:hidden;border:1px solid var(--line2);background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;transition:transform .18s,border-color .18s}
 .band a:hover{transform:translateY(-3px);border-color:var(--c)}
@@ -2684,11 +2688,9 @@ function initDashboard() {
     '<div id="stale"></div><div id="ovr"></div><div class="bento" id="kpis"></div><div id="rdyAl"></div><div id="apprAl"></div>' +
     '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الأكثر تأخراً</h2><span class="hint">وصول لم يُسكَّن · تحرك لم يغادر</span></div><div class="nxt" id="late"></div></section><section class="panel"><div class="panel-h"><h2>الجاهزية والنقل</h2><span class="hint">رحلات غير جاهزة · مشاكل النقل</span></div><div class="nxt" id="nIss"></div></section></div>' +
     '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الاستعداد المسبق للوصول</h2><a class="hint" href="arrival.html?rdy=late">الرحلات بلا استعداد ←</a></div><div id="rdyP"></div></section><section class="panel"><div class="panel-h"><h2>اعتمادات المغادرة المقترحة</h2><a class="hint" href="departure.html?appr=all">فتح الاعتمادات ←</a></div><div id="apprP"></div></section></div>' +
-    '<div class="grid2"><section class="panel"><h2>أقرب الرحلات</h2><div class="cols2"><div><h3>الوصول</h3><div class="nxt" id="nxA"></div></div><div><h3>المغادرة</h3><div class="nxt" id="nxD"></div></div></div></section>' +
-    '<section class="panel"><h2>نسب الإنجاز</h2><div class="rings" id="rings"></div></section></div>' +
+    '<section class="panel"><h2>أقرب الرحلات</h2><div class="cols2"><div><h3>الوصول</h3><div class="nxt" id="nxA"></div></div><div><h3>المغادرة</h3><div class="nxt" id="nxD"></div></div></div></section>' +
     '<div class="grid2 even"><section class="panel"><h2>الوصول حسب اليوم</h2><div class="chartbox"><canvas id="chA"></canvas></div></section><section class="panel"><h2>المغادرة حسب اليوم</h2><div class="chartbox"><canvas id="chD"></canvas></div></section></div>' +
     '<div class="grid2"><section class="panel"><h2>حركة الرحلات خلال 24 ساعة القادمة</h2><div class="chartbox"><canvas id="chH"></canvas></div></section><section class="panel"><div class="panel-h"><h2>الجوازات حسب الجنسية</h2><span class="hint" id="natCnt"></span></div><div class="natl" id="nat"></div></section></div>' +
-    '<section class="panel"><h2>الحجاج حسب المدينة</h2><div class="cities" id="cities"></div></section>' +
     '<section class="panel"><div class="panel-h"><h2>الطلب على النقل حسب الساعة</h2><div class="qchips" id="tpSw" style="flex:none"></div></div><div class="peaks" id="peaks"></div><div id="tpNote"></div><div class="chartbox"><canvas id="chT"></canvas></div></section>' +
     '<section class="panel"><div class="panel-h"><h2>ملاحظات الرحلات</h2><span class="hint">تظهر هنا وعلى بطاقة كل رحلة</span></div><div class="nxt" id="nTrip"></div></section>' +
     '<section class="panel"><h2>تنبيهات حرجة تحتاج إجراءً</h2><div class="nxt feed" id="feed"></div></section>';
@@ -2869,29 +2871,23 @@ function initDashboard() {
     [[A, 'a'], [D, 'd']].forEach(([R0, k]) => R0 && R0.records.forEach(r => { if (cm[r.stayCity]) cm[r.stayCity][k] += r.pax; }));
     const nm = new Map(); [...(A ? A.records : []), ...(D ? D.records : [])].forEach(r => { const k = r.country ? r.country.iso2 : '?'; const e = nm.get(k) || { c: r.country, n: 0 }; e.n += r.pax; nm.set(k, e); });
     const nat = [...nm.values()].sort((x, y) => y.n - x.n), nmx = nat.length ? nat[0].n : 1;
-    return '<a class="bt dn gold w4 h2" href="arrival.html"><div class="bl">القادمون مقابل المغادرين</div><div class="rg">' + ringSvg([{ v: a.total, c: '#34C47A' }, { v: d.total, c: '#0EA5E9' }], 14) + '<b>' + (a.total + d.total) + '<small>إجمالي الحجاج</small></b></div><div class="lg"><span><i style="background:#34C47A"></i>قادمون <b>' + a.total + '</b></span><span><i style="background:#0EA5E9"></i>مغادرون <b>' + d.total + '</b></span></div></a>' +
-      bTile('ok w2', 'arrival.html', '🛬', 'إجمالي القادمين', a.total, 'اليوم ' + dayPax(ga, 'arrival', today) + ' · غداً ' + dayPax(ga, 'arrival', tom)) +
-      bTile('sky w2', 'departure.html', '🛫', 'إجمالي المغادرين', d.total, 'اليوم ' + dayPax(gd, 'departure', today) + ' · غداً ' + dayPax(gd, 'departure', tom)) +
-      bRing('ok w2', 'arrival.html?status=done', 'نسبة التسكين', a.pct, a.done + ' من ' + a.total, '#34C47A') +
-      bRing('sky w2', 'departure.html?status=done', 'نسبة المغادرة', d.pct, d.done + ' من ' + d.total, '#0EA5E9') +
-      bTile('amber w2', 'arrival.html?status=open', '⏳', 'بانتظار التسكين', a.pending, 'تستدعي الانتباه: ' + warn) +
-      bTile('amber w2', 'departure.html?status=open', '⌛', 'بانتظار المغادرة', d.pending, 'من أصل ' + d.total) +
-      bTile('red w2' + ((a.dangerRows + d.dangerRows) ? ' pulse' : ''), target + '.html?status=danger', '🚨', 'تنبيهات حرجة', a.dangerRows + d.dangerRows, 'وصول ' + a.dangerRows + ' · مغادرة ' + d.dangerRows) +
-      bTile('red w2', '#late', '⏰', 'مجموعات متأخرة', o.lt, 'مضى موعدها ولم تُنجَز', ' data-jump="late"') +
+    const pc = (p, n) => n ? Math.round(p / n * 100) : 0, apP = sum(ap);
+    const rk = (href, lb, v, n, col) => '<a class="rk" href="' + href + '"><div class="rg">' + ringSvg([{ v: pc(v, n), c: col }, { v: 100 - pc(v, n), c: 'transparent' }], 10) + '<b>' + pc(v, n) + '%</b></div><div class="bs"><b>' + lb + '</b>' + v + ' من ' + n + '</div></a>';
+    const card = (cls, col, href, ic, ttl, total, r1, r2, foot) => '<div class="bt big ' + cls + ' w6"><a class="bh" href="' + href + '"><span class="bi">' + ic + '</span><div><div class="bl">' + ttl + '</div><div class="bv">' + total + '<small> حاج</small></div></div></a><div class="rr">' + rk(r1[0], r1[1], r1[2], total, col) + rk(r2[0], r2[1], r2[2], total, col) + '</div><div class="bs">' + foot + '</div></div>';
+    return card('ok', '#34C47A', 'arrival.html', '🛬', 'القادمون — إجمالي', a.total, ['arrival.html', 'استعداد مسبق', reg], ['arrival.html?status=done', 'تم التسكين', a.done], '⏳ بانتظار التسكين <b>' + a.pending + '</b> · اليوم ' + dayPax(ga, 'arrival', today) + ' · غداً ' + dayPax(ga, 'arrival', tom)) +
+      card('sky', '#0EA5E9', 'departure.html', '🛫', 'المغادرون — إجمالي', d.total, ['departure.html', 'اعتماد المغادرة', apP], ['departure.html?status=done', 'تمت المغادرة', d.done], '⌛ بانتظار المغادرة <b>' + d.pending + '</b> · اليوم ' + dayPax(gd, 'departure', today) + ' · غداً ' + dayPax(gd, 'departure', tom)) +
+      bTile('red w3' + ((a.dangerRows + d.dangerRows) ? ' pulse' : ''), target + '.html?status=danger', '🚨', 'تنبيهات حرجة', a.dangerRows + d.dangerRows, 'وصول ' + a.dangerRows + ' · مغادرة ' + d.dangerRows) +
+      bTile('amber w3', '#late', '⏰', 'مجموعات متأخرة', o.lt, 'مضى موعدها ولم تُنجَز', ' data-jump="late"') +
+      bTile('vio w3', '#nIss', '🚦', 'مشاكل النقل', o.is, 'تأخر أو مشكلة مسجّلة', ' data-jump="nIss"') +
+      bTile('gold w3', 'arrival.html?status=warn', '👁', 'تستدعي الانتباه', warn, 'وصول ومغادرة') +
       '<div class="band">' +
-      '<a class="ok" href="arrival.html"><span>استعداد مسبق مسجّل</span><b>' + reg + '</b></a>' +
       '<a class="red" href="arrival.html?rdy=late"><span>بلا استعداد (أسبوعان)</span><b>' + o.nr + '</b></a>' +
-      '<a class="sky" href="departure.html"><span>اعتماد مغادرة مسجّل</span><b>' + ap.length + '</b></a>' +
       '<a class="red" href="departure.html?rdy=late"><span>بلا اعتماد (5 أيام)</span><b>' + o.na + '</b></a>' +
       '<a class="vio" href="departure.html?appr=1"><span>لا يمكن اعتمادها</span><b>' + cant.length + '</b></a>' +
-      '<a class="amber" href="departure.html?appr=all"><span>اعتمادات اليوم</span><b>' + tr.length + '</b></a>' +
-      '<a class="vio" href="#nIss" data-jump="nIss"><span>مشاكل النقل</span><b>' + o.is + '</b></a>' +
-      '<a class="teal" href="arrival.html"><span>رحلات وصول 24س</span><b>' + fl24('arrival') + '</b></a></div>' +
-      ['makkah', 'madinah', 'jeddah'].map((i, j) => '<a class="bt ' + ['gold', 'ok', 'sky'][j] + ' w3" href="arrival.html"><div class="bl"><span class="bi">' + ['🕋', '🕌', '✈️'][j] + '</span>' + esc(C.CITY_DEF[i].ar) + '</div><div class="two"><div><b>' + cm[i].a + '</b>قادمون</div><div><b>' + cm[i].d + '</b>مغادرون</div></div></a>').join('') +
+      '<a class="amber" href="departure.html?appr=all"><span>اعتمادات اليوم</span><b>' + tr.length + '</b></a></div>' +
+      ['makkah', 'madinah'].map((i, j) => '<a class="bt ' + ['gold', 'ok'][j] + ' w3" href="' + (cm[i].a >= cm[i].d ? 'arrival' : 'departure') + '.html"><div class="bl"><span class="bi">' + ['🕋', '🕌'][j] + '</span>' + esc(C.CITY_DEF[i].ar) + '</div><div class="two"><div><b>' + cm[i].a + '</b>قادمون</div><div><b>' + cm[i].d + '</b>مغادرون</div></div></a>').join('') +
       '<a class="bt vio w3" href="#nat" data-jump="nat"><div class="bl"><span class="bi">🌍</span>الجنسيات <b style="margin-inline-start:auto;color:var(--c)">' + nat.length + '</b></div><div class="nb">' + nat.slice(0, 3).map(x => '<div><span>' + esc(x.c ? x.c.ar : 'غير محدد') + '</span><em><i style="width:' + (x.n / nmx * 100) + '%"></i></em><b>' + x.n + '</b></div>').join('') + '</div></a>' +
-      bBars('ok w4', 'arrival.html', 'الوصول', ['مُسكَّن', a.done], ['بانتظار', a.pending]) +
-      bBars('sky w4', 'departure.html', 'المغادرة', ['غادر', d.done], ['بانتظار', d.pending]) +
-      '<a class="bt amber w4" href="departure.html?appr=all"><div class="bl"><span class="bi">🚌</span>النقل اليوم</div><div class="two"><div><b>' + tr.filter(x => x.tp === 'bus').length + '</b>حافلة</div><div><b>' + tr.filter(x => x.tp === 'train').length + '</b>قطار</div></div><div class="bs">' + tr.reduce((n, x) => n + x.pax, 0) + ' فرد · أزحم ساعة تحرك: ' + peakTxt(peakOf(hourly('departure', 0))) + '</div></a>';
+      '<a class="bt amber w3" href="departure.html?appr=all"><div class="bl"><span class="bi">🚌</span>النقل اليوم</div><div class="two"><div><b>' + tr.filter(x => x.tp === 'bus').length + '</b>حافلة</div><div><b>' + tr.filter(x => x.tp === 'train').length + '</b>قطار</div></div><div class="bs">' + tr.reduce((n, x) => n + x.pax, 0) + ' فرد · أزحم ساعة: ' + peakTxt(peakOf(hourly('departure', 0))) + '</div></a>';
   }
   function render() {
     const A = state.data.arrival, D = state.data.departure, now = Date.now();
@@ -2905,7 +2901,6 @@ function initDashboard() {
     const target = (a.dangerRows || !d.dangerRows) ? 'arrival' : 'departure';
     $('#kpis').innerHTML = bento(A, D, a, d, now);
     $('#nxA').innerHTML = nxList('arrival'); $('#nxD').innerHTML = nxList('departure'); notesPanel();
-    $('#rings').innerHTML = ring(a.pct, '#34C47A', 'التسكين', 'مُسكَّن') + ring(d.pct, '#0EA5E9', 'المغادرة', 'غادر');
 
     const col = { ok: '#006C35', open: '#C5A059', sky: '#0EA5E9' };
     const dA = A ? byDay(A.records) : [], dD = D ? byDay(D.records) : [];
@@ -2930,7 +2925,7 @@ function initDashboard() {
     const items = []; [['arrival', A], ['departure', D]].forEach(([k, d]) => d && d.records.forEach(r => { if (ST[r._st] && ST[r._st].cls === 'danger') items.push({ k, r }); }));
     items.sort((x, y) => ST[y.r._st].lv - ST[x.r._st].lv || (x.r.when || 0) - (y.r.when || 0));
     $('#feed').innerHTML = items.length ? items.slice(0, 12).map(({ k, r }) => '<a class="nx" href="' + k + '.html?q=' + encodeURIComponent(r.passport || r.name) + '"><span class="no">' + esc(r.flight || '—') + '</span><span class="i">' + esc(r.name || '—') + '<small>' + (k === 'arrival' ? 'وصول' : 'مغادرة') + ' · ' + esc(r.country ? r.country.ar : r.natRaw) + '</small></span><span class="chip danger">' + esc(ST_LABEL[k][r._st]) + '</span><span class="c">' + (r.when ? '<span class="cd" data-w="' + r.when.getTime() + '"></span>' : '') + '</span></a>').join('') + (items.length > 12 ? '<div class="hint" style="padding:6px">+ ' + (items.length - 12) + ' أخرى — افتح صفحة الوصول/المغادرة وصفِّ بـ «حرجة»</div>' : '') : '<div class="empty" style="padding:18px">لا توجد تنبيهات حرجة حالياً ✓</div>';
-    ovrPanel(now); rdyAlert(now); apprAlert(now); latePanel(now); issPanel(now); rdyPanel(now); apprPanel(now); peaksPanel(); cityPanel(A, D); tpPanel(A, D);
+    ovrPanel(now); rdyAlert(now); apprAlert(now); latePanel(now); issPanel(now); rdyPanel(now); apprPanel(now); peaksPanel(); tpPanel(A, D);
     tick();
   }
   $('#xPrint').insertAdjacentHTML('beforebegin', '<button class="btn" id="xWa">📋 ملخص اليوم</button>'); $('#xWa').onclick = openDaily;
