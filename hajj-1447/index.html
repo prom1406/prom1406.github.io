@@ -126,7 +126,10 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 .bt .fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:10px 8px}.bt .fgi{background:none;border:0;font-family:inherit;cursor:pointer;border-radius:10px;padding:4px 2px;transition:background .15s}.bt .fgi:hover{background:color-mix(in srgb,var(--c) 18%,transparent)}.bt .fg .fgi{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
 .bt .fg img,.bt .fg i.ph{width:38px;height:26px;border-radius:4px;object-fit:cover;box-shadow:0 0 0 1px rgba(128,128,128,.35);display:grid;place-items:center;font-style:normal;color:var(--mut);font-size:12px;background:var(--card2)}
 .nlist{max-height:55vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.nlr{display:flex;align-items:center;gap:10px;background:var(--line2);border-radius:12px;padding:8px 12px}.nlr .no{color:var(--mut);font-size:12px;min-width:28px}.nlr .i{flex:1;min-width:0;display:flex;flex-direction:column}.nlr .i small{color:var(--mut);direction:ltr;text-align:start}
-.bt.cty{justify-content:flex-start;gap:10px}.bt .cdr{display:flex;flex-direction:column;gap:4px}.bt .cdr div{display:grid;grid-template-columns:1.2fr 1fr 1fr;align-items:center;gap:8px;padding:5px 10px;border-radius:9px;background:var(--line2);font-size:12.5px;color:var(--mut)}.bt .cdr .cdh{background:none;font-size:11px;padding-block:0}.bt .cdr .td{outline:1.5px solid var(--c)}.bt .cdr b{font-size:15px;text-align:center;font-variant-numeric:tabular-nums}.bt .cdr .cdh span+span{text-align:center}.bt .cdr .ga{color:#34C47A}.bt .cdr .gd{color:#0EA5E9}
+.bt.cty{justify-content:flex-start;gap:10px}.bt .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}.bt .cc{display:flex;flex-direction:column;gap:5px}
+.bt .cc .ch{display:flex;align-items:baseline;justify-content:space-between;padding:8px 10px;border-radius:10px;font-size:12.5px;font-weight:800;color:var(--mut);background:color-mix(in srgb,var(--cc) 16%,transparent);border-bottom:2px solid var(--cc)}.bt .cc .ch b{font-size:22px;color:var(--cc);font-variant-numeric:tabular-nums}
+.bt .cc.ga{--cc:#34C47A}.bt .cc.gd{--cc:#0EA5E9}
+.bt .cc .cr{display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:9px;background:var(--line2);font-size:12.5px;color:var(--mut);font-variant-numeric:tabular-nums}.bt .cc .cr b{font-size:15px;color:var(--ink)}.bt .cc .cr.td{outline:1.5px solid var(--cc)}
 .band{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 .band a{--c:var(--gold);text-decoration:none;color:var(--ink);border-radius:14px;overflow:hidden;border:1px solid var(--line2);background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;transition:transform .18s,border-color .18s}
 .band a:hover{transform:translateY(-3px);border-color:var(--c)}
@@ -2952,18 +2955,16 @@ function initDashboard() {
   const bTile = (cls, href, ic, lb, v, sub, extra) => '<a class="bt ' + cls + '" href="' + href + '"' + (extra || '') + '><div class="bl"><span class="bi">' + ic + '</span>' + lb + '</div><div class="bv">' + v + '</div><div class="bs">' + sub + '</div></a>';
   const bRing = (cls, href, lb, pct, sub, col) => '<a class="bt ' + cls + '" href="' + href + '"><div class="bl">' + lb + '</div><div class="bm"><div class="rg">' + ringSvg([{ v: pct, c: col }, { v: 100 - pct, c: 'transparent' }], 10) + '<b>' + pct + '%</b></div><div class="bs">' + sub + '</div></div></a>';
   const bBars = (cls, href, lb, x, y) => { const m = Math.max(x[1], y[1], 1); return '<a class="bt ' + cls + '" href="' + href + '"><div class="bl">' + lb + '</div><div class="mb"><div><b>' + x[1] + '</b><i style="height:' + Math.max(5, x[1] / m * 100) + '%"></i>' + x[0] + '</div><div class="b2"><b>' + y[1] + '</b><i style="height:' + Math.max(5, y[1] / m * 100) + '%"></i>' + y[0] + '</div></div></a>'; };
-  // بلاطة المدينة: إجمالي الوصول والمغادرة، ثم أقرب 5 أيام فيها حركة (وصولاً ومغادرة) لكل يوم
+  // بلاطة المدينة: عمودان (وصول | مغادرة)، لكل منهما الإجمالي ثم أول 4 تواريخ قادمة بعدد كل يوم
   function cityTile(i, j, today, now, ga, gd) {
-    const days = new Map(); let ta = 0, td = 0;
-    [['arrival', 'a', ga], ['departure', 'd', gd]].forEach(([k, f, gs]) => gs.forEach(g => {
-      if (g.stayCity !== i) return; if (f === 'a') ta += g.pax; else td += g.pax;
-      const tt = refT(k, g); if (!tt) return; const dk = C.fmtDay(tt); if (dk < today) return;
-      const e = days.get(dk) || { t: tt, a: 0, d: 0 }; e[f] += g.pax; days.set(dk, e);
-    }));
-    const rows = [...days.entries()].sort((x, y) => x[0] < y[0] ? -1 : 1).slice(0, 5);
+    const col = (k, gs, lb, cl) => {
+      const days = new Map(); let tot = 0;
+      gs.forEach(g => { if (g.stayCity !== i) return; tot += g.pax; const tt = refT(k, g); if (!tt) return; const dk = C.fmtDay(tt); if (dk < today) return; days.set(dk, (days.get(dk) || 0) + g.pax); });
+      const rows = [...days.entries()].sort((x, y) => x[0] < y[0] ? -1 : 1).slice(0, 4);
+      return '<div class="cc ' + cl + '"><div class="ch"><span>' + lb + '</span><b>' + tot + '</b></div>' + (rows.length ? rows.map(([dk, n]) => '<div class="cr' + (dk === today ? ' td' : '') + '"><span>' + dk.slice(8) + '/' + dk.slice(5, 7) + '</span><b>' + n + '</b></div>').join('') : '<div class="cr"><span>لا حركة قادمة</span></div>') + '</div>';
+    };
     return '<a class="bt cty ' + ['gold', 'ok'][j] + ' w6" href="arrival.html"><div class="bl"><span class="bi">' + ['🕋', '🕌'][j] + '</span>' + esc(C.CITY_DEF[i].ar) + '</div>' +
-      '<div class="two"><div><b>' + ta + '</b>إجمالي الوصول</div><div><b>' + td + '</b>إجمالي المغادرة</div></div>' +
-      '<div class="cdr"><div class="cdh"><span>اليوم</span><span>وصول</span><span>مغادرة</span></div>' + (rows.length ? rows.map(([dk, e]) => '<div' + (dk === today ? ' class="td"' : '') + '><span>' + (dk === today ? 'اليوم' : C.fmtDayAr(e.t)) + '</span><b class="ga">' + (e.a || '—') + '</b><b class="gd">' + (e.d || '—') + '</b></div>').join('') : '<div class="bs">لا حركة قادمة</div>') + '</div></a>';
+      '<div class="cols">' + col('arrival', ga, '🛬 وصول', 'ga') + col('departure', gd, '🛫 مغادرة', 'gd') + '</div></a>';
   }
   function trCard(today) {
     const T = state.data.transfers;
