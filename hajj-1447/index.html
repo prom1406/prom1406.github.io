@@ -121,6 +121,10 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 .bt.big{gap:12px}.bt.big::after{display:none}.bt .bh{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit}
 .bt .rr{display:grid;grid-template-columns:1fr 1fr;gap:12px}.bt .rk{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;background:var(--line2);border-radius:14px;padding:10px 12px;transition:background .18s}.bt .rk:hover{background:color-mix(in srgb,var(--c) 18%,transparent)}
 .bt .rk .bs b{display:block;color:var(--ink);font-size:13px}.bt .rk .rg b{font-size:15px}.bt .bs b{color:var(--ink)}
+.bt .st4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.bt .st4 div{background:var(--line2);border-radius:10px;padding:6px 9px;font-size:11.5px;color:var(--mut)}.bt .st4 div b{display:block;font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums}
+.bt .nb.rt div{grid-template-columns:minmax(110px,auto) 1fr 40px}.bt .nb.rt span{white-space:nowrap}.bt .nb.rt div.bs{display:block}
+.bt .fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:10px 8px}.bt .fg span{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+.bt .fg img,.bt .fg i.ph{width:38px;height:26px;border-radius:4px;object-fit:cover;box-shadow:0 0 0 1px rgba(128,128,128,.35);display:grid;place-items:center;font-style:normal;color:var(--mut);font-size:12px;background:var(--card2)}
 .band{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 .band a{--c:var(--gold);text-decoration:none;color:var(--ink);border-radius:14px;overflow:hidden;border:1px solid var(--line2);background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;transition:transform .18s,border-color .18s}
 .band a:hover{transform:translateY(-3px);border-color:var(--c)}
@@ -2858,6 +2862,25 @@ function initDashboard() {
   const bTile = (cls, href, ic, lb, v, sub, extra) => '<a class="bt ' + cls + '" href="' + href + '"' + (extra || '') + '><div class="bl"><span class="bi">' + ic + '</span>' + lb + '</div><div class="bv">' + v + '</div><div class="bs">' + sub + '</div></a>';
   const bRing = (cls, href, lb, pct, sub, col) => '<a class="bt ' + cls + '" href="' + href + '"><div class="bl">' + lb + '</div><div class="bm"><div class="rg">' + ringSvg([{ v: pct, c: col }, { v: 100 - pct, c: 'transparent' }], 10) + '<b>' + pct + '%</b></div><div class="bs">' + sub + '</div></div></a>';
   const bBars = (cls, href, lb, x, y) => { const m = Math.max(x[1], y[1], 1); return '<a class="bt ' + cls + '" href="' + href + '"><div class="bl">' + lb + '</div><div class="mb"><div><b>' + x[1] + '</b><i style="height:' + Math.max(5, x[1] / m * 100) + '%"></i>' + x[0] + '</div><div class="b2"><b>' + y[1] + '</b><i style="height:' + Math.max(5, y[1] / m * 100) + '%"></i>' + y[0] + '</div></div></a>'; };
+  function trCard(today) {
+    const T = state.data.transfers;
+    if (!T) return '<a class="bt teal w6" href="transfers.html"><div class="bl"><span class="bi">🔁</span>التنقلات الداخلية</div><div class="bs">' + (state.err.transfers ? 'تعذّر تحميل التنقلات — اضغط للتفاصيل' : 'جارٍ تحميل بيانات التنقلات…') + '</div></a>';
+    const mv = T.moves, hot = new Set(), cit = new Set(), rt = new Map(), cn = c => (C.CITY_DEF[c] ? C.CITY_DEF[c].ar.replace(/\s*(المكرمة|المنورة)/, '') : c);
+    let pax = 0, busN = 0, aT = 0, aOk = 0, tN = 0, tP = 0;
+    mv.forEach(m => {
+      pax += m.pax; hot.add(m.from.hotel); hot.add(m.to.hotel); [m.from.city || m.from.cityRaw, m.to.city || m.to.cityRaw].forEach(c => c && cit.add(c));
+      if (m.date === today) { tN++; tP += m.pax; }
+      trLegs(m).forEach(l => { const bs = trBuses(m, l); if (l.kind === 'bus') busN += bs.length; if (l.apr) bs.forEach((b, i) => { aT++; if (trOk(trKey(m, l, i))) aOk++; }); });
+      const fc = m.from.city || m.from.cityRaw || '', tc = m.to.city || m.to.cityRaw || '';
+      const lb = TR_TYPES[m.type].ic + ' ' + (m.type === 'train' ? cn(fc) + ' ← ' + cn(tc) : (m.type === 'mashaer' ? 'فندق ↔ كدانة' : 'فندق ← فندق') + (fc ? ' · ' + cn(fc) : '')), k = m.type + '|' + lb;
+      const e = rt.get(k) || { lb, p: 0, n: 0, ty: m.type }; e.p += m.pax; e.n++; rt.set(k, e);
+    });
+    const rows = [...rt.values()].sort((x, y) => y.p - x.p), mx = rows.length ? rows[0].p : 1, col = { train: '#0EA5E9', mashaer: '#F5A524', hotel: '#34C47A' };
+    return '<a class="bt teal w6" href="transfers.html"><div class="bl"><span class="bi">🔁</span>التنقلات الداخلية<b style="margin-inline-start:auto;color:var(--c);font-size:13px">' + pax + ' انتقال حاج</b></div>' +
+      '<div class="st4"><div><b>' + mv.length + '</b>حركة</div><div><b>' + busN + '</b>حافلة</div><div><b>' + hot.size + '</b>فندق</div><div><b>' + cit.size + '</b>مدينة</div></div>' +
+      '<div class="nb rt">' + rows.slice(0, 5).map(x => '<div title="' + x.n + ' حركة"><span>' + esc(x.lb) + '</span><em><i style="width:' + (x.p / mx * 100) + '%;background:' + col[x.ty] + '"></i></em><b>' + x.p + '</b></div>').join('') + (rows.length > 5 ? '<div class="bs">+ ' + (rows.length - 5) + ' مسار آخر</div>' : '') + '</div>' +
+      '<div class="bs">🧾 اعتماد حافلات بين المدن <b>' + aOk + ' / ' + aT + '</b> · اليوم <b>' + tN + '</b> حركة (' + tP + ' حاج)</div></a>';
+  }
   function bento(A, D, a, d, now) {
     const sum = x => x.reduce((n, g) => n + g.pax, 0), o = overall(now);
     const today = C.fmtDay(new Date(now)), tom = C.fmtDay(new Date(now + 864e5)), ga = grps('arrival'), gd = grps('departure');
@@ -2869,7 +2892,7 @@ function initDashboard() {
     const target = (a.dangerRows || !d.dangerRows) ? 'arrival' : 'departure', warn = (A ? C.summarize(A.records, now, S).warn : 0) + (D ? C.summarize(D.records, now, S).warn : 0);
     const cm = {}; ['makkah', 'madinah', 'jeddah'].forEach(i => cm[i] = { a: 0, d: 0 });
     [[A, 'a'], [D, 'd']].forEach(([R0, k]) => R0 && R0.records.forEach(r => { if (cm[r.stayCity]) cm[r.stayCity][k] += r.pax; }));
-    const nm = new Map(); [...(A ? A.records : []), ...(D ? D.records : [])].forEach(r => { const k = r.country ? r.country.iso2 : '?'; const e = nm.get(k) || { c: r.country, n: 0 }; e.n += r.pax; nm.set(k, e); });
+    const nm = new Map(); (A ? A.records : (D ? D.records : [])).forEach(r => { const k = r.country ? r.country.iso2 : '?'; const e = nm.get(k) || { c: r.country, n: 0 }; e.n += r.pax; nm.set(k, e); });
     const nat = [...nm.values()].sort((x, y) => y.n - x.n), nmx = nat.length ? nat[0].n : 1;
     const pc = (p, n) => n ? Math.round(p / n * 100) : 0, apP = sum(ap);
     const rk = (href, lb, v, n, col) => '<a class="rk" href="' + href + '"><div class="rg">' + ringSvg([{ v: pc(v, n), c: col }, { v: 100 - pc(v, n), c: 'transparent' }], 10) + '<b>' + pc(v, n) + '%</b></div><div class="bs"><b>' + lb + '</b>' + v + ' من ' + n + '</div></a>';
@@ -2886,8 +2909,9 @@ function initDashboard() {
       '<a class="vio" href="departure.html?appr=1"><span>لا يمكن اعتمادها</span><b>' + cant.length + '</b></a>' +
       '<a class="amber" href="departure.html?appr=all"><span>اعتمادات اليوم</span><b>' + tr.length + '</b></a></div>' +
       ['makkah', 'madinah'].map((i, j) => '<a class="bt ' + ['gold', 'ok'][j] + ' w3" href="' + (cm[i].a >= cm[i].d ? 'arrival' : 'departure') + '.html"><div class="bl"><span class="bi">' + ['🕋', '🕌'][j] + '</span>' + esc(C.CITY_DEF[i].ar) + '</div><div class="two"><div><b>' + cm[i].a + '</b>قادمون</div><div><b>' + cm[i].d + '</b>مغادرون</div></div></a>').join('') +
-      '<a class="bt vio w3" href="#nat" data-jump="nat"><div class="bl"><span class="bi">🌍</span>الجنسيات <b style="margin-inline-start:auto;color:var(--c)">' + nat.length + '</b></div><div class="nb">' + nat.slice(0, 3).map(x => '<div><span>' + esc(x.c ? x.c.ar : 'غير محدد') + '</span><em><i style="width:' + (x.n / nmx * 100) + '%"></i></em><b>' + x.n + '</b></div>').join('') + '</div></a>' +
-      '<a class="bt amber w3" href="departure.html?appr=all"><div class="bl"><span class="bi">🚌</span>النقل اليوم</div><div class="two"><div><b>' + tr.filter(x => x.tp === 'bus').length + '</b>حافلة</div><div><b>' + tr.filter(x => x.tp === 'train').length + '</b>قطار</div></div><div class="bs">' + tr.reduce((n, x) => n + x.pax, 0) + ' فرد · أزحم ساعة: ' + peakTxt(peakOf(hourly('departure', 0))) + '</div></a>';
+      trCard(today) +
+      '<a class="bt vio w6" href="#nat" data-jump="nat"><div class="bl"><span class="bi">🌍</span>الجنسيات<b style="margin-inline-start:auto;color:var(--c);font-size:20px">' + nat.length + '</b></div><div class="fg">' + nat.slice(0, 18).map(x => '<span title="' + esc(x.c ? x.c.ar : 'غير محدد') + '">' + (x.c ? '<img alt="" loading="lazy" src="' + C.flagUrl(x.c.iso2, 40) + '" srcset="' + C.flagUrl(x.c.iso2, 80) + ' 2x" onerror="this.style.visibility=\'hidden\'">' : '<i class="ph">؟</i>') + x.n + '</span>').join('') + '</div>' + (nat.length > 18 ? '<div class="bs">+ ' + (nat.length - 18) + ' جنسية أخرى في القائمة أدناه</div>' : '') + '</a>' +
+      '<a class="bt amber w6" href="departure.html?appr=all"><div class="bl"><span class="bi">🚌</span>اعتمادات المغادرة اليوم</div><div class="two"><div><b>' + tr.filter(x => x.tp === 'bus').length + '</b>حافلة</div><div><b>' + tr.filter(x => x.tp === 'train').length + '</b>قطار</div></div><div class="bs">' + tr.reduce((n, x) => n + x.pax, 0) + ' فرد · أزحم ساعة: ' + peakTxt(peakOf(hourly('departure', 0))) + '</div></a>';
   }
   function render() {
     const A = state.data.arrival, D = state.data.departure, now = Date.now();
@@ -3438,7 +3462,7 @@ async function boot() {
   document.documentElement.dataset.theme = th;
   const page = document.body.dataset.page;
   if (page === 'index') ensureChart();
-  kindsInUse = page === 'index' ? ['arrival', 'departure'] : (page === 'pilgrim' || page === 'follow') ? ['arrival', 'departure', 'transfers'] : page === 'transfers' ? ['transfers', 'arrival'] : [page];
+  kindsInUse = page === 'index' ? ['arrival', 'departure', 'transfers'] : (page === 'pilgrim' || page === 'follow') ? ['arrival', 'departure', 'transfers'] : page === 'transfers' ? ['transfers', 'arrival'] : [page];
   const startUi = () => { if (page === 'index') initDashboard(); else if (page === 'transfers') initTransfers(); else if (page === 'pilgrim') initPilgrim(); else if (page === 'follow') initFollow(); else initTracker(page); };
   // مسار سريع: إن وُجدت إعدادات وبيانات محفوظة تُعرض فوراً دون انتظار الخادم، ثم يُحدَّث في الخلفية
   let early = false;
