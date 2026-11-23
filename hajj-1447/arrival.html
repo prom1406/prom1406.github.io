@@ -665,6 +665,94 @@ ar|ARG|الأرجنتين|Argentina|الارجنتين
 au|AUS|أستراليا|Australia|استراليا
 nz|NZL|نيوزيلندا|New Zealand
 fj|FJI|فيجي|Fiji
+ad|AND|أندورا|Andorra
+ag|ATG|أنتيغوا وبربودا|Antigua and Barbuda
+bb|BRB|بربادوس|Barbados
+bm|BMU|برمودا|Bermuda
+bo|BOL|بوليفيا|Bolivia
+bs|BHS|الباهاما|Bahamas
+bt|BTN|بوتان|Bhutan
+bw|BWA|بوتسوانا|Botswana
+by|BLR|بيلاروسيا|Belarus
+bz|BLZ|بليز|Belize
+ck|COK|جزر كوك|Cook Islands
+cl|CHL|تشيلي|Chile
+co|COL|كولومبيا|Colombia
+cr|CRI|كوستاريكا|Costa Rica
+cu|CUB|كوبا|Cuba
+cv|CPV|الرأس الأخضر|Cape Verde
+cy|CYP|قبرص|Cyprus
+cz|CZE|التشيك|Czech Republic,Czechia
+dm|DMA|دومينيكا|Dominica
+do|DOM|جمهورية الدومينيكان|Dominican Republic
+ec|ECU|الإكوادور|Ecuador
+ee|EST|إستونيا|Estonia
+fm|FSM|ميكرونيزيا|Micronesia
+fo|FRO|جزر فارو|Faroe Islands
+gd|GRD|غرينادا|Grenada
+gg|GGY|غيرنزي|Guernsey
+gi|GIB|جبل طارق|Gibraltar
+gl|GRL|غرينلاند|Greenland
+gq|GNQ|غينيا الاستوائية|Equatorial Guinea
+gt|GTM|غواتيمالا|Guatemala
+gu|GUM|غوام|Guam
+gy|GUY|غيانا|Guyana
+hk|HKG|هونغ كونغ|Hong Kong
+hn|HND|هندوراس|Honduras
+hr|HRV|كرواتيا|Croatia
+ht|HTI|هايتي|Haiti
+hu|HUN|المجر|Hungary
+im|IMN|جزيرة مان|Isle of Man
+is|ISL|آيسلندا|Iceland,ايسلندا
+je|JEY|جيرسي|Jersey
+jm|JAM|جامايكا|Jamaica
+ki|KIR|كيريباتي|Kiribati
+kn|KNA|سانت كيتس ونيفيس|Saint Kitts and Nevis,St Kitts and Nevis,سانت كيتس
+kp|PRK|كوريا الشمالية|North Korea
+ky|CYM|جزر كايمان|Cayman Islands
+la|LAO|لاوس|Laos
+lc|LCA|سانت لوسيا|Saint Lucia
+li|LIE|ليختنشتاين|Liechtenstein
+ls|LSO|ليسوتو|Lesotho
+lt|LTU|ليتوانيا|Lithuania
+lu|LUX|لوكسمبورغ|Luxembourg
+lv|LVA|لاتفيا|Latvia
+mc|MCO|موناكو|Monaco
+md|MDA|مولدوفا|Moldova
+mh|MHL|جزر مارشال|Marshall Islands
+mn|MNG|منغوليا|Mongolia
+mo|MAC|ماكاو|Macau
+mt|MLT|مالطا|Malta
+nc|NCL|كاليدونيا الجديدة|New Caledonia
+ni|NIC|نيكاراغوا|Nicaragua
+nr|NRU|ناورو|Nauru
+pa|PAN|بنما|Panama
+pe|PER|بيرو|Peru
+pf|PYF|بولينيزيا الفرنسية|French Polynesia
+pg|PNG|بابوا غينيا الجديدة|Papua New Guinea
+pr|PRI|بورتوريكو|Puerto Rico
+pw|PLW|بالاو|Palau
+py|PRY|باراغواي|Paraguay
+sb|SLB|جزر سليمان|Solomon Islands
+sc|SYC|سيشل|Seychelles
+si|SVN|سلوفينيا|Slovenia
+sk|SVK|سلوفاكيا|Slovakia
+sm|SMR|سان مارينو|San Marino
+sr|SUR|سورينام|Suriname
+st|STP|ساو تومي وبرينسيبي|Sao Tome and Principe
+sv|SLV|السلفادور|El Salvador
+sz|SWZ|إسواتيني|Eswatini,Swaziland
+tl|TLS|تيمور الشرقية|Timor-Leste,East Timor
+to|TON|تونغا|Tonga
+tt|TTO|ترينيداد وتوباغو|Trinidad and Tobago
+tv|TUV|توفالو|Tuvalu
+tw|TWN|تايوان|Taiwan
+uy|URY|أوروغواي|Uruguay
+va|VAT|الفاتيكان|Vatican
+vc|VCT|سانت فنسنت والغرينادين|Saint Vincent and the Grenadines
+ve|VEN|فنزويلا|Venezuela
+vu|VUT|فانواتو|Vanuatu
+ws|WSM|ساموا|Samoa
 `;
 const COUNTRIES = []; const CIDX = new Map(); const CLONG = [];
 COUNTRY_TABLE.trim().split('\n').forEach(line => {
@@ -3190,6 +3278,7 @@ function initPilgrim() {
     const I = build(), nq = C.normAr(q);
     if (!nq) { box.innerHTML = '<div class="empty">اكتب رقم الجواز أو جزءاً من الاسم (' + I.list.length + ' حاج في البيانات)</div>'; $('#pCnt').textContent = ''; return; }
     const hits = I.list.filter(o => C.normAr(o.passport).includes(nq) || (o.name && C.normAr(o.name).includes(nq))).slice(0, 40);
+    if (sel && !hits.some(o => o.k === sel)) { const so = I.list.find(o => o.k === sel); if (so) hits.unshift(so); }
     $('#pCnt').textContent = hits.length + (hits.length === 40 ? '+' : '') + ' نتيجة';
     let cur = hits.find(o => o.k === sel); if (!cur && hits.length === 1) cur = hits[0];
     const list = hits.length > 1 || !cur ? '<div class="pfl">' + hits.map(o => '<button type="button" class="pfi' + (cur && cur.k === o.k ? ' on' : '') + '" data-pk="' + esc(o.k) + '"><b>' + esc(o.name || '—') + '</b><span dir="ltr">' + esc(o.passport) + '</span><small>' + (o.a.length ? '🛬' : '') + (o.t.length ? '🏨' : '') + (o.d.length ? '🛫' : '') + '</small></button>').join('') + '</div>' : '';
