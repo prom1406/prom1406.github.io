@@ -126,6 +126,7 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 .bt .fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:10px 8px}.bt .fgi{background:none;border:0;font-family:inherit;cursor:pointer;border-radius:10px;padding:4px 2px;transition:background .15s}.bt .fgi:hover{background:color-mix(in srgb,var(--c) 18%,transparent)}.bt .fg .fgi{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
 .bt .fg img,.bt .fg i.ph{width:38px;height:26px;border-radius:4px;object-fit:cover;box-shadow:0 0 0 1px rgba(128,128,128,.35);display:grid;place-items:center;font-style:normal;color:var(--mut);font-size:12px;background:var(--card2)}
 .nlist{max-height:55vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.nlr{display:flex;align-items:center;gap:10px;background:var(--line2);border-radius:12px;padding:8px 12px}.nlr .no{color:var(--mut);font-size:12px;min-width:28px}.nlr .i{flex:1;min-width:0;display:flex;flex-direction:column}.nlr .i small{color:var(--mut);direction:ltr;text-align:start}
+.bt.cty{justify-content:flex-start;gap:10px}.bt .cdr{display:flex;flex-direction:column;gap:4px}.bt .cdr div{display:grid;grid-template-columns:1.2fr 1fr 1fr;align-items:center;gap:8px;padding:5px 10px;border-radius:9px;background:var(--line2);font-size:12.5px;color:var(--mut)}.bt .cdr .cdh{background:none;font-size:11px;padding-block:0}.bt .cdr .td{outline:1.5px solid var(--c)}.bt .cdr b{font-size:15px;text-align:center;font-variant-numeric:tabular-nums}.bt .cdr .cdh span+span{text-align:center}.bt .cdr .ga{color:#34C47A}.bt .cdr .gd{color:#0EA5E9}
 .band{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 .band a{--c:var(--gold);text-decoration:none;color:var(--ink);border-radius:14px;overflow:hidden;border:1px solid var(--line2);background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;transition:transform .18s,border-color .18s}
 .band a:hover{transform:translateY(-3px);border-color:var(--c)}
@@ -2951,6 +2952,19 @@ function initDashboard() {
   const bTile = (cls, href, ic, lb, v, sub, extra) => '<a class="bt ' + cls + '" href="' + href + '"' + (extra || '') + '><div class="bl"><span class="bi">' + ic + '</span>' + lb + '</div><div class="bv">' + v + '</div><div class="bs">' + sub + '</div></a>';
   const bRing = (cls, href, lb, pct, sub, col) => '<a class="bt ' + cls + '" href="' + href + '"><div class="bl">' + lb + '</div><div class="bm"><div class="rg">' + ringSvg([{ v: pct, c: col }, { v: 100 - pct, c: 'transparent' }], 10) + '<b>' + pct + '%</b></div><div class="bs">' + sub + '</div></div></a>';
   const bBars = (cls, href, lb, x, y) => { const m = Math.max(x[1], y[1], 1); return '<a class="bt ' + cls + '" href="' + href + '"><div class="bl">' + lb + '</div><div class="mb"><div><b>' + x[1] + '</b><i style="height:' + Math.max(5, x[1] / m * 100) + '%"></i>' + x[0] + '</div><div class="b2"><b>' + y[1] + '</b><i style="height:' + Math.max(5, y[1] / m * 100) + '%"></i>' + y[0] + '</div></div></a>'; };
+  // بلاطة المدينة: إجمالي الوصول والمغادرة، ثم أقرب 5 أيام فيها حركة (وصولاً ومغادرة) لكل يوم
+  function cityTile(i, j, today, now, ga, gd) {
+    const days = new Map(); let ta = 0, td = 0;
+    [['arrival', 'a', ga], ['departure', 'd', gd]].forEach(([k, f, gs]) => gs.forEach(g => {
+      if (g.stayCity !== i) return; if (f === 'a') ta += g.pax; else td += g.pax;
+      const tt = refT(k, g); if (!tt) return; const dk = C.fmtDay(tt); if (dk < today) return;
+      const e = days.get(dk) || { t: tt, a: 0, d: 0 }; e[f] += g.pax; days.set(dk, e);
+    }));
+    const rows = [...days.entries()].sort((x, y) => x[0] < y[0] ? -1 : 1).slice(0, 5);
+    return '<a class="bt cty ' + ['gold', 'ok'][j] + ' w6" href="arrival.html"><div class="bl"><span class="bi">' + ['🕋', '🕌'][j] + '</span>' + esc(C.CITY_DEF[i].ar) + '</div>' +
+      '<div class="two"><div><b>' + ta + '</b>إجمالي الوصول</div><div><b>' + td + '</b>إجمالي المغادرة</div></div>' +
+      '<div class="cdr"><div class="cdh"><span>اليوم</span><span>وصول</span><span>مغادرة</span></div>' + (rows.length ? rows.map(([dk, e]) => '<div' + (dk === today ? ' class="td"' : '') + '><span>' + (dk === today ? 'اليوم' : C.fmtDayAr(e.t)) + '</span><b class="ga">' + (e.a || '—') + '</b><b class="gd">' + (e.d || '—') + '</b></div>').join('') : '<div class="bs">لا حركة قادمة</div>') + '</div></a>';
+  }
   function trCard(today) {
     const T = state.data.transfers;
     if (!T) return '<a class="bt teal w6" href="transfers.html"><div class="bl"><span class="bi">🔁</span>التنقلات الداخلية</div><div class="bs">' + (state.err.transfers ? 'تعذّر تحميل التنقلات — اضغط للتفاصيل' : 'جارٍ تحميل بيانات التنقلات…') + '</div></a>';
@@ -2997,10 +3011,10 @@ function initDashboard() {
       '<a class="red" href="departure.html?rdy=late"><span>بلا اعتماد (5 أيام)</span><b>' + o.na + '</b></a>' +
       '<a class="vio" href="departure.html?appr=1"><span>لا يمكن اعتمادها</span><b>' + cant.length + '</b></a>' +
       '<a class="amber" href="departure.html?appr=all"><span>اعتمادات اليوم</span><b>' + tr.length + '</b></a></div>' +
-      ['makkah', 'madinah'].map((i, j) => '<a class="bt ' + ['gold', 'ok'][j] + ' w3" href="' + (cm[i].a >= cm[i].d ? 'arrival' : 'departure') + '.html"><div class="bl"><span class="bi">' + ['🕋', '🕌'][j] + '</span>' + esc(C.CITY_DEF[i].ar) + '</div><div class="two"><div><b>' + cm[i].a + '</b>قادمون</div><div><b>' + cm[i].d + '</b>مغادرون</div></div></a>').join('') +
+      ['makkah', 'madinah'].map((i, j) => cityTile(i, j, today, now, ga, gd)).join('') +
       trCard(today) +
       '<div class="bt vio w6"><div class="bl"><span class="bi">🌍</span>الجنسيات<a href="#nat" data-jump="nat" class="hint" style="margin-inline-start:8px">القائمة ↓</a><b style="margin-inline-start:auto;color:var(--c);font-size:20px">' + nat.length + '</b></div><div class="fg">' + nat.slice(0, 18).map(x => '<button type="button" class="fgi" data-nat="' + esc(x.k) + '" title="' + esc(x.c ? x.c.ar : 'غير محدد') + ' — اضغط لعرض الأسماء">' + (x.c ? '<img alt="" loading="lazy" src="' + C.flagUrl(x.c.iso2, 40) + '" srcset="' + C.flagUrl(x.c.iso2, 80) + ' 2x" onerror="this.style.visibility=\'hidden\'">' : '<i class="ph">؟</i>') + x.n + '</button>').join('') + '</div>' + (nat.length > 18 ? '<div class="bs">+ ' + (nat.length - 18) + ' جنسية أخرى <a href="#nat" data-jump="nat" class="hint">في القائمة أدناه</a></div>' : '') + '</div>' +
-      '<a class="bt amber w6" href="departure.html?appr=all"><div class="bl"><span class="bi">🚌</span>اعتمادات المغادرة اليوم</div><div class="two"><div><b>' + tr.filter(x => x.tp === 'bus').length + '</b>حافلة</div><div><b>' + tr.filter(x => x.tp === 'train').length + '</b>قطار</div></div><div class="bs">' + tr.reduce((n, x) => n + x.pax, 0) + ' فرد · أزحم ساعة: ' + peakTxt(peakOf(hourly('departure', 0))) + '</div></a>';
+      '<a class="bt amber w12" href="departure.html?appr=all"><div class="bl"><span class="bi">🚌</span>اعتمادات المغادرة اليوم</div><div class="two"><div><b>' + tr.filter(x => x.tp === 'bus').length + '</b>حافلة</div><div><b>' + tr.filter(x => x.tp === 'train').length + '</b>قطار</div></div><div class="bs">' + tr.reduce((n, x) => n + x.pax, 0) + ' فرد · أزحم ساعة: ' + peakTxt(peakOf(hourly('departure', 0))) + '</div></a>';
   }
   function render() {
     const A = state.data.arrival, D = state.data.departure, now = Date.now();
