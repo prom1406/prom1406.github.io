@@ -91,6 +91,40 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 @media(max-width:1000px){.grid2,.grid2.even,.cols2{grid-template-columns:1fr}}
 
 /* ---------- KPI ---------- */
+
+/* ===== لوحة البلاطات (إنفوجرافيك) ===== */
+.bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:minmax(116px,auto);gap:12px;margin-bottom:18px}
+.bt{--c:var(--gold);position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:6px;padding:14px 16px 13px;border-radius:18px;background:linear-gradient(150deg,var(--card2),var(--card));border:1px solid var(--line2);box-shadow:var(--shadow);color:var(--ink);text-decoration:none;overflow:hidden;transition:transform .18s,border-color .18s,box-shadow .18s;min-width:0}
+.bt::before{content:"";position:absolute;inset-inline-start:0;top:12px;bottom:12px;width:4px;border-radius:4px;background:var(--c)}
+.bt::after{content:"←";position:absolute;inset-inline-end:12px;top:9px;opacity:0;transform:translateX(6px);transition:.18s;color:var(--c);font-weight:800}
+.bt:hover,.bt:focus-visible{transform:translateY(-3px);border-color:var(--c);box-shadow:0 16px 34px rgba(0,0,0,.38);outline:0}
+.bt:hover::after{opacity:1;transform:none}
+.bt.gold{--c:#C5A059}.bt.ok{--c:#34C47A}.bt.sky{--c:#0EA5E9}.bt.red{--c:#E5484D}.bt.amber{--c:#F5A524}.bt.vio{--c:#8B5CF6}.bt.teal{--c:#14B8A6}
+.bt .bl{font-size:12.5px;color:var(--mut);font-weight:700;display:flex;align-items:center;gap:8px;line-height:1.3}
+.bt .bi{flex:none;width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-size:18px;background:color-mix(in srgb,var(--c) 18%,transparent)}
+.bt .bv{font-size:36px;font-weight:800;line-height:1;color:var(--c);font-variant-numeric:tabular-nums}
+.bt .bs{font-size:12px;color:var(--mut);line-height:1.5}
+.bt .bm{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.bt.pulse{animation:btp 2s infinite}@keyframes btp{0%,100%{box-shadow:var(--shadow)}50%{box-shadow:0 0 0 3px rgba(229,72,77,.35),var(--shadow)}}
+.w2{grid-column:span 2}.w3{grid-column:span 3}.w4{grid-column:span 4}.w5{grid-column:span 5}.w6{grid-column:span 6}.w8{grid-column:span 8}.w12{grid-column:1/-1}.h2{grid-row:span 2}
+.bt .rg{position:relative;width:78px;height:78px;flex:none}.bt .rg svg{width:100%;height:100%;transform:rotate(-90deg)}
+.bt .rg b{position:absolute;inset:0;display:grid;place-items:center;font-size:18px;font-weight:800;color:var(--c)}
+.bt.dn{align-items:center;text-align:center;justify-content:center;gap:14px}.bt.dn .rg{width:160px;height:160px}.bt.dn .rg b{font-size:30px;color:var(--ink);display:flex;flex-direction:column;justify-content:center;align-items:center;line-height:1.1}.bt.dn .rg b small{font-size:11px;color:var(--mut);font-weight:600}
+.bt .lg{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;font-size:12px;color:var(--mut)}.bt .lg i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-inline-end:5px}.bt .lg b{color:var(--ink)}
+.bt .mb{display:flex;align-items:flex-end;justify-content:space-around;gap:16px;height:78px}
+.bt .mb div{flex:1;max-width:70px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px;font-size:11px;color:var(--mut);text-align:center}
+.bt .mb div i{display:block;width:100%;border-radius:6px 6px 0 0;background:var(--c);min-height:4px}.bt .mb div.b2 i{background:color-mix(in srgb,var(--c) 40%,#64748b)}
+.bt .mb div b{font-size:13px;color:var(--ink)}
+.bt .nb{display:flex;flex-direction:column;gap:5px}.bt .nb div{display:grid;grid-template-columns:70px 1fr 34px;align-items:center;gap:7px;font-size:11.5px;color:var(--mut)}.bt .nb em{display:block;height:7px;border-radius:5px;background:var(--line2)}.bt .nb em i{display:block;height:100%;border-radius:5px;background:var(--c)}.bt .nb b{color:var(--ink);text-align:end}
+.bt .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.bt .two div{background:var(--line2);border-radius:10px;padding:6px 9px;font-size:11.5px;color:var(--mut)}.bt .two div b{display:block;font-size:19px;color:var(--ink);font-variant-numeric:tabular-nums}
+.band{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+.band a{--c:var(--gold);text-decoration:none;color:var(--ink);border-radius:14px;overflow:hidden;border:1px solid var(--line2);background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;transition:transform .18s,border-color .18s}
+.band a:hover{transform:translateY(-3px);border-color:var(--c)}
+.band a span{padding:7px 8px;text-align:center;font-size:12px;font-weight:700;color:var(--mut);background:var(--card2);border-bottom:2px solid var(--c)}
+.band a b{padding:10px 8px;text-align:center;font-size:28px;font-weight:800;color:var(--c);font-variant-numeric:tabular-nums}
+.band a.teal{--c:#14B8A6}.band a.ok{--c:#34C47A}.band a.red{--c:#E5484D}.band a.amber{--c:#F5A524}.band a.sky{--c:#0EA5E9}.band a.vio{--c:#8B5CF6}
+@media(max-width:1000px){.bento{grid-template-columns:repeat(6,minmax(0,1fr))}.w2,.w3{grid-column:span 3}.w4,.w5,.w6,.w8{grid-column:span 6}.band{grid-template-columns:repeat(2,minmax(0,1fr))}.h2{grid-row:auto}}
+@media(max-width:520px){.bt .bv{font-size:30px}.bt{padding:12px 13px}}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:16px}
 .kpi{position:relative;padding:15px 16px;border-radius:var(--radius);background:var(--card);border:1px solid var(--line2);overflow:hidden;cursor:default;box-shadow:var(--shadow)}
 .kpi::after{content:"";position:absolute;inset-inline-end:-26px;top:-26px;width:90px;height:90px;border-radius:50%;background:var(--accent,var(--gold));opacity:.13}
@@ -2647,7 +2681,7 @@ const ring = (pct, color, label, sub) => { const c = 2 * Math.PI * 54; return '<
 function initDashboard() {
   const app = $('#app');
   app.innerHTML = '<section class="hero"><div><h1>لوحة المؤشرات <span>التنفيذية</span></h1><p>نظرة لحظية على حركة وصول ومغادرة حجاج 1447هـ</p></div><div class="hero-actions"><button class="btn green" id="xXls">' + ICON.xls + 'Excel شامل</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'تقرير PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
-    '<div id="stale"></div><div id="ovr"></div><div id="rdyAl"></div><div id="apprAl"></div><div class="kpis" id="kpis"></div>' +
+    '<div id="stale"></div><div id="ovr"></div><div class="bento" id="kpis"></div><div id="rdyAl"></div><div id="apprAl"></div>' +
     '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الأكثر تأخراً</h2><span class="hint">وصول لم يُسكَّن · تحرك لم يغادر</span></div><div class="nxt" id="late"></div></section><section class="panel"><div class="panel-h"><h2>الجاهزية والنقل</h2><span class="hint">رحلات غير جاهزة · مشاكل النقل</span></div><div class="nxt" id="nIss"></div></section></div>' +
     '<div class="grid2 even"><section class="panel"><div class="panel-h"><h2>الاستعداد المسبق للوصول</h2><a class="hint" href="arrival.html?rdy=late">الرحلات بلا استعداد ←</a></div><div id="rdyP"></div></section><section class="panel"><div class="panel-h"><h2>اعتمادات المغادرة المقترحة</h2><a class="hint" href="departure.html?appr=all">فتح الاعتمادات ←</a></div><div id="apprP"></div></section></div>' +
     '<div class="grid2"><section class="panel"><h2>أقرب الرحلات</h2><div class="cols2"><div><h3>الوصول</h3><div class="nxt" id="nxA"></div></div><div><h3>المغادرة</h3><div class="nxt" id="nxD"></div></div></div></section>' +
@@ -2817,6 +2851,48 @@ function initDashboard() {
       '<a class="kpi ok click" href="departure.html"><div class="l">🧾 اعتماد مسجّل</div><div class="v">' + ap.length + '</div><div class="s">رحلة · ' + apP + ' حاج من ' + d.total + ' (' + pc(apP, d.total) + '%)</div></a>' +
       '<a class="kpi na click" href="departure.html?appr=1"><div class="l">🚫 لا يمكن اعتمادها</div><div class="v">' + na.length + '</div><div class="s">مجموعة · ' + sum(na) + ' حاج (سيارة أو بلا وقت تحرك)</div></a>';
   }
+  // ---- لوحة البلاطات: كل المؤشرات في شبكة واحدة، والضغط على أي بلاطة يفتح بياناتها ----
+  const ringSvg = (parts, w) => { const c = 2 * Math.PI * 40, tot = parts.reduce((n, p) => n + p.v, 0) || 1; let off = 0; return '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="' + css('--line2') + '" stroke-width="' + w + '"/>' + parts.map(p => { const l = p.v / tot * c, s = '<circle cx="50" cy="50" r="40" fill="none" stroke="' + p.c + '" stroke-width="' + w + '" stroke-dasharray="' + l.toFixed(1) + ' ' + (c - l).toFixed(1) + '" stroke-dashoffset="' + (-off).toFixed(1) + '"/>'; off += l; return s; }).join('') + '</svg>'; };
+  const bTile = (cls, href, ic, lb, v, sub, extra) => '<a class="bt ' + cls + '" href="' + href + '"' + (extra || '') + '><div class="bl"><span class="bi">' + ic + '</span>' + lb + '</div><div class="bv">' + v + '</div><div class="bs">' + sub + '</div></a>';
+  const bRing = (cls, href, lb, pct, sub, col) => '<a class="bt ' + cls + '" href="' + href + '"><div class="bl">' + lb + '</div><div class="bm"><div class="rg">' + ringSvg([{ v: pct, c: col }, { v: 100 - pct, c: 'transparent' }], 10) + '<b>' + pct + '%</b></div><div class="bs">' + sub + '</div></div></a>';
+  const bBars = (cls, href, lb, x, y) => { const m = Math.max(x[1], y[1], 1); return '<a class="bt ' + cls + '" href="' + href + '"><div class="bl">' + lb + '</div><div class="mb"><div><b>' + x[1] + '</b><i style="height:' + Math.max(5, x[1] / m * 100) + '%"></i>' + x[0] + '</div><div class="b2"><b>' + y[1] + '</b><i style="height:' + Math.max(5, y[1] / m * 100) + '%"></i>' + y[0] + '</div></div></a>'; };
+  function bento(A, D, a, d, now) {
+    const sum = x => x.reduce((n, g) => n + g.pax, 0), o = overall(now);
+    const today = C.fmtDay(new Date(now)), tom = C.fmtDay(new Date(now + 864e5)), ga = grps('arrival'), gd = grps('departure');
+    const dayPax = (gs, k, day) => sum(gs.filter(g => { const t = refT(k, g); return t && C.fmtDay(t) === day; }));
+    const fl24 = k => state.data[k] ? C.groupFlights(state.data[k].records).filter(f => f.when && f.when.getTime() > now - 36e5 && f.when.getTime() <= now + 864e5 && f.done < f.pax).length : 0;
+    const reg = sum(ga.filter(rdyReg)), fl = D ? C.groupFlights(D.records) : [], ap = fl.filter(apprOkOf);
+    const st = D ? apprStatusMap(D.records) : new Map(), cant = D ? gd.filter(g => g.open > 0 && st.get(g.key) && !st.get(g.key).ok) : [];
+    const tr = D ? buildApprFrom(D.records, +lsGet('hajj1447.apprWin') || 60, 'today').list.filter(x => x.t0.getTime() > now - 18e5) : [];
+    const target = (a.dangerRows || !d.dangerRows) ? 'arrival' : 'departure', warn = (A ? C.summarize(A.records, now, S).warn : 0) + (D ? C.summarize(D.records, now, S).warn : 0);
+    const cm = {}; ['makkah', 'madinah', 'jeddah'].forEach(i => cm[i] = { a: 0, d: 0 });
+    [[A, 'a'], [D, 'd']].forEach(([R0, k]) => R0 && R0.records.forEach(r => { if (cm[r.stayCity]) cm[r.stayCity][k] += r.pax; }));
+    const nm = new Map(); [...(A ? A.records : []), ...(D ? D.records : [])].forEach(r => { const k = r.country ? r.country.iso2 : '?'; const e = nm.get(k) || { c: r.country, n: 0 }; e.n += r.pax; nm.set(k, e); });
+    const nat = [...nm.values()].sort((x, y) => y.n - x.n), nmx = nat.length ? nat[0].n : 1;
+    return '<a class="bt dn gold w4 h2" href="arrival.html"><div class="bl">القادمون مقابل المغادرين</div><div class="rg">' + ringSvg([{ v: a.total, c: '#34C47A' }, { v: d.total, c: '#0EA5E9' }], 14) + '<b>' + (a.total + d.total) + '<small>إجمالي الحجاج</small></b></div><div class="lg"><span><i style="background:#34C47A"></i>قادمون <b>' + a.total + '</b></span><span><i style="background:#0EA5E9"></i>مغادرون <b>' + d.total + '</b></span></div></a>' +
+      bTile('ok w2', 'arrival.html', '🛬', 'إجمالي القادمين', a.total, 'اليوم ' + dayPax(ga, 'arrival', today) + ' · غداً ' + dayPax(ga, 'arrival', tom)) +
+      bTile('sky w2', 'departure.html', '🛫', 'إجمالي المغادرين', d.total, 'اليوم ' + dayPax(gd, 'departure', today) + ' · غداً ' + dayPax(gd, 'departure', tom)) +
+      bRing('ok w2', 'arrival.html?status=done', 'نسبة التسكين', a.pct, a.done + ' من ' + a.total, '#34C47A') +
+      bRing('sky w2', 'departure.html?status=done', 'نسبة المغادرة', d.pct, d.done + ' من ' + d.total, '#0EA5E9') +
+      bTile('amber w2', 'arrival.html?status=open', '⏳', 'بانتظار التسكين', a.pending, 'تستدعي الانتباه: ' + warn) +
+      bTile('amber w2', 'departure.html?status=open', '⌛', 'بانتظار المغادرة', d.pending, 'من أصل ' + d.total) +
+      bTile('red w2' + ((a.dangerRows + d.dangerRows) ? ' pulse' : ''), target + '.html?status=danger', '🚨', 'تنبيهات حرجة', a.dangerRows + d.dangerRows, 'وصول ' + a.dangerRows + ' · مغادرة ' + d.dangerRows) +
+      bTile('red w2', '#late', '⏰', 'مجموعات متأخرة', o.lt, 'مضى موعدها ولم تُنجَز', ' data-jump="late"') +
+      '<div class="band">' +
+      '<a class="ok" href="arrival.html"><span>استعداد مسبق مسجّل</span><b>' + reg + '</b></a>' +
+      '<a class="red" href="arrival.html?rdy=late"><span>بلا استعداد (أسبوعان)</span><b>' + o.nr + '</b></a>' +
+      '<a class="sky" href="departure.html"><span>اعتماد مغادرة مسجّل</span><b>' + ap.length + '</b></a>' +
+      '<a class="red" href="departure.html?rdy=late"><span>بلا اعتماد (5 أيام)</span><b>' + o.na + '</b></a>' +
+      '<a class="vio" href="departure.html?appr=1"><span>لا يمكن اعتمادها</span><b>' + cant.length + '</b></a>' +
+      '<a class="amber" href="departure.html?appr=all"><span>اعتمادات اليوم</span><b>' + tr.length + '</b></a>' +
+      '<a class="vio" href="#nIss" data-jump="nIss"><span>مشاكل النقل</span><b>' + o.is + '</b></a>' +
+      '<a class="teal" href="arrival.html"><span>رحلات وصول 24س</span><b>' + fl24('arrival') + '</b></a></div>' +
+      ['makkah', 'madinah', 'jeddah'].map((i, j) => '<a class="bt ' + ['gold', 'ok', 'sky'][j] + ' w3" href="arrival.html"><div class="bl"><span class="bi">' + ['🕋', '🕌', '✈️'][j] + '</span>' + esc(C.CITY_DEF[i].ar) + '</div><div class="two"><div><b>' + cm[i].a + '</b>قادمون</div><div><b>' + cm[i].d + '</b>مغادرون</div></div></a>').join('') +
+      '<a class="bt vio w3" href="#nat" data-jump="nat"><div class="bl"><span class="bi">🌍</span>الجنسيات <b style="margin-inline-start:auto;color:var(--c)">' + nat.length + '</b></div><div class="nb">' + nat.slice(0, 3).map(x => '<div><span>' + esc(x.c ? x.c.ar : 'غير محدد') + '</span><em><i style="width:' + (x.n / nmx * 100) + '%"></i></em><b>' + x.n + '</b></div>').join('') + '</div></a>' +
+      bBars('ok w4', 'arrival.html', 'الوصول', ['مُسكَّن', a.done], ['بانتظار', a.pending]) +
+      bBars('sky w4', 'departure.html', 'المغادرة', ['غادر', d.done], ['بانتظار', d.pending]) +
+      '<a class="bt amber w4" href="departure.html?appr=all"><div class="bl"><span class="bi">🚌</span>النقل اليوم</div><div class="two"><div><b>' + tr.filter(x => x.tp === 'bus').length + '</b>حافلة</div><div><b>' + tr.filter(x => x.tp === 'train').length + '</b>قطار</div></div><div class="bs">' + tr.reduce((n, x) => n + x.pax, 0) + ' فرد · أزحم ساعة تحرك: ' + peakTxt(peakOf(hourly('departure', 0))) + '</div></a>';
+  }
   function render() {
     const A = state.data.arrival, D = state.data.departure, now = Date.now();
     $('#stale').innerHTML = (state.err.arrival || state.err.departure) ? '<div class="stale">⚠ ' + esc(state.err.arrival || state.err.departure) + (A || D ? ' — تُعرض آخر بيانات محفوظة' : '') + ' <button class="btn sm" id="stSet">الإعدادات</button></div>' : '';
@@ -2827,13 +2903,7 @@ function initDashboard() {
     const a = sa || z, d = sd || z;
     snap = { a, d };
     const target = (a.dangerRows || !d.dangerRows) ? 'arrival' : 'departure';
-    $('#kpis').innerHTML =
-      '<div class="kpi gold"><div class="l">إجمالي الحجاج القادمين</div><div class="v">' + a.total + '</div><div class="s">المغادرون: ' + d.total + '</div></div>' +
-      '<div class="kpi ok"><div class="l">تم التسكين</div><div class="v">' + a.done + '</div><div class="s">' + a.pct + '% من القادمين</div></div>' +
-      '<div class="kpi amber"><div class="l">بانتظار التسكين</div><div class="v">' + a.pending + '</div><div class="s">تستدعي الانتباه: ' + (sa ? sa.warn : 0) + '</div></div>' +
-      '<div class="kpi sky"><div class="l">تمت المغادرة</div><div class="v">' + d.done + '</div><div class="s">' + d.pct + '% من المغادرين</div></div>' +
-      '<div class="kpi amber"><div class="l">بانتظار المغادرة</div><div class="v">' + d.pending + '</div><div class="s">من أصل ' + d.total + '</div></div>' +
-      '<a class="kpi red click' + ((a.dangerRows + d.dangerRows) ? ' pulse' : '') + '" href="' + target + '.html?status=danger"><div class="l">تنبيهات حرجة</div><div class="v">' + (a.dangerRows + d.dangerRows) + '</div><div class="s">وصول ' + a.dangerRows + ' · مغادرة ' + d.dangerRows + '</div></a>' + dashKpis(A, D, a, d);
+    $('#kpis').innerHTML = bento(A, D, a, d, now);
     $('#nxA').innerHTML = nxList('arrival'); $('#nxD').innerHTML = nxList('departure'); notesPanel();
     $('#rings').innerHTML = ring(a.pct, '#34C47A', 'التسكين', 'مُسكَّن') + ring(d.pct, '#0EA5E9', 'المغادرة', 'غادر');
 
@@ -2865,6 +2935,7 @@ function initDashboard() {
   }
   $('#xPrint').insertAdjacentHTML('beforebegin', '<button class="btn" id="xWa">📋 ملخص اليوم</button>'); $('#xWa').onclick = openDaily;
   $('#tpSw').addEventListener('click', e => { const b = e.target.closest('[data-tps]'); if (!b) return; const v = b.dataset.tps; if (v === 'arrival' || v === 'departure') tps.kind = v; else tps.off = +v; tpPanel(state.data.arrival, state.data.departure); });
+  $('#kpis').addEventListener('click', e => { const j = e.target.closest('[data-jump]'); if (!j) return; e.preventDefault(); const el = document.getElementById(j.dataset.jump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
   $('#xPrint').onclick = () => window.print();
   $('#xXls').onclick = async () => {
     const A = state.data.arrival, D = state.data.departure; if (!A && !D) return toast('لا توجد بيانات بعد', 'warn');
