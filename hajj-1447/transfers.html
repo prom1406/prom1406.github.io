@@ -3135,7 +3135,7 @@ const pfWhen = d => d ? C.fmtDayAr(d) + ' ' + C.fmtTime(d) : '—';
 const pfDayKeyTxt = k => (typeof trDayTxt === 'function' ? trDayTxt(k) : k);
 
 function initPilgrim() {
-  const app = $('#app'); let sel = '', q = '', idx = null, idxSrc = '';
+  const app = $('#app'); const qp = new URLSearchParams(location.search).get('p') || ''; let sel = passKey(qp), q = qp, idx = null, idxSrc = '';
   app.innerHTML = '<section class="hero"><div><h1>رحلة <span>الحاج</span></h1><p>ابحث برقم الجواز أو الاسم لترى مساره كاملاً: الوصول، الإقامات، التنقلات، المغادرة</p></div></section>' +
     '<div id="stale"></div><section class="panel"><div class="toolbar"><div class="field" style="flex:1;min-width:220px">' + ICON.search + '<input type="search" id="pQ" placeholder="رقم الجواز أو الاسم…" autocomplete="off" autofocus></div><span class="hint" id="pCnt"></span></div><div id="pRes"></div></section>';
   const build = () => {
@@ -3195,6 +3195,7 @@ function initPilgrim() {
     const list = hits.length > 1 || !cur ? '<div class="pfl">' + hits.map(o => '<button type="button" class="pfi' + (cur && cur.k === o.k ? ' on' : '') + '" data-pk="' + esc(o.k) + '"><b>' + esc(o.name || '—') + '</b><span dir="ltr">' + esc(o.passport) + '</span><small>' + (o.a.length ? '🛬' : '') + (o.t.length ? '🏨' : '') + (o.d.length ? '🛫' : '') + '</small></button>').join('') + '</div>' : '';
     box.innerHTML = list + (cur ? '<div class="pfh"><div><h2>' + esc(cur.name || 'اسم غير متوفر') + '</h2><div class="hint" dir="ltr">' + esc(cur.passport) + '</div></div>' + (cur.nat ? '<div>' + flagImg(cur.nat) + '</div>' : '') + '</div>' + timeline(cur) : (hits.length ? '<p class="hint">اختر حاجاً من القائمة</p>' : '<div class="empty">لا توجد نتائج</div>'));
   }
+  $('#pQ').value = q;
   $('#pQ').oninput = e => { q = e.target.value.trim(); sel = ''; render(); };
   $('#pRes').onclick = e => { const b = e.target.closest('[data-pk]'); if (b) { sel = b.dataset.pk; render(); } };
   onData(render); render();

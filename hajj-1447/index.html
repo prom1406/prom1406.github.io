@@ -123,8 +123,9 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 .bt .rk .bs b{display:block;color:var(--ink);font-size:13px}.bt .rk .rg b{font-size:15px}.bt .bs b{color:var(--ink)}
 .bt .st4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.bt .st4 div{background:var(--line2);border-radius:10px;padding:6px 9px;font-size:11.5px;color:var(--mut)}.bt .st4 div b{display:block;font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums}
 .bt .nb.rt div{grid-template-columns:minmax(110px,auto) 1fr 40px}.bt .nb.rt span{white-space:nowrap}.bt .nb.rt div.bs{display:block}
-.bt .fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:10px 8px}.bt .fg span{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+.bt .fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:10px 8px}.bt .fgi{background:none;border:0;font-family:inherit;cursor:pointer;border-radius:10px;padding:4px 2px;transition:background .15s}.bt .fgi:hover{background:color-mix(in srgb,var(--c) 18%,transparent)}.bt .fg .fgi{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
 .bt .fg img,.bt .fg i.ph{width:38px;height:26px;border-radius:4px;object-fit:cover;box-shadow:0 0 0 1px rgba(128,128,128,.35);display:grid;place-items:center;font-style:normal;color:var(--mut);font-size:12px;background:var(--card2)}
+.nlist{max-height:55vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.nlr{display:flex;align-items:center;gap:10px;background:var(--line2);border-radius:12px;padding:8px 12px}.nlr .no{color:var(--mut);font-size:12px;min-width:28px}.nlr .i{flex:1;min-width:0;display:flex;flex-direction:column}.nlr .i small{color:var(--mut);direction:ltr;text-align:start}
 .band{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
 .band a{--c:var(--gold);text-decoration:none;color:var(--ink);border-radius:14px;overflow:hidden;border:1px solid var(--line2);background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;transition:transform .18s,border-color .18s}
 .band a:hover{transform:translateY(-3px);border-color:var(--c)}
@@ -2892,7 +2893,7 @@ function initDashboard() {
     const target = (a.dangerRows || !d.dangerRows) ? 'arrival' : 'departure', warn = (A ? C.summarize(A.records, now, S).warn : 0) + (D ? C.summarize(D.records, now, S).warn : 0);
     const cm = {}; ['makkah', 'madinah', 'jeddah'].forEach(i => cm[i] = { a: 0, d: 0 });
     [[A, 'a'], [D, 'd']].forEach(([R0, k]) => R0 && R0.records.forEach(r => { if (cm[r.stayCity]) cm[r.stayCity][k] += r.pax; }));
-    const nm = new Map(); (A ? A.records : (D ? D.records : [])).forEach(r => { const k = r.country ? r.country.iso2 : '?'; const e = nm.get(k) || { c: r.country, n: 0 }; e.n += r.pax; nm.set(k, e); });
+    const nm = new Map(); (A ? A.records : (D ? D.records : [])).forEach(r => { const k = C.natKey(r); const e = nm.get(k) || { k, c: r.country, n: 0 }; e.n += r.pax; nm.set(k, e); });
     const nat = [...nm.values()].sort((x, y) => y.n - x.n), nmx = nat.length ? nat[0].n : 1;
     const pc = (p, n) => n ? Math.round(p / n * 100) : 0, apP = sum(ap);
     const rk = (href, lb, v, n, col) => '<a class="rk" href="' + href + '"><div class="rg">' + ringSvg([{ v: pc(v, n), c: col }, { v: 100 - pc(v, n), c: 'transparent' }], 10) + '<b>' + pc(v, n) + '%</b></div><div class="bs"><b>' + lb + '</b>' + v + ' من ' + n + '</div></a>';
@@ -2910,7 +2911,7 @@ function initDashboard() {
       '<a class="amber" href="departure.html?appr=all"><span>اعتمادات اليوم</span><b>' + tr.length + '</b></a></div>' +
       ['makkah', 'madinah'].map((i, j) => '<a class="bt ' + ['gold', 'ok'][j] + ' w3" href="' + (cm[i].a >= cm[i].d ? 'arrival' : 'departure') + '.html"><div class="bl"><span class="bi">' + ['🕋', '🕌'][j] + '</span>' + esc(C.CITY_DEF[i].ar) + '</div><div class="two"><div><b>' + cm[i].a + '</b>قادمون</div><div><b>' + cm[i].d + '</b>مغادرون</div></div></a>').join('') +
       trCard(today) +
-      '<a class="bt vio w6" href="#nat" data-jump="nat"><div class="bl"><span class="bi">🌍</span>الجنسيات<b style="margin-inline-start:auto;color:var(--c);font-size:20px">' + nat.length + '</b></div><div class="fg">' + nat.slice(0, 18).map(x => '<span title="' + esc(x.c ? x.c.ar : 'غير محدد') + '">' + (x.c ? '<img alt="" loading="lazy" src="' + C.flagUrl(x.c.iso2, 40) + '" srcset="' + C.flagUrl(x.c.iso2, 80) + ' 2x" onerror="this.style.visibility=\'hidden\'">' : '<i class="ph">؟</i>') + x.n + '</span>').join('') + '</div>' + (nat.length > 18 ? '<div class="bs">+ ' + (nat.length - 18) + ' جنسية أخرى في القائمة أدناه</div>' : '') + '</a>' +
+      '<div class="bt vio w6"><div class="bl"><span class="bi">🌍</span>الجنسيات<a href="#nat" data-jump="nat" class="hint" style="margin-inline-start:8px">القائمة ↓</a><b style="margin-inline-start:auto;color:var(--c);font-size:20px">' + nat.length + '</b></div><div class="fg">' + nat.slice(0, 18).map(x => '<button type="button" class="fgi" data-nat="' + esc(x.k) + '" title="' + esc(x.c ? x.c.ar : 'غير محدد') + ' — اضغط لعرض الأسماء">' + (x.c ? '<img alt="" loading="lazy" src="' + C.flagUrl(x.c.iso2, 40) + '" srcset="' + C.flagUrl(x.c.iso2, 80) + ' 2x" onerror="this.style.visibility=\'hidden\'">' : '<i class="ph">؟</i>') + x.n + '</button>').join('') + '</div>' + (nat.length > 18 ? '<div class="bs">+ ' + (nat.length - 18) + ' جنسية أخرى <a href="#nat" data-jump="nat" class="hint">في القائمة أدناه</a></div>' : '') + '</div>' +
       '<a class="bt amber w6" href="departure.html?appr=all"><div class="bl"><span class="bi">🚌</span>اعتمادات المغادرة اليوم</div><div class="two"><div><b>' + tr.filter(x => x.tp === 'bus').length + '</b>حافلة</div><div><b>' + tr.filter(x => x.tp === 'train').length + '</b>قطار</div></div><div class="bs">' + tr.reduce((n, x) => n + x.pax, 0) + ' فرد · أزحم ساعة: ' + peakTxt(peakOf(hourly('departure', 0))) + '</div></a>';
   }
   function render() {
@@ -2954,7 +2955,17 @@ function initDashboard() {
   }
   $('#xPrint').insertAdjacentHTML('beforebegin', '<button class="btn" id="xWa">📋 ملخص اليوم</button>'); $('#xWa').onclick = openDaily;
   $('#tpSw').addEventListener('click', e => { const b = e.target.closest('[data-tps]'); if (!b) return; const v = b.dataset.tps; if (v === 'arrival' || v === 'departure') tps.kind = v; else tps.off = +v; tpPanel(state.data.arrival, state.data.departure); });
-  $('#kpis').addEventListener('click', e => { const j = e.target.closest('[data-jump]'); if (!j) return; e.preventDefault(); const el = document.getElementById(j.dataset.jump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  function natModal(key) {
+    const base = state.data.arrival || state.data.departure; if (!base) return;
+    const all = base.records.filter(r => C.natKey(r) === key), c = all[0] && all[0].country, nm = c ? c.ar : (all[0] ? all[0].natRaw || 'غير محدد' : '');
+    const ov = modal('<h3>' + (c ? '<img class="flag" alt="" src="' + C.flagUrl(c.iso2, 40) + '" onerror="this.style.visibility=\'hidden\'"> ' : '') + esc(nm) + ' <span class="hint">' + all.length + ' حاج</span></h3><div class="field" style="margin:8px 0"><input type="search" id="nlQ" placeholder="بحث بالاسم أو رقم الجواز…" autocomplete="off"></div><div class="nlist" id="nlL"></div>');
+    const draw = () => {
+      const q = ov.querySelector('#nlQ').value.trim().toLowerCase(), L = q ? all.filter(r => String(r.name || '').toLowerCase().includes(q) || String(r.passport || '').toLowerCase().includes(q)) : all, sh = L.slice(0, 200);
+      ov.querySelector('#nlL').innerHTML = sh.length ? sh.map((r, i) => { const pk = C.normPk ? C.normPk(r.passport) : String(r.passport || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), p = pk || r.name || ''; return '<div class="nlr"><span class="no">' + (i + 1) + '</span><span class="i"><b>' + esc(r.name || '—') + '</b><small>' + esc(r.passport || '—') + (r.flight ? ' · ✈ ' + esc(r.flight) : '') + '</small></span>' + (p ? '<a class="btn sm" href="pilgrim.html?p=' + encodeURIComponent(p) + '">رحلته ←</a>' : '') + '</div>'; }).join('') + (L.length > sh.length ? '<div class="bs" style="padding:8px;text-align:center">عُرض ' + sh.length + ' من ' + L.length + ' — استخدم البحث لتضييق القائمة</div>' : '') : '<div class="empty">لا نتائج</div>';
+    };
+    ov.querySelector('#nlQ').oninput = draw; draw();
+  }
+  $('#kpis').addEventListener('click', e => { const n = e.target.closest('[data-nat]'); if (n) { e.preventDefault(); natModal(n.dataset.nat); return; } const j = e.target.closest('[data-jump]'); if (!j) return; e.preventDefault(); const el = document.getElementById(j.dataset.jump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
   $('#xPrint').onclick = () => window.print();
   $('#xXls').onclick = async () => {
     const A = state.data.arrival, D = state.data.departure; if (!A && !D) return toast('لا توجد بيانات بعد', 'warn');
@@ -3245,7 +3256,7 @@ const pfWhen = d => d ? C.fmtDayAr(d) + ' ' + C.fmtTime(d) : '—';
 const pfDayKeyTxt = k => (typeof trDayTxt === 'function' ? trDayTxt(k) : k);
 
 function initPilgrim() {
-  const app = $('#app'); let sel = '', q = '', idx = null, idxSrc = '';
+  const app = $('#app'); const qp = new URLSearchParams(location.search).get('p') || ''; let sel = passKey(qp), q = qp, idx = null, idxSrc = '';
   app.innerHTML = '<section class="hero"><div><h1>رحلة <span>الحاج</span></h1><p>ابحث برقم الجواز أو الاسم لترى مساره كاملاً: الوصول، الإقامات، التنقلات، المغادرة</p></div></section>' +
     '<div id="stale"></div><section class="panel"><div class="toolbar"><div class="field" style="flex:1;min-width:220px">' + ICON.search + '<input type="search" id="pQ" placeholder="رقم الجواز أو الاسم…" autocomplete="off" autofocus></div><span class="hint" id="pCnt"></span></div><div id="pRes"></div></section>';
   const build = () => {
@@ -3305,6 +3316,7 @@ function initPilgrim() {
     const list = hits.length > 1 || !cur ? '<div class="pfl">' + hits.map(o => '<button type="button" class="pfi' + (cur && cur.k === o.k ? ' on' : '') + '" data-pk="' + esc(o.k) + '"><b>' + esc(o.name || '—') + '</b><span dir="ltr">' + esc(o.passport) + '</span><small>' + (o.a.length ? '🛬' : '') + (o.t.length ? '🏨' : '') + (o.d.length ? '🛫' : '') + '</small></button>').join('') + '</div>' : '';
     box.innerHTML = list + (cur ? '<div class="pfh"><div><h2>' + esc(cur.name || 'اسم غير متوفر') + '</h2><div class="hint" dir="ltr">' + esc(cur.passport) + '</div></div>' + (cur.nat ? '<div>' + flagImg(cur.nat) + '</div>' : '') + '</div>' + timeline(cur) : (hits.length ? '<p class="hint">اختر حاجاً من القائمة</p>' : '<div class="empty">لا توجد نتائج</div>'));
   }
+  $('#pQ').value = q;
   $('#pQ').oninput = e => { q = e.target.value.trim(); sel = ''; render(); };
   $('#pRes').onclick = e => { const b = e.target.closest('[data-pk]'); if (b) { sel = b.dataset.pk; render(); } };
   onData(render); render();
