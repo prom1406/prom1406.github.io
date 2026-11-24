@@ -1510,7 +1510,7 @@ function fcCode(g) {
   for (const [re, c] of AIRLINE_IATA) if (num && new RegExp(re, 'i').test(al)) return c + num;
   return m ? f : '';
 }
-const fcKeyOf = g => rKey(g.rows[0] || {}), fcDate = d => { const p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
+const fcKind = g => (g.rows[0] || {}).kind === 'departure' ? 'departure' : 'arrival', fcKeyOf = g => (fcKind(g) === 'departure' ? 'D:' : '') + rKey(g.rows[0] || {}), fcDate = d => { const p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
 const fcSched = g => g.rows.reduce((a, r) => (r.when0 && (!a || r.when0 < a) ? r.when0 : a), null) || g.when || null;
 const fcParse = s => { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/); return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5]) : null; };
 // الحالة المشتقة: ok | mismatch | notfound | none
@@ -1544,10 +1544,10 @@ async function loadFc() {
   } catch (e) { }
 }
 function fcGroupsAll() { return fcGroups(); }
-function fcGroups() { const d = state.data.arrival; return d && d.records ? C.groupFlights(d.records) : []; }
+function fcGroups() { return ['arrival', 'departure'].flatMap(k => { const d = state.data[k]; return d && d.records ? C.groupFlights(d.records) : []; }); }
 async function fcLookup(g, quiet) {
   const sch = fcSched(g), code = fcCode(g); if (!code || !sch) return { ok: false, error: 'no_code' };
-  const j = await api('fc_lookup', {}, { key: fcKeyOf(g), label: 'رحلة ' + g.flight, flight: code, airline: g.airline || '', date: fcDate(sch), sched: fcDate(sch) + ' ' + C.fmtTime(sch) });
+  const j = await api('fc_lookup', {}, { key: fcKeyOf(g), label: 'رحلة ' + g.flight, flight: code, airline: g.airline || '', role: fcKind(g), date: fcDate(sch), sched: fcDate(sch) + ' ' + C.fmtTime(sch) });
   if (j.ok && j.item) { state.fc[j.item.key] = j.item; guardSet('fc', j.item.key, j.item); try { localStorage.setItem('hajj1447.fc', JSON.stringify(state.fc)); } catch (x) { } }
   if (!j.ok && j.error === 'no_key') fcServer = false;
   return j;
@@ -1561,8 +1561,8 @@ async function fcAuto() {
   } catch (e) { } finally { fcBusy = false; }
 }
 function fcMismatches() { return fcGroups().filter(g => g.done < g.pax).map(g => ({ g, st: fcState(g) })).filter(x => x.st.s === 'mismatch' || x.st.s === 'notfound').sort((a, b) => (a.g.when || 0) - (b.g.when || 0)); }
-function fcBar() {
-  const L = fcMismatches(); if (!L.length) return '';
+function fcBar(kd) {
+  const L = fcMismatches().filter(x => fcKind(x.g) === kd); if (!L.length) return '';
   return '<div class="alertbar rdyb" data-fcbar="1"><span class="dot"></span><b>تنبيه التحقق من الرحلات:</b> ' + L.length + ' رحلة بها اختلاف — ' + L.slice(0, 3).map(x => esc(x.g.flight) + (x.st.s === 'notfound' ? ' (غير موجودة)' : ' (وقت الرحلة مختلف)')).join('، ') + (L.length > 3 ? ' …' : '') + '</div>';
 }
 function openFc(g) {
@@ -1587,7 +1587,7 @@ function openFc(g) {
     const auth = await ensureAuth(); if (!auth) return;
     const off = $('#fcOff', ov).value.replace('T', ' '); if (status === 'mismatch' && !off) { msg('أدخل الوقت الرسمي'); return; }
     try {
-      const j = await api('fc_set', {}, { key: k, label: 'رحلة ' + g.flight, flight: code || g.flight, airline: g.airline || '', date: day, status: clear ? '' : status, official: status === 'notfound' ? '' : off, mode: 'manual', note: $('#fcNote', ov).value, by: auth.by, pin: auth.pin });
+      const j = await api('fc_set', {}, { key: k, label: 'رحلة ' + g.flight, flight: code || g.flight, airline: g.airline || '', role: fcKind(g), date: day, status: clear ? '' : status, official: status === 'notfound' ? '' : off, mode: 'manual', note: $('#fcNote', ov).value, by: auth.by, pin: auth.pin });
       if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error(j.error === 'bad_pin' ? 'رمز المشرف غير صحيح' : (j.error || 'خطأ')); }
       if (clear) delete state.fc[k]; else state.fc[k] = { key: k, flight: code || g.flight, status, official: status === 'notfound' ? '' : off, mode: 'manual', note: $('#fcNote', ov).value, by: auth.by };
       guardSet('fc', k, clear ? null : state.fc[k]); try { localStorage.setItem('hajj1447.fc', JSON.stringify(state.fc)); } catch (x) { }
@@ -1662,9 +1662,9 @@ async function refresh(kinds) {
   const live = $('#live'), btn = $('#bRef');
   if (live) live.className = 'live load'; if (btn) btn.classList.add('spin');
   await syncPublic();
-  await Promise.all(kinds.map(loadKind).concat([loadNames()], kinds.map(loadNotes), kinds.includes('arrival') ? [loadReady(), loadFc()] : [], (kinds.includes('departure') || kinds.includes('transfers')) ? [loadAppr()] : []));
+  await Promise.all(kinds.map(loadKind).concat([loadNames()], kinds.map(loadNotes), kinds.includes('arrival') ? [loadReady()] : [], kinds.includes('arrival') || kinds.includes('departure') ? [loadFc()] : [], (kinds.includes('departure') || kinds.includes('transfers')) ? [loadAppr()] : []));
   applyReady();
-  if (kinds.includes('arrival')) setTimeout(fcAuto, 600);
+  if (kinds.includes('arrival') || kinds.includes('departure')) setTimeout(fcAuto, 600);
   if (btn) btn.classList.remove('spin');
   updateBadges(); emit(); tick(true);
 }
@@ -2489,7 +2489,7 @@ function initTracker(kind) {
     const hasHotel = d.map.hotel != null || ci.stay;
     const cols = [
       { id: 'sel', th: '<input type="checkbox" data-selall aria-label="تحديد الكل">' }, { id: 'n', th: '#' },
-      { id: 'flight', th: 'الرحلة', sort: 'flight' }, kind === 'arrival' && { id: 'fc', th: 'تم التحقق' }, { id: 'when', th: kind === 'arrival' ? 'موعد الوصول' : 'موعد الإقلاع / التحرك', sort: 'when' }, { id: 'cd', th: 'العدّ التنازلي' },
+      { id: 'flight', th: 'الرحلة', sort: 'flight' }, (kind === 'arrival' || kind === 'departure') && { id: 'fc', th: 'تم التحقق' }, { id: 'when', th: kind === 'arrival' ? 'موعد الوصول' : 'موعد الإقلاع / التحرك', sort: 'when' }, { id: 'cd', th: 'العدّ التنازلي' },
       ci.air && { id: 'air', th: 'المطار' }, hasHotel && { id: 'hotel', th: 'الفندق', sort: 'hotel' }, ci.tp && { id: 'tp', th: 'وسيلة النقل' }, { id: 'pax', th: 'العدد', sort: 'pax' }, { id: 'nat', th: 'الجنسيات' }, { id: 'pp', th: 'الجوازات' },
       { id: 'st', th: 'الحالة', sort: 'status' }, { id: 'act', th: '' }
     ].filter(Boolean);
@@ -2523,7 +2523,7 @@ function initTracker(kind) {
       '<article class="gcard ' + (g.open === 0 ? 'done ' : '') + (g.open && g.cls === 'danger' ? 'danger ' : g.open && g.cls === 'warn' ? 'warn ' : '') + '">' +
       '<header><label class="chk"><input type="checkbox" data-sel="' + esc(g.key) + '"' + (ui.sel.has(g.key) ? ' checked' : '') + ' aria-label="تحديد"></label><div class="gt"><b class="no">' + esc(g.flight) + '</b>' + (g.airline ? '<div class="sub">' + esc(g.airline) + '</div>' : '') + '</div><div class="gs">' + stChip(g) + '</div></header>' +
       '<div class="gbig"><div><b class="num">' + g.pax + '</b><span>فرد</span></div><div class="gcd">' + gCd(g) + '</div></div>' +
-      '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' + noteChip(g) + regChip(g) + (kind === 'arrival' ? '<div class="fcrow">' + fcCell(g) + '</div>' : '') +
+      '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' + noteChip(g) + regChip(g) + (kind === 'arrival' || kind === 'departure' ? '<div class="fcrow">' + fcCell(g) + '</div>' : '') +
       '<dl class="gkv"><div><dt>' + (kind === 'arrival' ? 'الموعد' : 'الإقلاع') + '</dt><dd>' + gWhen(g) + mvHtml(g) + '</dd></div>' + (ci.air ? '<div><dt>' + (kind === 'arrival' ? 'مطار الوصول' : 'مطار المغادرة') + '</dt><dd>' + twoLine(g.airport, airCityTxt(g)) + '</dd></div>' : '') + ((g.hotel || ci.stay) ? '<div><dt>الفندق</dt><dd>' + twoLine(g.hotel, stayCityTxt(g)) + (kind === 'arrival' ? hotelEta(g) : '') + '</dd></div>' : '') + (ci.tp ? '<div><dt>وسيلة النقل</dt><dd>' + tpHtml(gTransport(g)) + '</dd></div>' : '') + '</dl>' +
       natChips(g, 4) + '<footer>' + ppBtn(g) + gAct(g) + fBtns(g) + '</footer></article>').join('') + '</div>';
   }
@@ -2663,7 +2663,7 @@ function initTracker(kind) {
       '<div class="kpi sky"><div class="l">أقرب رحلة</div><div class="v" style="font-size:25px;padding-top:5px">' + (nextG ? '<span class="cd" data-w="' + nextG.when.getTime() + '"></span>' : '—') + '</div><div class="s">' + (nextG ? esc(nextG.flight) + ' · ' + C.fmtTime(nextG.when) + ' · ' + nextG.pax + ' فرد' : 'لا توجد رحلات قادمة') + '</div></div>' + extraKpis(allGroups, fl, sm);
     $('#alertbar').innerHTML = sm.dangerRows ? '<div class="alertbar" data-kpi="danger"><span class="dot"></span><b>تنبيه:</b> ' + sm.dangerRows + ' سجل في حالة حرجة أو متأخرة ويحتاج إلى إجراء فوري <span class="sp"></span><span class="hint">عرض</span></div>' : '';
     { const rb = $('#rdybar'); if (rb) { const ar = kind === 'arrival', L = ar ? noRdyFlights(Date.now()) : (kind === 'departure' ? noApprFlights(Date.now()) : []); rb.innerHTML = L.length ? '<div class="alertbar rdyb" data-rdylate="1"><span class="dot"></span><b>' + (ar ? 'تنبيه الاستعداد المسبق:' : 'تنبيه اعتماد المغادرة:') + '</b> ' + rdyCnt(L.length) + ' (' + L.reduce((n, x) => n + (x.n || x.g.pax), 0) + (ar ? ' حاج) بلا استعداد وقد دخلت مهلة الأسبوعين' : ' فرد) بلا اعتماد وقد دخلت مهلة 5 أيام قبل المغادرة') + ' — أقربها ' + esc(L[0].g.flight) + (L[0].h > 0 ? ' بعد ' + dur0(Math.round(L[0].h * 60)) : ' (مضى موعدها)') + ' <span class="sp"></span><span class="hint">عرض</span></div>' : ''; } }
-    { const fb = $('#fcbar'); if (fb) fb.innerHTML = kind === 'arrival' ? fcBar() : ''; }
+    { const fb = $('#fcbar'); if (fb) fb.innerHTML = kind === 'arrival' || kind === 'departure' ? fcBar(kind) : ''; }
     const dk = new Set(R.filter(r => ST[r._st].cls === 'danger').map(r => pkey(r)));
     if (prevDanger) { let n = 0; dk.forEach(k => { if (!prevDanger.has(k)) n++; }); if (n) { toast('تنبيه: ' + n + ' حالة حرجة جديدة', 'err'); notifyNew(n); } }
     prevDanger = dk;

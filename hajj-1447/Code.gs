@@ -466,7 +466,7 @@ function fcWrite_(st, rec) {   // rec: {key,flight,airline,date,status,official,
 }
 function fcSet_(req, owner) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
-  const denied = visitorDenied_(st, req, owner, 'arrival'); if (denied) return denied;
+  const denied = visitorDenied_(st, req, owner, (String(req.role) === 'departure' ? 'departure' : 'arrival')); if (denied) return denied;
   const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح الرحلة مفقود' };
   const status = FC_STATUS.indexOf(String(req.status || '')) >= 0 ? String(req.status || '') : '';
   const official = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(req.official || '')) ? String(req.official) : '';
@@ -475,21 +475,21 @@ function fcSet_(req, owner) {
   log_(st, 'arrival', owner, by, true, [{ ok: true }], 'تحقق رحلة: ' + (status || '—') + ' | ' + fcClean_(req.label, 80), status ? 'تحقق من رحلة' : 'مسح تحقق رحلة');
   return { ok: true };
 }
-// يجلب رحلة من المزوّد → {found, official:'YYYY-MM-DD HH:MM' (بتوقيت مطار الوصول)}
-function fcFetch_(flight, date) {
+// يجلب رحلة من المزوّد → {found, official:'YYYY-MM-DD HH:MM' (بتوقيت مطار الوصول أو الإقلاع حسب role)}
+function fcFetch_(flight, date, dep) {
   const P = PropertiesService.getScriptProperties(), key = P.getProperty('FLIGHT_API_KEY'), prov = (P.getProperty('FLIGHT_PROVIDER') || 'aerodatabox').toLowerCase();
   if (prov === 'aviationstack') {
     const r = UrlFetchApp.fetch('http://api.aviationstack.com/v1/flights?access_key=' + encodeURIComponent(key) + '&flight_iata=' + encodeURIComponent(flight) + '&flight_date=' + date, { muteHttpExceptions: true });
     const j = JSON.parse(r.getContentText() || '{}'); if (j.error) throw new Error(j.error.message || 'provider');
     const f = (j.data || [])[0]; if (!f) return { found: false };
-    const t = (f.arrival && (f.arrival.scheduled || f.arrival.estimated)) || '';
+    const sd = dep ? f.departure : f.arrival, t = (sd && (sd.scheduled || sd.estimated)) || '';
     return { found: true, official: t ? String(t).slice(0, 16).replace('T', ' ') : '' };
   }
-  const r = UrlFetchApp.fetch('https://aerodatabox.p.rapidapi.com/flights/number/' + encodeURIComponent(flight) + '/' + date + '?dateLocalRole=Arrival', { headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': 'aerodatabox.p.rapidapi.com' }, muteHttpExceptions: true });
+  const r = UrlFetchApp.fetch('https://aerodatabox.p.rapidapi.com/flights/number/' + encodeURIComponent(flight) + '/' + date + '?dateLocalRole=' + (dep ? 'Departure' : 'Arrival'), { headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': 'aerodatabox.p.rapidapi.com' }, muteHttpExceptions: true });
   if (r.getResponseCode() === 404) return { found: false };
   if (r.getResponseCode() >= 400) throw new Error('provider ' + r.getResponseCode());
   const a = JSON.parse(r.getContentText() || '[]'), f = Array.isArray(a) ? a[0] : null; if (!f) return { found: false };
-  const t = f.arrival && f.arrival.scheduledTime && f.arrival.scheduledTime.local || '';
+  const sd = dep ? f.departure : f.arrival, t = sd && sd.scheduledTime && sd.scheduledTime.local || '';
   return { found: true, official: t ? String(t).slice(0, 16).replace('T', ' ') : '' };
 }
 function fcLookup_(req, owner) {
@@ -497,7 +497,7 @@ function fcLookup_(req, owner) {
   if (!fcHasKey_()) return { ok: false, error: 'no_key' };
   const key = String(req.key || '').trim().slice(0, 200), flight = String(req.flight || '').replace(/\s+/g, '').toUpperCase(), date = String(req.date || '');
   if (!key || !/^[A-Z0-9]{2}\d{1,4}[A-Z]?$/.test(flight) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: 'no_code' };
-  let res; try { res = fcFetch_(flight, date); } catch (e) { return { ok: false, error: String(e.message || e).slice(0, 120) }; }
+  let res; try { res = fcFetch_(flight, date, String(req.role) === 'departure'); } catch (e) { return { ok: false, error: String(e.message || e).slice(0, 120) }; }
   const item = { key: key, flight: flight, airline: fcClean_(req.airline, 60), date: date, status: res.found ? 'ok' : 'notfound', official: res.official || '', mode: 'auto', note: res.found ? '' : 'لم يجد المزوّد رحلة بهذا الرقم في هذا اليوم', by: 'تلقائي' };
   fcWrite_(st, item); item.at = new Date().toISOString();
   return { ok: true, item: item };
