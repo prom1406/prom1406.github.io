@@ -1006,6 +1006,7 @@ const isTrue = v => { const t = normAr(v) || String(v).trim().toLowerCase(); ret
 
 /* توحيد أسماء الرحلات: رمز الناقل (حرفان/ثلاثة) + الرقم بلا أصفار بادئة، مثل SV036 و«36» و«SV 36» ← SV36 */
 const AIRLINE_CODES = [['saudia|saudi|السعودي','SV'],['flynas|فلاي ناس|طيران ناس','XY'],['flyadeal|فلاي اديل|فلاي أديل|اديل|أديل','F3'],['emirates|الامارات|الإمارات','EK'],['qatar|القطري','QR'],['turkish|التركي','TK'],['egyptair|egypt air|مصر للطيران','MS'],['etihad|الاتحاد','EY'],['gulf air|طيران الخليج','GF'],['kuwait|الكويتي','KU'],['oman air|العماني','WY'],['royal jordanian|الملكية الاردنية|الملكية الأردنية','RJ'],['pakistan|الباكستاني','PK'],['air india|الهند','AI'],['garuda|جارودا','GA'],['malaysia|الماليزي','MH'],['biman|بيمان','BG'],['indigo|انديجو|إنديجو','6E'],['air arabia|العربية للطيران','G9'],['pegasus|بيغاسوس|بيجاسوس','PC'],['ethiopian|الاثيوبي|الإثيوبي','ET'],['royal air maroc|المغربي','AT'],['tunisair|التونسي','TU'],['air algerie|الجزائري','AH'],['srilankan|السريلانكي','UL'],['thai|التايلاندي','TG'],['singapore|السنغافوري','SQ'],['lufthansa|لوفتهانزا','LH'],['british|البريطاني','BA']];
+function nameCode(name) { const l = toLatinDigits(name || '').toLowerCase(); for (const [re, c] of AIRLINE_CODES) if (new RegExp(re, 'i').test(l)) return c; return ''; }
 function airlineCode(name) {
   const a = toLatinDigits(name || '').trim(); if (!a) return '';
   const m = a.toUpperCase().match(/(?:^|[^A-Z0-9])([A-Z]{2}|[A-Z]\d|\d[A-Z])(?:$|[^A-Z0-9])/); if (m && a.length <= 5) return m[1];
@@ -1030,6 +1031,16 @@ function normalizeFlights(records) {
   const by = new Map();
   records.forEach(r => { if (r._fn && /^[A-Z0-9]{2,3}\d/.test(r.flight) && r.flight !== r._fn) by.set(sig(r), r.flight); });
   records.forEach(r => { if (r._fn && r.flight === r._fn) { const f = by.get(sig(r)); if (f) r.flight = f; } });
+  // خطأ إملائي في الرمز (مثل VF205 بدل TK205): نفس الرقم + المطار + الموعد، ورمز واحد فقط مؤكَّد باسم الناقل ← يُصحَّح للرمز المؤكَّد
+  const grp = new Map();
+  records.forEach(r => { if (r._fn && r.when) { const k = sig(r); (grp.get(k) || grp.set(k, []).get(k)).push(r); } });
+  grp.forEach(L => {
+    const codes = new Set(L.map(r => r.flight).filter(Boolean)); if (codes.size < 2) return;
+    const ver = new Map(); L.forEach(r => { const c = nameCode(r.airline); if (c && r.flight === c + r._fn) ver.set(r.flight, r); });
+    if (ver.size !== 1) return;
+    const [good, src] = [...ver][0];
+    L.forEach(r => { if (r.flight !== good) { r.flight = good; r.airline = src.airline; } });
+  });
 }
 function toRecords(rows, kind, cfg) {
   const hi = findHeaderRow(rows);
