@@ -58,6 +58,9 @@ function doGet(e) {
       case 'owner_backup_daily': requireOwner_(p); return json_(backupDaily_(payload_(p).on === true));
       case 'ready_get':   return json_(memo_('ready', 15, readyGet_));
       case 'ready_set':   return json_(readySet_(payload_(p), isOwner_(p.s)));
+      case 'fc_get':      return json_(memo_('fc', 15, fcGet_));
+      case 'fc_set':      return json_(fcSet_(payload_(p), isOwner_(p.s)));
+      case 'fc_lookup':   return json_(fcLookup_(payload_(p), isOwner_(p.s)));
       case 'appr_get':    return json_(memo_('appr', 15, apprGet_));
       case 'appr_set':    return json_(apprSet_(payload_(p), isOwner_(p.s)));
       case 'names_get':   return json_(namesCached_(p));
@@ -424,6 +427,80 @@ function readySet_(req, owner) {
     log_(st, 'arrival', owner, by, true, [{ ok: true }], 'استعداد: ' + (status || '—') + (eta ? ' ETA ' + eta : '') + ' | ' + clean(req.label, 80), cleared ? 'مسح استعداد' : 'استعداد مسبق');
     return { ok: true, cleared: cleared };
   } finally { try { lock.releaseLock(); } catch (x) { } }
+}
+
+/* ============================ التحقق من رحلات الطيران ============================ */
+// المفاتيح (اختيارية) في Project Settings ▸ Script Properties:
+//   FLIGHT_PROVIDER = aerodatabox | aviationstack     FLIGHT_API_KEY = <المفتاح>
+// بدون مفتاح يعمل التأكيد اليدوي فقط، ويعيد fc_lookup الخطأ no_key.
+const FC_SHEET = 'FlightCheck';
+const FC_HEAD = ['المفتاح', 'الرحلة', 'شركة الطيران', 'التاريخ', 'الحالة', 'الوقت الرسمي', 'الطريقة', 'ملاحظة', 'بواسطة', 'آخر تحديث'];
+const FC_STATUS = ['', 'ok', 'mismatch', 'notfound'];
+function fcSheet_(st, create) {
+  const ss = openSS_(st); let sh = ss.getSheetByName(FC_SHEET);
+  if (!sh && create) { sh = ss.insertSheet(FC_SHEET); sh.appendRow(FC_HEAD); }
+  return sh;
+}
+function fcHasKey_() { return !!PropertiesService.getScriptProperties().getProperty('FLIGHT_API_KEY'); }
+function fcGet_() {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const sh = fcSheet_(st, false), items = [];
+  if (sh) { const rows = sh.getDataRange().getDisplayValues(); for (let i = 1; i < rows.length; i++) if (rows[i][0]) items.push({ key: rows[i][0], flight: rows[i][1], airline: rows[i][2], date: rows[i][3], status: rows[i][4], official: rows[i][5], mode: rows[i][6], note: rows[i][7], by: rows[i][8], at: rows[i][9] }); }
+  return { ok: true, items: items, lookup: fcHasKey_(), ts: Date.now() };
+}
+function fcClean_(v, n) { return cell_(String(v || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, n)); }
+function fcWrite_(st, rec) {   // rec: {key,flight,airline,date,status,official,mode,note,by}
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const sh = fcSheet_(st, true), rows = sh.getDataRange().getDisplayValues(); let at = -1;
+    for (let i = 1; i < rows.length; i++) if (rows[i][0] === rec.key) { at = i + 1; break; }
+    if (!rec.status) { if (at > 0) sh.getRange(at, 1, 1, FC_HEAD.length).clearContent(); }
+    else {
+      const idx = at > 0 ? at : sh.getLastRow() + 1;
+      sh.getRange(idx, 4, 1, 3).setNumberFormat('@');
+      sh.getRange(idx, 1, 1, FC_HEAD.length).setValues([[cell_(rec.key), rec.flight, rec.airline, rec.date, rec.status, rec.official, rec.mode, rec.note, rec.by, new Date()]]);
+    }
+    SpreadsheetApp.flush(); bumpData_();
+  } finally { try { lock.releaseLock(); } catch (x) { } }
+}
+function fcSet_(req, owner) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const denied = visitorDenied_(st, req, owner, 'arrival'); if (denied) return denied;
+  const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح الرحلة مفقود' };
+  const status = FC_STATUS.indexOf(String(req.status || '')) >= 0 ? String(req.status || '') : '';
+  const official = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(req.official || '')) ? String(req.official) : '';
+  const by = byOf_(req, owner);
+  fcWrite_(st, { key: key, flight: fcClean_(req.flight, 20), airline: fcClean_(req.airline, 60), date: fcClean_(req.date, 12), status: status, official: official, mode: 'manual', note: fcClean_(req.note, 200), by: by });
+  log_(st, 'arrival', owner, by, true, [{ ok: true }], 'تحقق رحلة: ' + (status || '—') + ' | ' + fcClean_(req.label, 80), status ? 'تحقق من رحلة' : 'مسح تحقق رحلة');
+  return { ok: true };
+}
+// يجلب رحلة من المزوّد → {found, official:'YYYY-MM-DD HH:MM' (بتوقيت مطار الوصول)}
+function fcFetch_(flight, date) {
+  const P = PropertiesService.getScriptProperties(), key = P.getProperty('FLIGHT_API_KEY'), prov = (P.getProperty('FLIGHT_PROVIDER') || 'aerodatabox').toLowerCase();
+  if (prov === 'aviationstack') {
+    const r = UrlFetchApp.fetch('http://api.aviationstack.com/v1/flights?access_key=' + encodeURIComponent(key) + '&flight_iata=' + encodeURIComponent(flight) + '&flight_date=' + date, { muteHttpExceptions: true });
+    const j = JSON.parse(r.getContentText() || '{}'); if (j.error) throw new Error(j.error.message || 'provider');
+    const f = (j.data || [])[0]; if (!f) return { found: false };
+    const t = (f.arrival && (f.arrival.scheduled || f.arrival.estimated)) || '';
+    return { found: true, official: t ? String(t).slice(0, 16).replace('T', ' ') : '' };
+  }
+  const r = UrlFetchApp.fetch('https://aerodatabox.p.rapidapi.com/flights/number/' + encodeURIComponent(flight) + '/' + date + '?dateLocalRole=Arrival', { headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': 'aerodatabox.p.rapidapi.com' }, muteHttpExceptions: true });
+  if (r.getResponseCode() === 404) return { found: false };
+  if (r.getResponseCode() >= 400) throw new Error('provider ' + r.getResponseCode());
+  const a = JSON.parse(r.getContentText() || '[]'), f = Array.isArray(a) ? a[0] : null; if (!f) return { found: false };
+  const t = f.arrival && f.arrival.scheduledTime && f.arrival.scheduledTime.local || '';
+  return { found: true, official: t ? String(t).slice(0, 16).replace('T', ' ') : '' };
+}
+function fcLookup_(req, owner) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  if (!fcHasKey_()) return { ok: false, error: 'no_key' };
+  const key = String(req.key || '').trim().slice(0, 200), flight = String(req.flight || '').replace(/\s+/g, '').toUpperCase(), date = String(req.date || '');
+  if (!key || !/^[A-Z0-9]{2}\d{1,4}[A-Z]?$/.test(flight) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: 'no_code' };
+  let res; try { res = fcFetch_(flight, date); } catch (e) { return { ok: false, error: String(e.message || e).slice(0, 120) }; }
+  const item = { key: key, flight: flight, airline: fcClean_(req.airline, 60), date: date, status: res.found ? 'ok' : 'notfound', official: res.official || '', mode: 'auto', note: res.found ? '' : 'لم يجد المزوّد رحلة بهذا الرقم في هذا اليوم', by: 'تلقائي' };
+  fcWrite_(st, item); item.at = new Date().toISOString();
+  return { ok: true, item: item };
 }
 
 /* ============================ اعتماد المغادرة للرحلات ============================ */

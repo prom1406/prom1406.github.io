@@ -286,6 +286,7 @@ tbody tr.r.syncing td{background:rgba(14,165,233,.08)}
 .flag{width:26px;height:18px;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px rgba(255,255,255,.18);background:var(--card2);flex:none}
 .flag.ph{display:inline-grid;place-items:center;font-size:10px;color:var(--mut)}
 .pp{font-family:ui-monospace,Consolas,monospace;direction:ltr;unicode-bidi:isolate;display:inline-block;letter-spacing:.5px}
+.btn.xs.fcb{padding:2px 8px;font-size:11.5px;margin-top:4px}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:12.5px;font-weight:700;white-space:nowrap}
 .chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
 .chip.ok{color:var(--ok);background:rgba(0,108,53,.22)}
@@ -1239,7 +1240,7 @@ const ICON = {
 };
 
 /* ---------------- الحالة والمزامنة ---------------- */
-const state = { ready: {}, appr: {}, notes: { arrival: {}, departure: {} }, data: { arrival: null, departure: null }, sync: { arrival: 0, departure: 0 }, err: {}, pending: { arrival: {}, departure: {} }, fn: [] };
+const state = { fc: {}, ready: {}, appr: {}, notes: { arrival: {}, departure: {} }, data: { arrival: null, departure: null }, sync: { arrival: 0, departure: 0 }, err: {}, pending: { arrival: {}, departure: {} }, fn: [] };
 const pkey = r => (isMasked() ? 'r' + r.row : (r.key || ('r' + r.row)));
 const emit = () => state.fn.forEach(f => { try { f(); } catch (e) { console.error(e); } });
 const onData = f => state.fn.push(f);
@@ -1572,6 +1573,100 @@ async function loadReady() {
     try { localStorage.setItem('hajj1447.ready', JSON.stringify(m)); } catch (e) { }
   } catch (e) { }
 }
+
+/* ===== التحقق من رحلات الطيران (FlightCheck) ===== */
+const FC_TOL = 30, FC_AUTO_MAX = 12;
+let fcServer = null, fcBusy = false;
+const AIRLINE_IATA = [['saudia|saudi|السعودية','SV'],['flynas|ناس','XY'],['flyadeal|أديل|اديل','F3'],['emirates|الإمارات|الامارات','EK'],['qatar|القطرية','QR'],['turkish|التركية','TK'],['egyptair|مصر للطيران','MS'],['etihad|الاتحاد','EY'],['gulf air|طيران الخليج','GF'],['kuwait|الكويتية','KU'],['oman air|الطيران العماني','WY'],['royal jordanian|الملكية الأردنية','RJ'],['pakistan|PIA|الباكستانية','PK'],['air india|الهند','AI'],['garuda|جارودا','GA'],['malaysia|الماليزية','MH'],['biman|بيمان','BG'],['indigo','6E'],['air arabia|العربية للطيران','G9'],['pegasus|بيغاسوس','PC'],['ethiopian|الإثيوبية','ET'],['royal air maroc|المغربية','AT'],['tunisair|التونسية','TU'],['air algerie|الجزائرية','AH']];
+function fcCode(g) {
+  const f = String(g.flight || '').replace(/\s+/g, '').toUpperCase(), m = f.match(/^([A-Z0-9]{2})(\d{1,4}[A-Z]?)$/);
+  if (m && /[A-Z]/.test(m[1])) return m[1] + m[2];
+  const al = String(g.airline || '').toLowerCase(), num = (f.match(/(\d{1,4})$/) || [])[1];
+  for (const [re, c] of AIRLINE_IATA) if (num && new RegExp(re, 'i').test(al)) return c + num;
+  return m ? f : '';
+}
+const fcKeyOf = g => rKey(g.rows[0] || {}), fcDate = d => { const p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); };
+const fcSched = g => g.rows.reduce((a, r) => (r.when0 && (!a || r.when0 < a) ? r.when0 : a), null) || g.when || null;
+const fcParse = s => { const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/); return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5]) : null; };
+// الحالة المشتقة: ok | mismatch | notfound | none
+function fcState(g) {
+  const e = state.fc[fcKeyOf(g)]; if (!e || !e.status) return { s: 'none' };
+  if (e.status === 'notfound') return { s: 'notfound', e };
+  const off = fcParse(e.official), sch = fcSched(g);
+  if (e.mode !== 'manual' || e.status === 'mismatch') { if (off && sch) { const dm = Math.round((off - sch) / 60000); if (Math.abs(dm) > FC_TOL) return { s: 'mismatch', e, dm, off }; } else if (e.status === 'mismatch') return { s: 'mismatch', e, off }; }
+  return { s: 'ok', e, off };
+}
+function fcCell(g) {
+  const st = fcState(g), e = st.e, who = e ? (e.mode === 'manual' ? 'يدوي' : 'تلقائي') : '', code = fcCode(g);
+  let c;
+  if (st.s === 'ok') c = '<span class="chip ok" title="' + esc((e.note || '') + ' · ' + who + (e.by ? ' — ' + e.by : '')) + '">✓ تم التحقق</span><div class="sub">' + who + (st.off ? ' · ' + esc(C.fmtTime(st.off)) : '') + '</div>';
+  else if (st.s === 'mismatch') c = '<span class="chip danger" title="' + esc(e.note || '') + '">⚠ اختلاف الوقت</span><div class="sub">الرسمي ' + (st.off ? esc(C.fmtDay(st.off) + ' ' + C.fmtTime(st.off)) : '؟') + (st.dm ? ' (' + (st.dm > 0 ? '+' : '−') + Math.abs(st.dm) + ' د)' : '') + '</div>';
+  else if (st.s === 'notfound') c = '<span class="chip danger" title="' + esc(e.note || '') + '">✗ لا توجد رحلة</span><div class="sub">' + who + '</div>';
+  else c = '<span class="chip mut">— لم يُتحقق</span>';
+  return c + '<div><button class="btn xs fcb" data-fc="' + esc(fcKeyOf(g)) + '" title="' + (code ? esc(code) : 'رقم الرحلة غير معروف') + '">🔎 ' + (st.s === 'none' ? 'تحقق' : 'إعادة') + '</button></div>';
+}
+async function loadFc() {
+  try {
+    const j = await api('fc_get'); if (!j.ok || !Array.isArray(j.items)) return;
+    const m = {}; j.items.forEach(x => { m[x.key] = x; }); guardMerge('fc', m); state.fc = m; fcServer = j.lookup === true ? true : (fcServer === true ? true : false);
+    try { localStorage.setItem('hajj1447.fc', JSON.stringify(m)); } catch (e) { }
+  } catch (e) { }
+}
+function fcGroupsAll() { return fcGroups(); }
+function fcGroups() { const d = state.data.arrival; return d && d.records ? C.groupFlights(d.records) : []; }
+async function fcLookup(g, quiet) {
+  const sch = fcSched(g), code = fcCode(g); if (!code || !sch) return { ok: false, error: 'no_code' };
+  const j = await api('fc_lookup', {}, { key: fcKeyOf(g), label: 'رحلة ' + g.flight, flight: code, airline: g.airline || '', date: fcDate(sch), sched: fcDate(sch) + ' ' + C.fmtTime(sch) });
+  if (j.ok && j.item) { state.fc[j.item.key] = j.item; guardSet('fc', j.item.key, j.item); try { localStorage.setItem('hajj1447.fc', JSON.stringify(state.fc)); } catch (x) { } }
+  if (!j.ok && j.error === 'no_key') fcServer = false;
+  return j;
+}
+// تحقق تلقائي لأول مرة: متتابع ومحدود، ويتوقف بصمت إن لم يُضبط مفتاح الخدمة
+async function fcAuto() {
+  if (fcBusy || fcServer === false) return; fcBusy = true;
+  try {
+    const now = Date.now(), L = fcGroups().filter(g => g.when && !state.fc[fcKeyOf(g)] && fcCode(g) && g.when.getTime() > now - 864e5 && g.when.getTime() < now + 10 * 864e5).sort((a, b) => a.when - b.when).slice(0, FC_AUTO_MAX);
+    for (const g of L) { const j = await fcLookup(g, true); if (!j.ok && (j.error === 'no_key' || j.error === 'not_configured')) break; emit(); }
+  } catch (e) { } finally { fcBusy = false; }
+}
+function fcMismatches() { return fcGroups().filter(g => g.done < g.pax).map(g => ({ g, st: fcState(g) })).filter(x => x.st.s === 'mismatch' || x.st.s === 'notfound').sort((a, b) => (a.g.when || 0) - (b.g.when || 0)); }
+function fcBar() {
+  const L = fcMismatches(); if (!L.length) return '';
+  return '<div class="alertbar rdyb" data-fcbar="1"><span class="dot"></span><b>تنبيه التحقق من الرحلات:</b> ' + L.length + ' رحلة بها اختلاف — ' + L.slice(0, 3).map(x => esc(x.g.flight) + (x.st.s === 'notfound' ? ' (غير موجودة)' : ' (وقت الرحلة مختلف)')).join('، ') + (L.length > 3 ? ' …' : '') + '</div>';
+}
+function openFc(g) {
+  const k = fcKeyOf(g), code = fcCode(g), sch = fcSched(g), st = fcState(g), e = state.fc[k] || {}, day = sch ? fcDate(sch) : '';
+  const q = encodeURIComponent(code || g.flight);
+  const links = '<a class="btn xs" target="_blank" rel="noopener" href="https://www.flightaware.com/live/flight/' + q + '">FlightAware</a> <a class="btn xs" target="_blank" rel="noopener" href="https://www.flightradar24.com/data/flights/' + q.toLowerCase() + '">Flightradar24</a> <a class="btn xs" target="_blank" rel="noopener" href="https://www.google.com/search?q=' + encodeURIComponent((code || g.flight) + ' flight status ' + day) + '">Google</a>';
+  const offIn = e.official ? e.official.replace(' ', 'T').slice(0, 16) : '';
+  const ov = modal('<h3>التحقق من الرحلة ' + esc(g.flight) + '</h3><p class="sub">' + esc(g.airline || '') + (code ? ' · الرمز ' + esc(code) : ' · تعذّر استنتاج رمز الرحلة') + (sch ? ' · الموعد في الملف ' + esc(day + ' ' + C.fmtTime(sch)) : '') + '</p>' +
+    (st.s !== 'none' ? '<p class="hint">الحالة الحالية: ' + ({ ok: '✓ مطابقة', mismatch: '⚠ اختلاف في الوقت', notfound: '✗ لا توجد رحلة' })[st.s] + (e.mode ? ' (' + (e.mode === 'manual' ? 'يدوي' : 'تلقائي') + (e.by ? ' — ' + esc(e.by) : '') + ')' : '') + '</p>' : '') +
+    '<div class="act" style="flex-wrap:wrap"><button class="btn sky" id="fcAuto">🌐 تحقق تلقائي من الإنترنت</button></div><div id="fcMsg" class="hint"></div>' +
+    '<hr style="border:0;border-top:1px solid var(--line2);margin:10px 0"><b>أو تأكيد يدوي</b><p class="hint">ابحث بنفسك في: ' + links + '</p>' +
+    '<label class="sub">الوقت الرسمي (إن اختلف)</label><input type="datetime-local" id="fcOff" value="' + esc(offIn) + '" style="width:100%"><label class="sub">ملاحظة</label><input id="fcNote" value="' + esc(e.note || '') + '" style="width:100%" maxlength="200">' +
+    '<div class="act" style="flex-wrap:wrap"><button class="btn green" id="fcOk">✓ الرحلة موجودة ومطابقة</button><button class="btn amber" id="fcMis">⚠ الوقت مختلف</button><button class="btn red" id="fcNf">✗ لا توجد رحلة</button>' + (e.status ? '<button class="btn" id="fcClr">مسح</button>' : '') + '<button class="btn" id="fcX">إغلاق</button></div>');
+  const msg = t => { $('#fcMsg', ov).textContent = t; };
+  $('#fcX', ov).onclick = () => ov.close();
+  $('#fcAuto', ov).onclick = async () => {
+    msg('جارٍ التحقق…'); const j = await fcLookup(g).catch(x => ({ ok: false, error: String(x.message || x) }));
+    if (j.ok) { ov.close(); emit(); toast(j.item && j.item.status === 'notfound' ? 'لا توجد رحلة بهذا الرقم' : 'تم التحقق من الرحلة', j.item && j.item.status === 'notfound' ? 'err' : 'ok'); }
+    else msg(j.error === 'no_key' ? 'خدمة التحقق التلقائي غير مفعّلة بعد (لا يوجد مفتاح). استخدم التأكيد اليدوي.' : j.error === 'no_code' ? 'تعذّر استنتاج رمز الرحلة — استخدم التأكيد اليدوي.' : 'فشل التحقق: ' + (j.error || ''));
+  };
+  const manual = async (status, clear) => {
+    const auth = await ensureAuth(); if (!auth) return;
+    const off = $('#fcOff', ov).value.replace('T', ' '); if (status === 'mismatch' && !off) { msg('أدخل الوقت الرسمي'); return; }
+    try {
+      const j = await api('fc_set', {}, { key: k, label: 'رحلة ' + g.flight, flight: code || g.flight, airline: g.airline || '', date: day, status: clear ? '' : status, official: status === 'notfound' ? '' : off, mode: 'manual', note: $('#fcNote', ov).value, by: auth.by, pin: auth.pin });
+      if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error(j.error === 'bad_pin' ? 'رمز المشرف غير صحيح' : (j.error || 'خطأ')); }
+      if (clear) delete state.fc[k]; else state.fc[k] = { key: k, flight: code || g.flight, status, official: status === 'notfound' ? '' : off, mode: 'manual', note: $('#fcNote', ov).value, by: auth.by };
+      guardSet('fc', k, clear ? null : state.fc[k]); try { localStorage.setItem('hajj1447.fc', JSON.stringify(state.fc)); } catch (x) { }
+      ov.close(); emit(); toast('تم الحفظ', 'ok');
+    } catch (x) { msg('فشل الحفظ: ' + (x.message || x)); }
+  };
+  $('#fcOk', ov).onclick = () => manual('ok'); $('#fcMis', ov).onclick = () => manual('mismatch'); $('#fcNf', ov).onclick = () => manual('notfound');
+  if ($('#fcClr', ov)) $('#fcClr', ov).onclick = () => manual('', true);
+}
+
 async function loadAppr() {
   try {
     const j = await api('appr_get'); if (!j.ok || !Array.isArray(j.items)) return;
@@ -1636,8 +1731,9 @@ async function refresh(kinds) {
   const live = $('#live'), btn = $('#bRef');
   if (live) live.className = 'live load'; if (btn) btn.classList.add('spin');
   await syncPublic();
-  await Promise.all(kinds.map(loadKind).concat([loadNames()], kinds.map(loadNotes), kinds.includes('arrival') ? [loadReady()] : [], (kinds.includes('departure') || kinds.includes('transfers')) ? [loadAppr()] : []));
+  await Promise.all(kinds.map(loadKind).concat([loadNames()], kinds.map(loadNotes), kinds.includes('arrival') ? [loadReady(), loadFc()] : [], (kinds.includes('departure') || kinds.includes('transfers')) ? [loadAppr()] : []));
   applyReady();
+  if (kinds.includes('arrival')) setTimeout(fcAuto, 600);
   if (btn) btn.classList.remove('spin');
   updateBadges(); emit(); tick(true);
 }
@@ -1645,6 +1741,7 @@ function hydrate(kinds) {
   try { NAMES.map = JSON.parse(localStorage.getItem('hajj1447.names') || '{}') || {}; } catch (e) { }
   try { state.ready = JSON.parse(localStorage.getItem('hajj1447.ready') || '{}') || {}; } catch (e) { }
   try { state.appr = JSON.parse(localStorage.getItem('hajj1447.appr') || '{}') || {}; } catch (e) { }
+  try { state.fc = JSON.parse(localStorage.getItem('hajj1447.fc') || '{}') || {}; } catch (e) { }
   kinds.forEach(k => {
     try { state.notes[k] = JSON.parse(localStorage.getItem('hajj1447.notes.' + k) || '{}') || {}; } catch (e) { }
     try { const c = JSON.parse(localStorage.getItem('hajj1447.cache.' + k) || 'null'); if (c && c.rows) { processRows(k, c.rows); state.sync[k] = c.ts; state.cached = true; } } catch (e) { }
@@ -2243,7 +2340,7 @@ function initTracker(kind) {
 
   app.innerHTML = '<section class="hero"><div><h1>' + K.title + '</h1><p>' + K.sub + '</p></div><div class="hero-actions">' +
     (kind === 'arrival' ? '<button class="btn gold" id="xDay">📋 تقرير الوصول اليومي</button>' : '') + '<button class="btn green" id="xXls">' + ICON.xls + 'Excel</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
-    '<div id="stale"></div><div class="kpis" id="kpis"></div><div id="alertbar"></div><div id="rdybar"></div>' +
+    '<div id="stale"></div><div class="kpis" id="kpis"></div><div id="alertbar"></div><div id="rdybar"></div><div id="fcbar"></div>' +
     '<section class="secs"><div class="sectiles" id="secTiles"></div><div class="secpanel panel" id="secPanel" hidden></div></section>' +
     '<section class="panel"><div id="tphint"></div><div class="toolbar">' +
     '<div class="qchips" id="qchips"></div>' +
@@ -2461,7 +2558,7 @@ function initTracker(kind) {
     const hasHotel = d.map.hotel != null || ci.stay;
     const cols = [
       { id: 'sel', th: '<input type="checkbox" data-selall aria-label="تحديد الكل">' }, { id: 'n', th: '#' },
-      { id: 'flight', th: 'الرحلة', sort: 'flight' }, { id: 'when', th: kind === 'arrival' ? 'موعد الوصول' : 'موعد الإقلاع / التحرك', sort: 'when' }, { id: 'cd', th: 'العدّ التنازلي' },
+      { id: 'flight', th: 'الرحلة', sort: 'flight' }, kind === 'arrival' && { id: 'fc', th: 'تم التحقق' }, { id: 'when', th: kind === 'arrival' ? 'موعد الوصول' : 'موعد الإقلاع / التحرك', sort: 'when' }, { id: 'cd', th: 'العدّ التنازلي' },
       ci.air && { id: 'air', th: 'المطار' }, hasHotel && { id: 'hotel', th: 'الفندق', sort: 'hotel' }, ci.tp && { id: 'tp', th: 'وسيلة النقل' }, { id: 'pax', th: 'العدد', sort: 'pax' }, { id: 'nat', th: 'الجنسيات' }, { id: 'pp', th: 'الجوازات' },
       { id: 'st', th: 'الحالة', sort: 'status' }, { id: 'act', th: '' }
     ].filter(Boolean);
@@ -2470,6 +2567,7 @@ function initTracker(kind) {
         case 'sel': return '<td><input type="checkbox" data-sel="' + esc(g.key) + '"' + (ui.sel.has(g.key) ? ' checked' : '') + ' aria-label="تحديد"></td>';
         case 'n': return '<td class="sub">' + (i + 1) + '</td>';
         case 'flight': return '<td><b>' + esc(g.flight) + '</b>' + (g.airline ? '<div class="sub">' + esc(g.airline) + '</div>' : '') + '</td>';
+        case 'fc': return '<td>' + fcCell(g) + '</td>';
         case 'when': return '<td>' + gWhen(g) + mvHtml(g) + '</td>';
         case 'cd': return '<td>' + gCd(g) + '</td>';
         case 'air': return '<td>' + twoLine(g.airport, airCityTxt(g)) + '</td>';
@@ -2634,6 +2732,7 @@ function initTracker(kind) {
       '<div class="kpi sky"><div class="l">أقرب رحلة</div><div class="v" style="font-size:25px;padding-top:5px">' + (nextG ? '<span class="cd" data-w="' + nextG.when.getTime() + '"></span>' : '—') + '</div><div class="s">' + (nextG ? esc(nextG.flight) + ' · ' + C.fmtTime(nextG.when) + ' · ' + nextG.pax + ' فرد' : 'لا توجد رحلات قادمة') + '</div></div>' + extraKpis(allGroups, fl, sm);
     $('#alertbar').innerHTML = sm.dangerRows ? '<div class="alertbar" data-kpi="danger"><span class="dot"></span><b>تنبيه:</b> ' + sm.dangerRows + ' سجل في حالة حرجة أو متأخرة ويحتاج إلى إجراء فوري <span class="sp"></span><span class="hint">عرض</span></div>' : '';
     { const rb = $('#rdybar'); if (rb) { const ar = kind === 'arrival', L = ar ? noRdyFlights(Date.now()) : (kind === 'departure' ? noApprFlights(Date.now()) : []); rb.innerHTML = L.length ? '<div class="alertbar rdyb" data-rdylate="1"><span class="dot"></span><b>' + (ar ? 'تنبيه الاستعداد المسبق:' : 'تنبيه اعتماد المغادرة:') + '</b> ' + rdyCnt(L.length) + ' (' + L.reduce((n, x) => n + (x.n || x.g.pax), 0) + (ar ? ' حاج) بلا استعداد وقد دخلت مهلة الأسبوعين' : ' فرد) بلا اعتماد وقد دخلت مهلة 5 أيام قبل المغادرة') + ' — أقربها ' + esc(L[0].g.flight) + (L[0].h > 0 ? ' بعد ' + dur0(Math.round(L[0].h * 60)) : ' (مضى موعدها)') + ' <span class="sp"></span><span class="hint">عرض</span></div>' : ''; } }
+    { const fb = $('#fcbar'); if (fb) fb.innerHTML = kind === 'arrival' ? fcBar() : ''; }
     const dk = new Set(R.filter(r => ST[r._st].cls === 'danger').map(r => pkey(r)));
     if (prevDanger) { let n = 0; dk.forEach(k => { if (!prevDanger.has(k)) n++; }); if (n) { toast('تنبيه: ' + n + ' حالة حرجة جديدة', 'err'); notifyNew(n); } }
     prevDanger = dk;
@@ -2736,6 +2835,7 @@ function initTracker(kind) {
   }
   app.addEventListener('click', e => {
     const t = e.target; let el;
+    if ((el = t.closest('[data-fc]'))) { const g = fcGroupsAll().find(x => fcKeyOf(x) === el.dataset.fc); if (g) openFc(g); return; }
     if ((el = t.closest('[data-gnote]'))) { const g = gmap.get(el.dataset.gnote); if (g) openNote(g); return; }
     if ((el = t.closest('[data-gact]'))) { const g = gmap.get(el.dataset.key); if (g) doWrite(g.rows, el.dataset.gact === 'ok', K.act + ' — ' + gTitle(g)); return; }
     if ((el = t.closest('[data-grp]'))) { openGroup(el.dataset.grp, el.dataset.nat); return; }
