@@ -210,6 +210,7 @@ tbody tr.r.syncing td{background:rgba(14,165,233,.08)}
 .flag{width:26px;height:18px;border-radius:3px;object-fit:cover;box-shadow:0 0 0 1px rgba(255,255,255,.18);background:var(--card2);flex:none}
 .flag.ph{display:inline-grid;place-items:center;font-size:10px;color:var(--mut)}
 .pp{font-family:ui-monospace,Consolas,monospace;direction:ltr;unicode-bidi:isolate;display:inline-block;letter-spacing:.5px}
+.fcrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}.fcrow>div{display:inline-flex;gap:6px;align-items:center}.heta{color:var(--sky,#0ea5e9)}
 .btn.xs.fcb{padding:2px 8px;font-size:11.5px;margin-top:4px}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:12.5px;font-weight:700;white-space:nowrap}
 .chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
@@ -1520,6 +1521,12 @@ function fcState(g) {
   if (e.mode !== 'manual' || e.status === 'mismatch') { if (off && sch) { const dm = Math.round((off - sch) / 60000); if (Math.abs(dm) > FC_TOL) return { s: 'mismatch', e, dm, off }; } else if (e.status === 'mismatch') return { s: 'mismatch', e, off }; }
   return { s: 'ok', e, off };
 }
+const ETA_H = { jeddah: { makkah: 1, madinah: 4 }, madinah: { madinah: 1, makkah: 4 } };
+function hotelEta(g) {
+  const h = (ETA_H[g.airCity] || {})[g.stayCity]; if (!h || !g.when) return '';
+  const t = new Date(g.when.getTime() + h * 36e5);
+  return '<div class="sub heta" title="تقدير: ' + h + ' س من المطار إلى الفندق">🚌 يصل الفندق ≈ ' + esc(C.fmtTime(t)) + (C.fmtDay(t) !== C.fmtDay(g.when) ? ' (' + esc(C.fmtDay(t)) + ')' : '') + ' · +' + h + ' س</div>';
+}
 function fcCell(g) {
   const st = fcState(g), e = st.e, who = e ? (e.mode === 'manual' ? 'يدوي' : 'تلقائي') : '', code = fcCode(g);
   let c;
@@ -2495,7 +2502,7 @@ function initTracker(kind) {
         case 'when': return '<td>' + gWhen(g) + mvHtml(g) + '</td>';
         case 'cd': return '<td>' + gCd(g) + '</td>';
         case 'air': return '<td>' + twoLine(g.airport, airCityTxt(g)) + '</td>';
-        case 'hotel': return '<td>' + twoLine(g.hotel, stayCityTxt(g)) + '</td>';
+        case 'hotel': return '<td>' + twoLine(g.hotel, stayCityTxt(g)) + (kind === 'arrival' ? hotelEta(g) : '') + '</td>';
         case 'tp': return '<td>' + tpHtml(gTransport(g)) + '</td>';
         case 'pax': return '<td><b class="num" style="font-size:17px">' + g.pax + '</b><div class="bar" style="width:70px;margin-top:4px"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div></td>';
         case 'nat': return '<td>' + natChips(g, 3) + '</td>';
@@ -2516,8 +2523,8 @@ function initTracker(kind) {
       '<article class="gcard ' + (g.open === 0 ? 'done ' : '') + (g.open && g.cls === 'danger' ? 'danger ' : g.open && g.cls === 'warn' ? 'warn ' : '') + '">' +
       '<header><label class="chk"><input type="checkbox" data-sel="' + esc(g.key) + '"' + (ui.sel.has(g.key) ? ' checked' : '') + ' aria-label="تحديد"></label><div class="gt"><b class="no">' + esc(g.flight) + '</b>' + (g.airline ? '<div class="sub">' + esc(g.airline) + '</div>' : '') + '</div><div class="gs">' + stChip(g) + '</div></header>' +
       '<div class="gbig"><div><b class="num">' + g.pax + '</b><span>فرد</span></div><div class="gcd">' + gCd(g) + '</div></div>' +
-      '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' + noteChip(g) + regChip(g) +
-      '<dl class="gkv"><div><dt>' + (kind === 'arrival' ? 'الموعد' : 'الإقلاع') + '</dt><dd>' + gWhen(g) + mvHtml(g) + '</dd></div>' + (ci.air ? '<div><dt>' + (kind === 'arrival' ? 'مطار الوصول' : 'مطار المغادرة') + '</dt><dd>' + twoLine(g.airport, airCityTxt(g)) + '</dd></div>' : '') + ((g.hotel || ci.stay) ? '<div><dt>الفندق</dt><dd>' + twoLine(g.hotel, stayCityTxt(g)) + '</dd></div>' : '') + (ci.tp ? '<div><dt>وسيلة النقل</dt><dd>' + tpHtml(gTransport(g)) + '</dd></div>' : '') + '</dl>' +
+      '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' + noteChip(g) + regChip(g) + (kind === 'arrival' ? '<div class="fcrow">' + fcCell(g) + '</div>' : '') +
+      '<dl class="gkv"><div><dt>' + (kind === 'arrival' ? 'الموعد' : 'الإقلاع') + '</dt><dd>' + gWhen(g) + mvHtml(g) + '</dd></div>' + (ci.air ? '<div><dt>' + (kind === 'arrival' ? 'مطار الوصول' : 'مطار المغادرة') + '</dt><dd>' + twoLine(g.airport, airCityTxt(g)) + '</dd></div>' : '') + ((g.hotel || ci.stay) ? '<div><dt>الفندق</dt><dd>' + twoLine(g.hotel, stayCityTxt(g)) + (kind === 'arrival' ? hotelEta(g) : '') + '</dd></div>' : '') + (ci.tp ? '<div><dt>وسيلة النقل</dt><dd>' + tpHtml(gTransport(g)) + '</dd></div>' : '') + '</dl>' +
       natChips(g, 4) + '<footer>' + ppBtn(g) + gAct(g) + fBtns(g) + '</footer></article>').join('') + '</div>';
   }
 
