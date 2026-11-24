@@ -499,6 +499,9 @@ body.ro [data-fready],body.ro [data-gready]{display:none!important}
 .trcard .gbig{display:flex;gap:14px;margin:6px 0}.trcard .gbig b{font-size:26px;margin-inline-end:6px}
 .trsec{margin:14px 0}.trsec h4{margin:0 0 8px;font-size:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:baseline}
 
+
+.jnote{margin:6px 0 14px;padding:12px 14px;border-radius:14px;border:1px solid #F5A524;background:color-mix(in srgb,#F5A524 12%,transparent)}.jnote b{display:block;margin-bottom:6px}.jnote ul{margin:0;padding-inline-start:18px;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.jrr{background:var(--line2);border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}.jrr .i{flex:1;min-width:0}.jrr .i small{color:var(--mut);direction:ltr;display:block;text-align:start}.jrr ul{margin:6px 0 0;padding-inline-start:18px;font-size:12.5px;display:flex;flex-direction:column;gap:3px}
 .tlv{list-style:none;margin:14px 0 0;padding:0;position:relative}.tlv:before{content:"";position:absolute;inset-block:8px;inset-inline-start:19px;width:2px;background:var(--line2,rgba(128,128,128,.3))}
 .tlv li{position:relative;padding-inline-start:52px;margin-bottom:14px}.tlv li.past{opacity:.78}.tlv .dot{position:absolute;inset-inline-start:0;top:0;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--card,#0C2646);border:2px solid var(--gold,#C5A059);font-size:18px}
 .tlc{background:rgba(128,128,128,.07);border:1px solid var(--line2,rgba(128,128,128,.25));border-radius:12px;padding:10px 12px}.tlh{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;align-items:baseline}
@@ -2981,6 +2984,23 @@ function initDashboard() {
     return '<a class="bt cty ' + ['gold', 'ok'][j] + ' w6" href="arrival.html"><div class="bl"><span class="bi">' + ['🕋', '🕌'][j] + '</span>' + esc(C.CITY_DEF[i].ar) + '</div>' +
       '<div class="cols">' + col('arrival', ga, '🛬 وصول', 'ga') + col('departure', gd, '🛫 مغادرة', 'gd') + '</div></a>';
   }
+  // بلاطة «تستدعي الانتباه»: حجاج مساراتهم فيها تعارض (إقامة قبل الوصول / مغادرة قبل أو بعد خروج آخر فندق)
+  function jrTile() {
+    const L = journeyList();
+    if (!L) return bTile('gold w3', 'pilgrim.html', '👁', 'تستدعي الانتباه', '—', 'أرقام الجوازات مخفية — لا يمكن فحص مسارات الحجاج');
+    const c = ty => L.reduce((n, x) => n + x.is.filter(i => i.ty === ty).length, 0);
+    return bTile('gold w3' + (L.length ? ' pulse' : ''), '#', '👁', 'تستدعي الانتباه', L.length, (L.length ? 'حاج بمسار متعارض · قبل الوصول ' + c('pre') + ' · مغادرة قبل الخروج ' + c('early') + ' · بعده ' + c('late') : 'لا تعارض في مسارات الحجاج'), ' data-jr="1"');
+  }
+  function jrModal() {
+    const L = journeyList(); if (!L) return;
+    const ov = modal('<h3>👁 حجاج تستدعي مساراتهم الانتباه <span class="hint">' + L.length + ' حاج</span></h3><div class="field" style="margin:8px 0;gap:8px;flex-wrap:wrap"><input type="search" id="jrQ" placeholder="بحث بالاسم أو رقم الجواز…" autocomplete="off"><select id="jrT"><option value="">كل الملاحظات</option><option value="pre">إقامة قبل الوصول</option><option value="early">مغادرة قبل خروج آخر فندق</option><option value="late">مغادرة بعد خروج آخر فندق</option></select></div><div class="nlist" id="jrL"></div>');
+    const draw = () => {
+      const q = ov.querySelector('#jrQ').value.trim().toLowerCase(), ty = ov.querySelector('#jrT').value;
+      const F = L.filter(x => (!ty || x.is.some(i => i.ty === ty)) && (!q || String(x.o.name || '').toLowerCase().includes(q) || String(x.o.passport || '').toLowerCase().includes(q))), sh = F.slice(0, 200);
+      ov.querySelector('#jrL').innerHTML = sh.length ? sh.map(x => '<div class="jrr"><div class="i"><b>' + esc(x.o.name || '—') + '</b><small>' + esc(x.o.passport || '') + '</small><ul>' + x.is.map(i => '<li>' + esc(i.t) + '</li>').join('') + '</ul></div><a class="btn sm" href="pilgrim.html?p=' + encodeURIComponent(x.o.passport || x.o.name || '') + '">رحلته كاملة ←</a></div>').join('') + (F.length > sh.length ? '<div class="bs" style="padding:8px;text-align:center">عُرض ' + sh.length + ' من ' + F.length + ' — استخدم البحث لتضييق القائمة</div>' : '') : '<div class="empty">لا نتائج</div>';
+    };
+    ov.querySelector('#jrQ').oninput = draw; ov.querySelector('#jrT').onchange = draw; draw();
+  }
   function trCard(today) {
     const T = state.data.transfers;
     if (!T) return '<a class="bt teal w6" href="transfers.html"><div class="bl"><span class="bi">🔁</span>التنقلات الداخلية</div><div class="bs">' + (state.err.transfers ? 'تعذّر تحميل التنقلات — اضغط للتفاصيل' : 'جارٍ تحميل بيانات التنقلات…') + '</div></a>';
@@ -3022,7 +3042,7 @@ function initDashboard() {
       bTile('red w3' + ((a.dangerRows + d.dangerRows) ? ' pulse' : ''), target + '.html?status=danger', '🚨', 'تنبيهات حرجة', a.dangerRows + d.dangerRows, 'وصول ' + a.dangerRows + ' · مغادرة ' + d.dangerRows) +
       bTile('amber w3', '#late', '⏰', 'مجموعات متأخرة', o.lt, 'مضى موعدها ولم تُنجَز', ' data-jump="late"') +
       bTile('vio w3', '#nIss', '🚦', 'مشاكل النقل', o.is, 'تأخر أو مشكلة مسجّلة', ' data-jump="nIss"') +
-      bTile('gold w3', 'arrival.html?status=warn', '👁', 'تستدعي الانتباه', warn, 'وصول ومغادرة') +
+      jrTile() +
       '<div class="band">' +
       '<a class="red" href="arrival.html?rdy=late"><span>بلا استعداد (أسبوعان)</span><b>' + o.nr + '</b></a>' +
       '<a class="red" href="departure.html?rdy=late"><span>بلا اعتماد (5 أيام)</span><b>' + o.na + '</b></a>' +
@@ -3084,7 +3104,7 @@ function initDashboard() {
     ov.querySelector('#nlQ').oninput = draw; draw();
   }
   $('#nat').addEventListener('click', e => { const n = e.target.closest('[data-nat]'); if (n) natModal(n.dataset.nat); });
-  $('#kpis').addEventListener('click', e => { const n = e.target.closest('[data-nat]'); if (n) { e.preventDefault(); natModal(n.dataset.nat); return; } const j = e.target.closest('[data-jump]'); if (!j) return; e.preventDefault(); const el = document.getElementById(j.dataset.jump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  $('#kpis').addEventListener('click', e => { if (e.target.closest('[data-jr]')) { e.preventDefault(); jrModal(); return; } const n = e.target.closest('[data-nat]'); if (n) { e.preventDefault(); natModal(n.dataset.nat); return; } const j = e.target.closest('[data-jump]'); if (!j) return; e.preventDefault(); const el = document.getElementById(j.dataset.jump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
   $('#xPrint').onclick = () => window.print();
   $('#xXls').onclick = async () => {
     const A = state.data.arrival, D = state.data.departure; if (!A && !D) return toast('لا توجد بيانات بعد', 'warn');
@@ -3370,6 +3390,39 @@ function initTransfers() {
    وصفحة «المتابعة»: تنبيهات + مؤشرات يومية للاستعداد والاعتماد والإنجاز
    ===================================================================== */
 const pfAll = () => ({ A: state.data.arrival, D: state.data.departure, T: state.data.transfers });
+// ---- منطق رحلة الحاج: الوصول ← إقامة 1 ← 2 ← 3 ← المغادرة (الترتيب ثابت)، مع كشف تعارض التواريخ ----
+let _pfIdx = null, _pfSrc = null;
+function pfIndex() {
+  const { A, D, T } = pfAll(), tag = isMasked() ? 'm' : '';
+  if (_pfIdx && _pfSrc[0] === (A && A.records) && _pfSrc[1] === (D && D.records) && _pfSrc[2] === (T && T.records) && _pfSrc[3] === tag) return _pfIdx;
+  const m = new Map(), get = k => { let o = m.get(k); if (!o) { o = { k, a: [], d: [], t: [], name: '', passport: '', nat: null }; m.set(k, o); } return o; };
+  const fill = (o, r) => { if (!o.passport) o.passport = r.passport; if (!o.name) o.name = r.name || NAMES.map[passKey(r.passport)] || ''; if (!o.nat && r.country) o.nat = r.country; };
+  [[A, 'a'], [D, 'd'], [T, 't']].forEach(([X, f]) => ((X && X.records) || []).forEach(r => { if (r.passport) { const o = get(passKey(r.passport)); o[f].push(r); fill(o, r); } }));
+  _pfIdx = { m, list: [...m.values()], jr: null }; _pfSrc = [A && A.records, D && D.records, T && T.records, tag]; return _pfIdx;
+}
+const jrDays = n => n === 1 ? 'يوم' : (n === 2 ? 'يومين' : (n >= 3 && n <= 10 ? n + ' أيام' : n + ' يوماً'));
+const jrDif = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+const jrTxt = k => (k ? k.slice(8, 10) + '/' + k.slice(5, 7) + '/' + k.slice(0, 4) : '—');
+function journeyIssues(o) {
+  const out = [], tr = o.t.find(r => r.stays && r.stays.length), st = tr ? tr.stays : [];
+  const ar = o.a.filter(r => r.when).map(r => C.fmtDay(r.when)).sort(), dp = o.d.filter(r => r.when).map(r => C.fmtDay(r.when)).sort();
+  const arr = ar[0] || '', dep = dp.length ? dp[dp.length - 1] : '';
+  if (arr) st.forEach((s, i) => { if (s.inn && s.inn < arr) out.push({ ty: 'pre', si: i, t: 'الإقامة ' + (i + 1) + ' (' + s.hotel + ') تبدأ ' + jrTxt(s.inn) + ' قبل موعد الوصول ' + jrTxt(arr) + ' بـ ' + jrDays(jrDif(s.inn, arr)) }); });
+  const last = st.length ? st[st.length - 1] : null;
+  if (dep && last && last.out) {
+    const n = jrDif(last.out, dep);
+    if (n < 0) out.push({ ty: 'early', si: st.length - 1, t: 'موعد المغادرة ' + jrTxt(dep) + ' قبل خروج آخر فندق (' + last.hotel + ') ' + jrTxt(last.out) + ' بـ ' + jrDays(-n) });
+    else if (n >= 1) out.push({ ty: 'late', si: st.length - 1, t: 'موعد المغادرة ' + jrTxt(dep) + ' بعد خروج آخر فندق (' + last.hotel + ') ' + jrTxt(last.out) + ' بـ ' + jrDays(n) });
+  }
+  return out;
+}
+// الحجاج ذوو الملاحظات (محسوبة مرة لكل تحميل بيانات)
+function journeyList() {
+  if (isMasked()) return null;
+  const I = pfIndex(); if (!I.jr) I.jr = I.list.map(o => ({ o, is: journeyIssues(o) })).filter(x => x.is.length);
+  return I.jr;
+}
+
 const pfDay = d => d ? C.fmtDay(d) : '';
 const pfWhen = d => d ? C.fmtDayAr(d) + ' ' + C.fmtTime(d) : '—';
 const pfDayKeyTxt = k => (typeof trDayTxt === 'function' ? trDayTxt(k) : k);
@@ -3378,7 +3431,8 @@ function initPilgrim() {
   const app = $('#app'); const qp = new URLSearchParams(location.search).get('p') || ''; let sel = passKey(qp), q = qp, idx = null, idxSrc = '';
   app.innerHTML = '<section class="hero"><div><h1>رحلة <span>الحاج</span></h1><p>ابحث برقم الجواز أو الاسم لترى مساره كاملاً: الوصول، الإقامات، التنقلات، المغادرة</p></div></section>' +
     '<div id="stale"></div><section class="panel"><div class="toolbar"><div class="field" style="flex:1;min-width:220px">' + ICON.search + '<input type="search" id="pQ" placeholder="رقم الجواز أو الاسم…" autocomplete="off" autofocus></div><span class="hint" id="pCnt"></span></div><div id="pRes"></div></section>';
-  const build = () => {
+  const build = () => pfIndex();
+  const build0 = () => {
     const { A, D, T } = pfAll(), tag = [A, D, T].map(x => x ? x.records.length : 0).join('|') + (isMasked() ? 'm' : '');
     if (idx && idxSrc === tag + (A && A.records) + (D && D.records) + (T && T.records)) return idx;
     const m = new Map(), get = k => { let o = m.get(k); if (!o) { o = { k, a: [], d: [], t: [], name: '', passport: '', nat: null }; m.set(k, o); } return o; };
@@ -3390,16 +3444,16 @@ function initPilgrim() {
   };
   const chip = (cls, t) => '<span class="chip ' + cls + '">' + t + '</span>';
   function timeline(o) {
-    const { T } = pfAll(), items = [], now = Date.now();
+    const { T } = pfAll(), items = [], now = Date.now(), jis = journeyIssues(o);
     o.a.forEach(r => {
       const gk = C.groupRecords([r])[0].key, rd = state.ready[rk(gk)] || state.ready[rKey(r)], reg = rd && (rd.status === 'entered' || rd.status === 'approved');
-      items.push({ ts: r.when ? r.when.getTime() : 9e15, ic: '🛬', t: 'الوصول — رحلة ' + esc(r.flight || '—'), when: pfWhen(r.when),
+      items.push({ ord: 0, ts: r.when ? r.when.getTime() : 9e15, ic: '🛬', t: 'الوصول — رحلة ' + esc(r.flight || '—'), when: pfWhen(r.when),
         kv: [['مدينة الوصول', esc(C.cityName(r.airCity, r.airCityRaw) || '—')], ['المطار', esc(r.airport || '—')], ['فندق الوجهة', esc(r.hotel || '—') + (r.stayCity ? ' · ' + esc(C.cityName(r.stayCity, r.stayCityRaw)) : '')]],
         st: [r.done ? chip('ok', '✓ تم التسكين') : chip(r.when && r.when.getTime() < now ? 'warn' : 'info', 'لم يُسكَّن بعد'), reg ? chip('ok', '🛂 مسجّل في نسك مسار') : chip('na', 'استعداد غير مسجّل')] });
     });
     if (T) o.t.forEach(r => {
-      r.stays.forEach((s, i) => items.push({ ts: s.inn ? trDate(s.inn).getTime() - 3600e3 : 9e15, ic: '🏨', t: 'إقامة ' + (i + 1) + ' — ' + esc(s.hotel), when: s.inn ? esc(pfDayKeyTxt(s.inn)) + (s.out ? ' ← ' + esc(pfDayKeyTxt(s.out)) : '') : '—',
-        kv: [['المدينة', esc(C.cityName(s.city, s.cityRaw) || '—')], ['الدخول', esc(s.inn || '—')], ['الخروج', esc(s.out || '—')]], st: [] }));
+      r.stays.forEach((s, i) => items.push({ ord: 10 + i * 10, ts: s.inn ? trDate(s.inn).getTime() - 3600e3 : 9e15, ic: '🏨', t: 'إقامة ' + (i + 1) + ' — ' + esc(s.hotel), when: s.inn ? esc(pfDayKeyTxt(s.inn)) + (s.out ? ' ← ' + esc(pfDayKeyTxt(s.out)) : '') : '—',
+        kv: [['المدينة', esc(C.cityName(s.city, s.cityRaw) || '—')], ['الدخول', esc(s.inn || '—')], ['الخروج', esc(s.out || '—')]], st: jis.filter(x => x.si === i).map(x => chip('warn', x.ty === 'pre' ? '⚠ تبدأ قبل الوصول' : (x.ty === 'early' ? '⚠ المغادرة قبل خروجه' : '⚠ المغادرة بعد خروجه'))) }));
       T.moves.filter(m => m.pilgrims.includes(r)).forEach(m => {
         const ty = TR_TYPES[m.type], st = [];
         trLegs(m).forEach(l => {
@@ -3408,17 +3462,18 @@ function initPilgrim() {
           else if (l.kind === 'car') st.push(chip('na', '🚗 سيارة'));
           else st.push(chip(l.apr ? (trOk(trKey(m, l, bi)) ? 'ok' : 'warn') : 'info', '🚌 حافلة ' + (bi + 1) + ' من ' + bs.length + (l.apr ? (trOk(trKey(m, l, bi)) ? ' · معتمدة' : ' · بلا اعتماد') : '')));
         });
-        items.push({ ts: trDate(m.date).getTime(), ic: ty.ic, t: 'تنقل — ' + ty.ar, when: esc(pfDayKeyTxt(m.date)), kv: [['من', esc(m.from.hotel) + ' · ' + esc(C.cityName(m.from.city, m.from.cityRaw) || '')], ['إلى', esc(m.to.hotel) + ' · ' + esc(C.cityName(m.to.city, m.to.cityRaw) || '')], ['عدد الركاب', m.pax]], st });
+        const si = r.stays.findIndex(s => s.hotel === m.from.hotel);
+        items.push({ ord: si >= 0 ? 15 + si * 10 : 95, ts: trDate(m.date).getTime(), ic: ty.ic, t: 'تنقل — ' + ty.ar, when: esc(pfDayKeyTxt(m.date)), kv: [['من', esc(m.from.hotel) + ' · ' + esc(C.cityName(m.from.city, m.from.cityRaw) || '')], ['إلى', esc(m.to.hotel) + ' · ' + esc(C.cityName(m.to.city, m.to.cityRaw) || '')], ['عدد الركاب', m.pax]], st });
       });
     });
     o.d.forEach(r => {
       const fg = C.groupFlights([r])[0], ap = state.appr[fg.key], aok = ap && ap.status === 'approved';
-      items.push({ ts: r.when ? r.when.getTime() : 9e15, ic: '🛫', t: 'المغادرة — رحلة ' + esc(r.flight || '—'), when: pfWhen(r.when),
+      items.push({ ord: 100, ts: r.when ? r.when.getTime() : 9e15, ic: '🛫', t: 'المغادرة — رحلة ' + esc(r.flight || '—'), when: pfWhen(r.when),
         kv: [['المطار', esc(r.airport || '—')], ['مدينة المطار', esc(C.cityName(r.airCity, r.airCityRaw) || '—')], ['الفندق', esc(r.hotel || '—')]],
-        st: [r.done ? chip('ok', '✓ غادر') : chip('info', 'لم يغادر بعد'), aok ? chip('ok', '🧾 اعتماد الحافلة مسجّل') : chip('na', 'اعتماد غير مسجّل')] });
+        st: [...jis.filter(x => x.ty !== 'pre').map(x => chip('warn', x.ty === 'early' ? '⚠ قبل خروج آخر فندق' : '⚠ بعد خروج آخر فندق')), r.done ? chip('ok', '✓ غادر') : chip('info', 'لم يغادر بعد'), aok ? chip('ok', '🧾 اعتماد الحافلة مسجّل') : chip('na', 'اعتماد غير مسجّل')] });
     });
-    items.sort((a, b) => a.ts - b.ts);
-    return '<ol class="tlv">' + items.map(x => '<li class="' + (x.ts < now ? 'past' : '') + '"><span class="dot">' + x.ic + '</span><div class="tlc"><div class="tlh"><b>' + x.t + '</b><span class="hint">' + x.when + '</span></div>' +
+    items.sort((a, b) => (a.ord - b.ord) || (a.ts - b.ts));
+    return (jis.length ? '<div class="jnote"><b>⚠ ملاحظات على رحلة الحاج</b><ul>' + jis.map(x => '<li>' + esc(x.t) + '</li>').join('') + '</ul></div>' : '') + '<ol class="tlv">' + items.map(x => '<li class="' + (x.ts < now ? 'past' : '') + '"><span class="dot">' + x.ic + '</span><div class="tlc"><div class="tlh"><b>' + x.t + '</b><span class="hint">' + x.when + '</span></div>' +
       '<div class="tlkv">' + x.kv.map(k => '<div><small>' + k[0] + '</small><span>' + k[1] + '</span></div>').join('') + '</div>' + (x.st.length ? '<div class="tlst">' + x.st.join(' ') + '</div>' : '') + '</div></li>').join('') + '</ol>';
   }
   function render() {
