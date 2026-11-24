@@ -466,6 +466,23 @@ tbody tr.r:nth-child(even) td{background:color-mix(in srgb,var(--ink) 3%,transpa
 tbody tr.r:hover td{background:color-mix(in srgb,var(--gold) 9%,transparent)}
 tbody td .no,tbody td b.no{font-weight:800;color:var(--gold2)}
 
+/* ===== بطاقة التنقل الداخلي ===== */
+.trcard>header{padding:4px 12px 9px}
+.trcard .trh{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.trcard .trh .fic{font-size:16px}
+.trcard .trh b{font-size:14.5px}
+.trcard .rt{position:relative;display:grid;gap:0}
+.trcard .rt .st{display:flex;align-items:flex-start;gap:10px;padding:6px 0;position:relative}
+.trcard .rt .st+.st{padding-top:10px}
+.trcard .rt .st::before{content:"";flex:none;width:12px;height:12px;border-radius:50%;margin-top:4px;border:3px solid var(--gold);background:var(--card2);position:relative;z-index:1}
+.trcard .rt .st.to::before{background:var(--gold)}
+.trcard .rt .st:not(:last-child)::after{content:"";position:absolute;inset-inline-start:5px;top:20px;bottom:-4px;border-inline-start:2px dashed var(--line2)}
+.trcard .rt .st b{display:block;font-size:15px;line-height:1.3}.trcard .rt .st small{color:var(--mut);font-size:11.5px}
+.trcard .rt .st .lb{color:var(--mut);font-size:10.5px;display:block}
+.trcard .gkv{gap:6px}.trcard .gkv>div{padding:7px 9px}.trcard .gkv dt{font-size:11.5px}.trcard .gkv dd{font-size:13px}
+.trcard .gi.legs .gv{display:flex;flex-wrap:wrap;gap:4px}.trcard .gi.legs .gv small{flex:0 0 100%}.trcard .gi.legs .gv>*{max-width:100%}
+.trcard.train .gic.t{background:color-mix(in srgb,#2fbf71 18%,transparent);color:#2fbf71}
+
 /* ===== نسخة مدمجة (v2.1): بطاقة أصغر ومعلومتان في الصف ===== */
 .cards{grid-template-columns:repeat(auto-fill,minmax(296px,1fr));gap:12px}
 .gcard{gap:8px;border-radius:18px}
@@ -3558,14 +3575,14 @@ function initTransfers() {
     const chip = !hasApr ? '<span class="chip info">' + T.ic + ' ' + T.ar + '</span>' : (full ? '<span class="chip ok">✓ اعتماد مكتمل</span>' : '<span class="chip warn">بانتظار الاعتماد ' + st.ok + '/' + st.tot + '</span>');
     const nobus = legs.some(l => l.kind === 'car');
     const badge = !hasApr ? (m.type === 'train' ? '<div class="rgc na">🚗 أقل من ' + trMinBus() + ' أفراد — بسيارات، لا اعتماد حافلات</div>' : '') : '<div class="rgc ' + (full ? 'ok' : 'pend') + '">' + (full ? '🧾 اعتماد الحافلات مسجّل في نسك مسار (' + st.ok + ' حافلة)' : '✗ اعتماد الحافلات غير مكتمل — ' + st.ok + ' من ' + st.tot) + '</div>';
-    return '<article class="gcard trcard ' + m.type + (full ? ' done' : '') + (hasApr && !full ? ' warn' : '') + '" data-mv="' + m.id + '">' +
-      '<header><div class="gt"><b class="no">' + esc(m.from.hotel) + ' ← ' + esc(m.to.hotel) + '</b><div class="sub">' + T.ic + ' ' + T.ar + '</div></div><div class="gs">' + chip + '</div></header>' +
-      '<div class="gbig"><div><b class="num">' + m.pax + '</b><span>حاج</span></div><div class="gcd"><span class="cd" data-w="' + trDate(m.date).getTime() + '"></span></div></div>' +
-      (hasApr ? '<div class="bar"><i style="width:' + Math.round(st.ok / st.tot * 100) + '%"></i></div>' : '') + noteChip(m) + badge +
-      '<dl class="gkv"><div><dt>التاريخ</dt><dd><b>' + esc(trDayTxt(m.date)) + '</b></dd></div>' +
-      '<div><dt>من</dt><dd><b>' + esc(m.from.hotel) + '</b><div class="sub">' + esc(cityTxt(m.from)) + '</div></dd></div>' +
-      '<div><dt>إلى</dt><dd><b>' + esc(m.to.hotel) + '</b><div class="sub">' + esc(cityTxt(m.to)) + '</div></dd></div>' +
-      '<div><dt>الوسيلة</dt><dd>' + legs.map(l => legChip(m, l)).join(' ') + '</dd></div>' + trBusRows(m) + '</dl>' +
+    return '<article class="gcard v2 trcard ' + m.type + (full ? ' done' : '') + (hasApr && !full ? ' warn' : '') + '" data-mv="' + m.id + '">' +
+      '<header><div class="trh"><span class="fic">' + T.ic + '</span><div><b>' + T.ar + '</b></div></div><div class="gs">' + chip + '</div></header>' +
+      '<div class="rt"><div class="st from"><div><span class="lb">من</span><b>' + esc(m.from.hotel) + '</b><small>' + esc(cityTxt(m.from)) + '</small></div></div><div class="st to"><div><span class="lb">إلى</span><b>' + esc(m.to.hotel) + '</b><small>' + esc(cityTxt(m.to)) + '</small></div></div></div>' +
+      '<div class="hero"><div class="pax"><span class="gic">' + ICON.user + '</span><b class="num">' + m.pax + '</b><small>حاج</small></div>' + (hasApr ? '<div class="hp"><div class="bar"><i style="width:' + Math.round(st.ok / st.tot * 100) + '%"></i></div><small>اعتماد ' + st.ok + ' من ' + st.tot + '</small></div>' : '<div class="hp"></div>') + '<div class="gcd"><span class="cd" data-w="' + trDate(m.date).getTime() + '"></span></div></div>' +
+      noteChip(m) + badge +
+      '<div class="ginfo"><div class="gi time"><span class="gic">' + ICON.cal + '</span><div class="gv"><small>التاريخ</small><b>' + esc(trDayTxt(m.date)) + '</b></div></div>' +
+      '<div class="gi tp legs"><span class="gic">' + ICON.bus + '</span><div class="gv"><small>الوسيلة</small>' + legs.map(l => legChip(m, l)).join(' ') + '</div></div></div>' +
+      (trBusRows(m) ? '<dl class="gkv">' + trBusRows(m) + '</dl>' : '') +
       '<footer>' + (hasApr ? '<button class="btn sm gold" data-mact="appr">🧾 اعتماد</button>' : '') + '<button class="btn sm sky" data-mact="pp">' + ICON.eye + 'الجوازات (' + m.pax + ')</button><button class="btn sm" data-mact="note" title="حالة النقل وملاحظة" aria-label="حالة النقل وملاحظة">📝</button><button class="btn sm" data-mact="share" title="مشاركة ملخص الحركة">📤 مشاركة</button></footer></article>';
   };
 
