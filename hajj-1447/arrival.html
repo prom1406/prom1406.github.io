@@ -390,6 +390,28 @@ tbody tr.r:nth-child(even) td{background:color-mix(in srgb,var(--ink) 3%,transpa
 tbody tr.r:hover td{background:color-mix(in srgb,var(--gold) 9%,transparent)}
 tbody td .no,tbody td b.no{font-weight:800;color:var(--gold2)}
 
+/* ===== نسخة مدمجة (v2.1): بطاقة أصغر ومعلومتان في الصف ===== */
+.cards{grid-template-columns:repeat(auto-fill,minmax(296px,1fr));gap:12px}
+.gcard{gap:8px;border-radius:18px}
+.gcard>header{padding:4px 12px 9px}
+.gcard>*:not(header):not(footer){margin-inline:12px}
+.gcard .fic{width:30px;height:30px;border-radius:10px}.gcard .fic svg{width:16px;height:16px}
+.gcard .gt{gap:8px}.gcard .gt .no{font-size:18px}.gcard .gt .sub{font-size:12px}
+.gcard .gic{width:26px;height:26px;border-radius:9px}.gcard .gic svg{width:15px;height:15px}
+.gcard .pax b{font-size:24px}.gcard .pax{gap:6px}
+.gcard .hero{gap:10px}.gcard .hp .bar{height:6px}.gcard .hp small{font-size:11px;margin-top:3px}
+.gcard .hero .gcd{padding:4px 8px;font-size:12.5px;border-radius:10px}
+.gcard .ginfo{grid-template-columns:1fr 1fr;gap:6px}
+.gcard .ginfo .gi:last-child:nth-child(odd){grid-column:1/-1}
+.gcard .gi{gap:7px;padding:7px 8px;border-radius:12px;align-items:flex-start;min-width:0}
+.gcard .gi small{font-size:10.5px}.gcard .gi b{font-size:13px;word-break:break-word}
+.gcard .gi .tm{display:inline-block;margin:3px 0 0;padding:0 7px;font-size:13px}
+.gcard .gi .sub{font-size:11.5px}.gcard .gi .heta{font-size:11px}
+.gcard .gi .tp{font-size:12px}
+.gcard .fcrow{gap:6px}.gcard .fcrow .chip{font-size:11.5px}
+.gcard .nchip{font-size:11.5px}
+.gcard>footer{padding:9px 12px 11px;gap:6px}.gcard>footer .btn{padding:6px 8px;font-size:12.5px;min-height:34px}
+
 .modal.wide{width:min(980px,100%)}
 .mhead{display:flex;gap:18px;flex-wrap:wrap;align-items:center;color:var(--mut);margin:-6px 0 10px}
 .nfilter{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}
