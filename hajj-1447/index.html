@@ -421,6 +421,51 @@ body.ro [data-fappr]{display:none!important}
 .gkv dt{color:var(--mut)}.gkv dd{margin:0;font-weight:600;text-align:end}
 .gcard footer{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;margin-top:auto;padding-top:4px}
 .gcard footer .btn{flex:1;justify-content:center}
+/* ===== بطاقات وجداول عصرية (v2) ===== */
+.cards{grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+.gcard{padding:0;gap:12px;overflow:hidden;border-radius:20px;transition:transform .15s,box-shadow .15s}
+.gcard:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.18)}
+.gcard::before{content:"";display:block;height:4px;background:linear-gradient(90deg,var(--gold),color-mix(in srgb,var(--gold) 35%,transparent))}
+.gcard.danger::before{background:linear-gradient(90deg,#e5484d,color-mix(in srgb,#e5484d 35%,transparent))}
+.gcard.warn::before{background:linear-gradient(90deg,#f5a524,color-mix(in srgb,#f5a524 35%,transparent))}
+.gcard.done::before{background:linear-gradient(90deg,#2fbf71,color-mix(in srgb,#2fbf71 35%,transparent))}
+.gcard.done{opacity:.86}
+.gcard>*:not(header):not(footer){margin-inline:16px}
+.gcard>header{margin:0;padding:6px 16px 12px;align-items:center;border-bottom:1px dashed var(--line2)}
+.gcard .gt{display:flex;align-items:center;gap:10px}
+.gcard .gt .no{font-size:21px;font-weight:800;line-height:1.1}
+.gcard .fic{flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:color-mix(in srgb,var(--gold) 16%,transparent);color:var(--gold2)}
+.gcard .fic svg{width:20px;height:20px}
+.gcard .hero{display:flex;align-items:center;gap:14px}
+.gcard .pax{display:flex;align-items:center;gap:7px}
+.gcard .pax b{font-size:32px;line-height:1;font-weight:800}.gcard .pax small{color:var(--mut)}
+.gcard .gic{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:color-mix(in srgb,var(--ink) 7%,transparent);color:var(--gold2)}
+.gcard .gic svg{width:18px;height:18px}
+.gcard .hp{flex:1;min-width:0}.gcard .hp small{display:block;margin-top:4px;color:var(--mut);font-size:12px}
+.gcard .hp .bar{height:8px;border-radius:8px}
+.gcard .hero .gcd{flex:none;padding:6px 11px;border-radius:12px;background:color-mix(in srgb,var(--ink) 6%,transparent);font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gcard .gchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.gcard .ginfo{display:grid;gap:8px}
+.gcard .gi{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:14px;background:color-mix(in srgb,var(--ink) 4%,transparent);border:1px solid var(--line2)}
+.gcard .gi .gv{min-width:0;flex:1}.gcard .gi small{display:block;color:var(--mut);font-size:11.5px;margin-bottom:1px}
+.gcard .gi b{font-size:14.5px}.gcard .gi .tm{margin-inline-start:8px;padding:1px 8px;border-radius:8px;background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold2);font-weight:800;font-variant-numeric:tabular-nums}
+.gcard .gi .sub{font-size:12.5px}
+.gcard .gi.time .gic{background:color-mix(in srgb,#4aa3ff 18%,transparent);color:#4aa3ff}
+.gcard .gi.air .gic{background:color-mix(in srgb,#2fbf71 18%,transparent);color:#2fbf71}
+.gcard .gi.hotel .gic{background:color-mix(in srgb,#a78bfa 20%,transparent);color:#a78bfa}
+.gcard .gi.tp .gic{background:color-mix(in srgb,#f5a524 20%,transparent);color:#f5a524}
+.gcard>footer{margin:2px 0 0;padding:12px 16px 14px;border-top:1px dashed var(--line2);background:color-mix(in srgb,var(--ink) 3%,transparent)}
+.gcard .gkv{gap:8px}.gcard .gkv>div{align-items:center;padding:8px 11px;border-radius:12px;background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.gcard .gbig b{font-size:30px}
+.fcrow{margin:0}
+/* جداول */
+.tablewrap{border:1px solid var(--line2);border-radius:18px;box-shadow:var(--shadow)}
+thead th{padding:13px 14px;font-size:12.5px;letter-spacing:.2px}
+tbody td{padding:12px 14px}
+tbody tr.r:nth-child(even) td{background:color-mix(in srgb,var(--ink) 3%,transparent)}
+tbody tr.r:hover td{background:color-mix(in srgb,var(--gold) 9%,transparent)}
+tbody td .no,tbody td b.no{font-weight:800;color:var(--gold2)}
+
 .modal.wide{width:min(980px,100%)}
 .mhead{display:flex;gap:18px;flex-wrap:wrap;align-items:center;color:var(--mut);margin:-6px 0 10px}
 .nfilter{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}
@@ -988,10 +1033,10 @@ const TZ_NAME = 'Asia/Riyadh';
 // تُنشأ منسّقات Intl مرة واحدة: إنشاؤها عند كل استدعاء بطيء جداً (يُستدعى لكل سجل في التجميع)
 const _fDay = new Intl.DateTimeFormat('en-CA', { timeZone: TZ_NAME });
 const _fTime = new Intl.DateTimeFormat('en-GB', { timeZone: TZ_NAME, hour: '2-digit', minute: '2-digit', hour12: false });
-const _fDayAr = new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { timeZone: TZ_NAME, weekday: 'short', day: '2-digit', month: '2-digit' });
+const _fDayAr = new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { timeZone: TZ_NAME, weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
 const fmtDay = d => _fDay.format(d);
 const fmtTime = d => _fTime.format(d);
-const fmtDayAr = d => _fDayAr.format(d);
+const fmtDayAr = d => { const o = {}; _fDayAr.formatToParts(d).forEach(x => { o[x.type] = x.value; }); return (o.weekday || '') + ' ' + o.day + '/' + o.month + '/' + o.year; };
 function fmtCountdown(ms) {
   const neg = ms < 0; let s = Math.floor(Math.abs(ms) / 1000);
   const d = Math.floor(s / 86400); s -= d * 86400;
@@ -1650,6 +1695,8 @@ function fcState(g) {
   if (e.mode !== 'manual' || e.status === 'mismatch') { if (off && sch) { const dm = Math.round((off - sch) / 60000); if (Math.abs(dm) > FC_TOL) return { s: 'mismatch', e, dm, off }; } else if (e.status === 'mismatch') return { s: 'mismatch', e, off }; }
   return { s: 'ok', e, off };
 }
+ICON.cal = ic('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>');
+ICON.hotel = ic('<path d="M4 21V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14M16 11h2a2 2 0 0 1 2 2v8M2 21h20M8 9h4M8 13h4M8 17h4"/>');
 const ETA_H = { jeddah: { makkah: 1, madinah: 4 }, madinah: { madinah: 1, makkah: 4 } };
 function hotelEta(g) {
   const h = (ETA_H[g.airCity] || {})[g.stayCity]; if (!h || !g.when) return '';
@@ -2648,13 +2695,19 @@ function initTracker(kind) {
   /* ---- بطاقات المجموعات ---- */
   function cardsHtml(groups, ci) {
     if (!groups.length) return '<div class="empty">لا توجد نتائج مطابقة</div>';
-    return '<div class="cards">' + groups.map(g =>
-      '<article class="gcard ' + (g.open === 0 ? 'done ' : '') + (g.open && g.cls === 'danger' ? 'danger ' : g.open && g.cls === 'warn' ? 'warn ' : '') + '">' +
-      '<header><label class="chk"><input type="checkbox" data-sel="' + esc(g.key) + '"' + (ui.sel.has(g.key) ? ' checked' : '') + ' aria-label="تحديد"></label><div class="gt"><b class="no">' + esc(g.flight) + '</b>' + (g.airline ? '<div class="sub">' + esc(g.airline) + '</div>' : '') + '</div><div class="gs">' + stChip(g) + '</div></header>' +
-      '<div class="gbig"><div><b class="num">' + g.pax + '</b><span>فرد</span></div><div class="gcd">' + gCd(g) + '</div></div>' +
-      '<div class="bar"><i style="width:' + Math.round(g.done / g.pax * 100) + '%"></i></div>' + noteChip(g) + regChip(g) + (kind === 'arrival' || kind === 'departure' ? '<div class="fcrow">' + fcCell(g) + '</div>' : '') +
-      '<dl class="gkv"><div><dt>' + (kind === 'arrival' ? 'الموعد' : 'الإقلاع') + '</dt><dd>' + gWhen(g) + mvHtml(g) + '</dd></div>' + (ci.air ? '<div><dt>' + (kind === 'arrival' ? 'مطار الوصول' : 'مطار المغادرة') + '</dt><dd>' + twoLine(g.airport, airCityTxt(g)) + '</dd></div>' : '') + ((g.hotel || ci.stay) ? '<div><dt>الفندق</dt><dd>' + twoLine(g.hotel, stayCityTxt(g)) + (kind === 'arrival' ? hotelEta(g) : '') + '</dd></div>' : '') + (ci.tp ? '<div><dt>وسيلة النقل</dt><dd>' + tpHtml(gTransport(g)) + '</dd></div>' : '') + '</dl>' +
-      natChips(g, 4) + '<footer>' + ppBtn(g) + gAct(g) + fBtns(g) + '</footer></article>').join('') + '</div>';
+    const gi = (cls, ic, lab, val) => '<div class="gi ' + cls + '"><span class="gic">' + ic + '</span><div class="gv"><small>' + lab + '</small>' + val + '</div></div>';
+    return '<div class="cards">' + groups.map(g => {
+      const pct = Math.round(g.done / g.pax * 100), dep = kind === 'departure';
+      return '<article class="gcard v2 ' + (g.open === 0 ? 'done ' : '') + (g.open && g.cls === 'danger' ? 'danger ' : g.open && g.cls === 'warn' ? 'warn ' : '') + '">' +
+        '<header><label class="chk"><input type="checkbox" data-sel="' + esc(g.key) + '"' + (ui.sel.has(g.key) ? ' checked' : '') + ' aria-label="تحديد"></label><div class="gt"><span class="fic">' + (dep ? ICON.take : ICON.land) + '</span><div><b class="no">' + esc(g.flight) + '</b>' + (g.airline ? '<div class="sub">' + esc(g.airline) + '</div>' : '') + '</div></div><div class="gs">' + stChip(g) + '</div></header>' +
+        '<div class="hero"><div class="pax"><span class="gic">' + ICON.user + '</span><b class="num">' + g.pax + '</b><small>فرد</small></div><div class="hp"><div class="bar"><i style="width:' + pct + '%"></i></div><small>' + (dep ? 'غادر ' : 'سُكّن ') + g.done + ' من ' + g.pax + ' · ' + pct + '%</small></div><div class="gcd">' + gCd(g) + '</div></div>' +
+        noteChip(g) + regChip(g) + (kind === 'arrival' || kind === 'departure' ? '<div class="fcrow">' + fcCell(g) + '</div>' : '') +
+        '<div class="ginfo">' + gi('time', ICON.cal, dep ? 'موعد الإقلاع' : 'موعد الوصول', g.when ? '<b>' + esc(C.fmtDayAr(g.when)) + '</b><span class="tm">' + (g.approx ? '≈' : '') + esc(C.fmtTime(g.when)) + '</span>' + mvHtml(g) : '<b>—</b>') +
+        (ci.air ? gi('air', dep ? ICON.take : ICON.land, dep ? 'مطار المغادرة' : 'مطار الوصول', twoLine(g.airport, airCityTxt(g))) : '') +
+        ((g.hotel || ci.stay) ? gi('hotel', ICON.hotel, 'الفندق', twoLine(g.hotel, stayCityTxt(g)) + (kind === 'arrival' ? hotelEta(g) : '')) : '') +
+        (ci.tp ? gi('tp', ICON.bus, 'وسيلة النقل', tpHtml(gTransport(g))) : '') + '</div>' +
+        natChips(g, 4) + '<footer>' + ppBtn(g) + gAct(g) + fBtns(g) + '</footer></article>';
+    }).join('') + '</div>';
   }
 
   /* ---- مرشحات سريعة ورابط العرض ---- */
