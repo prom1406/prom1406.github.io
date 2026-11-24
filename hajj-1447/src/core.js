@@ -356,6 +356,33 @@ function fmtCountdown(ms) {
 const TRUE_SET = new Set(['true', '1', 'yes', 'y', 'x', 'نعم', 'تم', 'done', 'checked', 'تمالتسكين', 'تمتالمغادره', '✓', '✔', '☑']);
 const isTrue = v => { const t = normAr(v) || String(v).trim().toLowerCase(); return TRUE_SET.has(t) || TRUE_SET.has(String(v).trim().toLowerCase()); };
 
+/* توحيد أسماء الرحلات: رمز الناقل (حرفان/ثلاثة) + الرقم بلا أصفار بادئة، مثل SV036 و«36» و«SV 36» ← SV36 */
+const AIRLINE_CODES = [['saudia|saudi|السعودي','SV'],['flynas|فلاي ناس|طيران ناس','XY'],['flyadeal|فلاي اديل|فلاي أديل|اديل|أديل','F3'],['emirates|الامارات|الإمارات','EK'],['qatar|القطري','QR'],['turkish|التركي','TK'],['egyptair|egypt air|مصر للطيران','MS'],['etihad|الاتحاد','EY'],['gulf air|طيران الخليج','GF'],['kuwait|الكويتي','KU'],['oman air|العماني','WY'],['royal jordanian|الملكية الاردنية|الملكية الأردنية','RJ'],['pakistan|الباكستاني','PK'],['air india|الهند','AI'],['garuda|جارودا','GA'],['malaysia|الماليزي','MH'],['biman|بيمان','BG'],['indigo|انديجو|إنديجو','6E'],['air arabia|العربية للطيران','G9'],['pegasus|بيغاسوس|بيجاسوس','PC'],['ethiopian|الاثيوبي|الإثيوبي','ET'],['royal air maroc|المغربي','AT'],['tunisair|التونسي','TU'],['air algerie|الجزائري','AH'],['srilankan|السريلانكي','UL'],['thai|التايلاندي','TG'],['singapore|السنغافوري','SQ'],['lufthansa|لوفتهانزا','LH'],['british|البريطاني','BA']];
+function airlineCode(name) {
+  const a = toLatinDigits(name || '').trim(); if (!a) return '';
+  const m = a.toUpperCase().match(/(?:^|[^A-Z0-9])([A-Z]{2}|[A-Z]\d|\d[A-Z])(?:$|[^A-Z0-9])/); if (m && a.length <= 5) return m[1];
+  const l = a.toLowerCase();
+  for (const [re, c] of AIRLINE_CODES) if (new RegExp(re, 'i').test(l)) return c;
+  return '';
+}
+function parseFlightNo(s) {
+  const t = toLatinDigits(s || '').toUpperCase().replace(/[\s\-_.\/]+/g, '');
+  let m = t.match(/^([A-Z]{2,3}|[A-Z]\d|\d[A-Z])0*(\d{1,4}[A-Z]?)$/); if (m) return { code: m[1], num: m[2] };
+  m = t.match(/^0*(\d{1,4}[A-Z]?)$/); if (m) return { code: '', num: m[1] };
+  return null;
+}
+function normalizeFlights(records) {
+  records.forEach(r => {
+    r.flightRaw = r.flight; const p = parseFlightNo(r.flight); if (!p) return;
+    const code = p.code || airlineCode(r.airline);
+    r._fn = p.num; if (code) r.flight = code + p.num; else r.flight = p.num;
+  });
+  // رحلات بلا رمز: خذ الرمز من رحلة شقيقة (نفس الرقم + مدينة المطار + الموعد)
+  const sig = r => r._fn + '|' + (r.airCity || '') + '|' + (r.when ? r.when.getTime() : '');
+  const by = new Map();
+  records.forEach(r => { if (r._fn && /^[A-Z0-9]{2,3}\d/.test(r.flight) && r.flight !== r._fn) by.set(sig(r), r.flight); });
+  records.forEach(r => { if (r._fn && r.flight === r._fn) { const f = by.get(sig(r)); if (f) r.flight = f; } });
+}
 function toRecords(rows, kind, cfg) {
   const hi = findHeaderRow(rows);
   if (hi < 0) return { headers: [], map: {}, records: [], headerRow: 0 };
@@ -388,6 +415,7 @@ function toRecords(rows, kind, cfg) {
     };
     records.push(r);
   }
+  normalizeFlights(records);
   return { headers, map, records, headerRow: hi + 1 };
 }
 
