@@ -627,6 +627,8 @@ body.n-exp #xXls,body.n-exp #xPdf,body.n-exp #xPrint,body.n-exp #xWa,body.n-exp 
   .gcard .fcrow .chip,.gcard .nchip{font-size:11px}
   .gcard>footer{padding:6px 10px 8px;gap:5px}.gcard>footer .btn{padding:4px 8px;font-size:12px;min-height:30px}
 }
+/* ===== الجوال: منع تكبير iOS التلقائي عند الكتابة (الحقول 16px فأكثر) ===== */
+@media(hover:none) and (pointer:coarse){input:not([type=checkbox]):not([type=radio]),select,textarea{font-size:16px!important}}
 </style>
 </head>
 <body data-page="arrival">
