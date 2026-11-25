@@ -2523,47 +2523,25 @@ function pdfDeliver(blob, filename) {
   };
   $('#pdX', ov).onclick = () => ov.close();
 }
-// الجوال: توليد ملف PDF حقيقي (صور صفحات) يُسلَّم بزر تنزيل/مشاركة، مع تقسيم الجداول الطويلة إلى أجزاء كي لا تتجاوز ذاكرة آيفون
-async function mobilePDF(html, filename, landscape) {
-  await loadLib(LIBS.pdf);
-  const W = landscape ? 1122 : 794, MAXR = landscape ? 260 : 300;
-  const host = document.createElement('div');
-  host.style.cssText = 'position:fixed;left:-12000px;top:0;width:' + W + 'px;background:#fff;direction:rtl;font-family:Tajawal,Tahoma,Arial,sans-serif;z-index:-1';
-  host.innerHTML = html; document.body.appendChild(host);
-  try {
-    try { if (document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 2500))]); } catch (e) { }
-    const imgs = [...host.querySelectorAll('img')];
-    await Promise.race([Promise.all(imgs.map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))), new Promise(r => setTimeout(r, 3000))]);
-    const tb = host.querySelector('tbody'), rows = tb ? [...tb.children] : [];
-    const parts = []; const n = Math.max(1, Math.ceil(rows.length / MAXR));
-    const opt = { margin: [6, 6, 8, 6], image: { type: 'jpeg', quality: 0.9 }, html2canvas: { scale: 1.4, useCORS: true, backgroundColor: '#fff', logging: false, windowWidth: W }, jsPDF: { unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' } };
-    for (let k = 0; k < n; k++) {
-      if (n > 1) toast('جارٍ تجهيز الجزء ' + (k + 1) + ' من ' + n + '…');
-      let el = host;
-      if (n > 1) { el = host.cloneNode(true); el.style.left = '-12000px'; document.body.appendChild(el); const t2 = el.querySelector('tbody'); [...t2.children].forEach((r, i) => { if (i < k * MAXR || i >= (k + 1) * MAXR) r.remove(); }); }
-      try { parts.push(await html2pdf().set(opt).from(el).outputPdf('blob')); } finally { if (el !== host) el.remove(); }
-    }
-    if (n === 1) pdfDeliver(parts[0], filename);
-    else pdfDeliverMany(parts, filename);
-  } finally { host.remove(); }
-}
-function pdfDeliverMany(blobs, filename) {
-  const base = String(filename).replace(/\.pdf$/i, '');
-  const items = blobs.map((b, i) => { const nm = base + '-part' + (i + 1) + '.pdf', url = URL.createObjectURL(b), file = new File([b], nm, { type: 'application/pdf' }); return { nm, url, file, kb: Math.max(1, Math.round(b.size / 1024)) }; });
-  const ov = modal('<h3>📄 التقرير جاهز (' + items.length + ' أجزاء)</h3><p class="hint">التقرير طويل فقُسّم إلى أجزاء. اضغط «تنزيل» لكل جزء، أو «مشاركة» للحفظ في الملفات.</p>' +
-    items.map((x, i) => '<div class="pdpart"><b>الجزء ' + (i + 1) + '</b><small dir="ltr">' + x.kb + ' KB</small><a class="btn gold sm" href="' + x.url + '" download="' + esc(x.nm) + '">⬇ تنزيل</a><button class="btn green sm" data-s="' + i + '" type="button">📤 مشاركة</button></div>').join('') +
-    '<div class="act"><button class="btn" id="pdX" type="button">إغلاق</button></div>');
-  $$('[data-s]', ov).forEach(b => b.onclick = async () => { const x = items[+b.dataset.s]; try { if (navigator.canShare && navigator.canShare({ files: [x.file] })) await navigator.share({ files: [x.file], title: x.nm }); else window.open(x.url, '_blank'); } catch (e) { if (e && e.name !== 'AbortError') window.open(x.url, '_blank'); } });
+// الجوال: صفحة تقرير مستقلة (نص حقيقي) فيها زر «طباعة / حفظ PDF»؛ في آيفون: معاينة الطباعة ← زر المشاركة ← «حفظ في الملفات»
+function mobileReport(page, filename) {
+  const bar = '<div class="nopr" style="position:sticky;top:0;z-index:9;background:#0b5d3b;color:#fff;padding:12px;font-family:Tajawal,Tahoma,Arial,sans-serif;direction:rtl">'
+    + '<button onclick="print()" style="font:inherit;font-weight:800;font-size:17px;padding:12px 18px;border:0;border-radius:12px;background:#f2c14e;color:#222;width:100%">🖨 طباعة / حفظ PDF</button>'
+    + '<div style="font-size:13.5px;line-height:1.7;margin-top:9px">للحفظ على الآيفون: اضغط الزر أعلاه، ثم من معاينة الطباعة اضغط زر المشاركة ⬆ واختر <b>«حفظ في الملفات»</b>. (أندرويد: اختر «حفظ كـ PDF».)</div></div>'
+    + '<style>@media print{.nopr{display:none!important}}</style>';
+  const doc = page.replace('<body>', '<body>' + bar);
+  const url = URL.createObjectURL(new Blob([doc], { type: 'text/html;charset=utf-8' }));
+  const ov = modal('<h3>📄 التقرير جاهز</h3><p class="sub" dir="ltr">' + esc(filename) + '</p><p class="hint">افتح التقرير ثم اضغط «طباعة / حفظ PDF» لحفظه في الملفات أو مشاركته.</p><div class="act"><a class="btn gold" id="pdOpen" href="' + url + '" target="_blank" rel="noopener">📄 فتح التقرير</a><button class="btn" id="pdX" type="button">إغلاق</button></div>');
   $('#pdX', ov).onclick = () => ov.close();
 }
 async function savePDF(html, filename, landscape) {
-  if (IS_MOBILE) { try { await mobilePDF(html, filename, landscape); return; } catch (e) { console.error('mobilePDF', e); toast('تعذّر إنشاء الملف مباشرة — سيُفتح عرض الطباعة', 'warn'); } }
   // PDF حقيقي (نص قابل للتحديد والنسخ، لا صورة): نعرض التقرير في طبقة داخل الصفحة (زر رجوع + زر طباعة/حفظ) ونترك المتصفح يحفظه PDF
   const title = String(filename).replace(/\.pdf$/i, '');
   const page = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + title + '</title>'
     + '<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">'
     + '<style>@page{size:A4 ' + (landscape ? 'landscape' : 'portrait') + ';margin:8mm}html,body{margin:0;background:#fff;font-family:Tajawal,Tahoma,Arial,sans-serif}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
     + 'table{table-layout:fixed;width:100%}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}</style></head><body>' + html + '</body></html>';
+  if (IS_MOBILE) { mobileReport(page, filename); return; }
   const old = document.getElementById('pvOv'); if (old) old.remove();
   const ov = document.createElement('div'); ov.id = 'pvOv';
   ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#fff;display:flex;flex-direction:column;direction:rtl;font-family:Tajawal,Tahoma,Arial,sans-serif';
