@@ -126,7 +126,7 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 .bt .fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:10px 8px}.bt .fgi{background:none;border:0;font-family:inherit;cursor:pointer;border-radius:10px;padding:4px 2px;transition:background .15s}.bt .fgi:hover{background:color-mix(in srgb,var(--c) 18%,transparent)}.bt .fg .fgi{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
 .bt .fg img,.bt .fg i.ph{width:38px;height:26px;border-radius:4px;object-fit:cover;box-shadow:0 0 0 1px rgba(128,128,128,.35);display:grid;place-items:center;font-style:normal;color:var(--mut);font-size:12px;background:var(--card2)}
 .nlist{max-height:55vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.nlr{display:flex;align-items:center;gap:10px;background:var(--line2);border-radius:12px;padding:8px 12px}.nlr .no{color:var(--mut);font-size:12px;min-width:28px}.nlr .i{flex:1;min-width:0;display:flex;flex-direction:column}.nlr .i small{color:var(--mut);direction:ltr;text-align:start}
-.bt.cty{justify-content:flex-start;gap:10px}.bt .apr{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}.bt .ap{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;padding:9px 12px;border-radius:12px;background:color-mix(in srgb,var(--c) 12%,transparent);border:1px solid color-mix(in srgb,var(--c) 30%,transparent);text-decoration:none;color:var(--mut);font-size:12.5px;font-weight:700;transition:background .18s}.bt .ap:hover{background:color-mix(in srgb,var(--c) 22%,transparent)}.bt .ap b{font-size:22px;color:var(--c);font-variant-numeric:tabular-nums;grid-row:span 2}.bt .ap small{font-size:11px;font-weight:600}
+.bt.hot{gap:8px;justify-content:flex-start}.bt.hot .hl{display:grid;gap:2px}.hr{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto auto;align-items:center;gap:8px;font-size:13px;color:inherit;text-decoration:none;padding:5px 6px;border-radius:9px}.hr:hover{background:color-mix(in srgb,var(--c,var(--gold)) 10%,transparent)}.hr .hn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}.hr .hb{height:7px;border-radius:6px;background:rgba(128,128,128,.22);overflow:hidden}.hr .hb i{display:block;height:100%;background:var(--c,var(--gold))}.hr b{font-variant-numeric:tabular-nums;min-width:26px;text-align:end}.hr small{color:var(--mut);font-size:11px;min-width:54px;text-align:end}.hlm{max-height:60vh;overflow:auto}.bt.cty{justify-content:flex-start;gap:10px}.bt .apr{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}.bt .ap{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;padding:9px 12px;border-radius:12px;background:color-mix(in srgb,var(--c) 12%,transparent);border:1px solid color-mix(in srgb,var(--c) 30%,transparent);text-decoration:none;color:var(--mut);font-size:12.5px;font-weight:700;transition:background .18s}.bt .ap:hover{background:color-mix(in srgb,var(--c) 22%,transparent)}.bt .ap b{font-size:22px;color:var(--c);font-variant-numeric:tabular-nums;grid-row:span 2}.bt .ap small{font-size:11px;font-weight:600}
 .bt .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}.bt .cc{display:flex;flex-direction:column;gap:5px}
 .bt .cc .ch{display:flex;align-items:baseline;justify-content:space-between;padding:8px 10px;border-radius:10px;font-size:12.5px;font-weight:800;color:var(--mut);background:color-mix(in srgb,var(--cc) 16%,transparent);border-bottom:2px solid var(--cc)}.bt .cc .ch b{font-size:22px;color:var(--cc);font-variant-numeric:tabular-nums}
 .bt .cc.ga{--cc:#34C47A}.bt .cc.gd{--cc:#0EA5E9}
@@ -620,6 +620,9 @@ body.ro [data-fready],body.ro [data-gready]{display:none!important}
 .tlv li{position:relative;padding-inline-start:52px;margin-bottom:14px}.tlv li.past{opacity:.78}.tlv .dot{position:absolute;inset-inline-start:0;top:0;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--card,#0C2646);border:2px solid var(--gold,#C5A059);font-size:18px}
 .tlc{background:rgba(128,128,128,.07);border:1px solid var(--line2,rgba(128,128,128,.25));border-radius:12px;padding:10px 12px}.tlh{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;align-items:baseline}
 .tlkv{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:6px}.tlkv small{display:block;opacity:.65;font-size:11px}.tlst{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+
+.pflt,#pFlt{margin:10px 0 4px}#pFlt .qc b{margin-inline-start:4px;color:var(--gold2)}#pFlt .qc.on{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 18%,transparent)}
+.pfl2{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}.pfl2 .pfi{gap:4px}.pfl2 .pn{display:flex;align-items:center;gap:6px}.pfl2 .pn img{height:14px;border-radius:2px}.pfl2 small{color:var(--mut)}.pfl2 em{font-style:normal;color:var(--gold2);font-size:12px;font-weight:700}.pfl2 .pfi:hover{border-color:var(--gold)}
 .pfl{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin:12px 0}.pfi{display:flex;flex-direction:column;gap:2px;text-align:right;padding:8px 10px;border-radius:10px;border:1px solid var(--line2,rgba(128,128,128,.3));background:transparent;color:inherit;cursor:pointer}.pfi.on{border-color:var(--gold,#C5A059)}
 .pfh{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}.pfh h2{margin:0}
 .alist{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}.alist li{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:10px;border:1px solid var(--line2,rgba(128,128,128,.3));border-inline-start:4px solid #f5a524}.alist li.red{border-inline-start-color:#ff5d5d}.alist li>div{flex:1;min-width:0}.alist small{display:block;opacity:.75}
@@ -3262,6 +3265,29 @@ function initDashboard() {
     return '<a class="bt cty ' + ['gold', 'ok'][j] + ' w6" href="arrival.html"><div class="bl"><span class="bi">' + ['🕋', '🕌'][j] + '</span>' + esc(C.CITY_DEF[i].ar) + '</div>' +
       '<div class="cols">' + col('arrival', ga, '🛬 وصول', 'ga') + col('departure', gd, '🛫 مغادرة', 'gd') + '</div></a>';
   }
+  // إحصائيات الفنادق: كم حاجاً يسكن في كل فندق (من الوصول + الإقامات في التنقلات إن حُمّلت)
+  function hotelStats(i) {
+    const m = new Map(), seen = new Set(), get = h => { let o = m.get(h); if (!o) { o = { h, n: 0, done: 0 }; m.set(h, o); } return o; };
+    const A = state.data.arrival, T = state.data.transfers;
+    ((A && A.records) || []).forEach(r => { if (r.stayCity !== i || !r.hotel) return; const o = get(r.hotel); o.n += r.pax || 1; if (r.done) o.done += r.pax || 1; if (r.passport) seen.add(r.passport + '|' + r.hotel); });
+    ((T && T.records) || []).forEach(r => (r.stays || []).forEach(s0 => { if (s0.city !== i || !s0.hotel) return; const k = (r.passport || '') + '|' + s0.hotel; if (r.passport && seen.has(k)) return; seen.add(k); get(s0.hotel).n += 1; }));
+    const L = [...m.values()].sort((x, y) => y.n - x.n || (x.h < y.h ? -1 : 1));
+    return { L, tot: L.reduce((n, x) => n + x.n, 0), done: L.reduce((n, x) => n + x.done, 0) };
+  }
+  const hotRow = (x, mx) => '<a class="hr" href="arrival.html?q=' + encodeURIComponent(x.h) + '" title="' + esc(x.h) + '"><span class="hn">' + esc(x.h) + '</span><span class="hb"><i style="width:' + Math.round(x.n / (mx || 1) * 100) + '%"></i></span><b>' + x.n + '</b><small>' + x.done + ' سُكّن</small></a>';
+  function hotelTile(i, j) {
+    const H = hotelStats(i), top = H.L.slice(0, 6), mx = H.L.length ? H.L[0].n : 1;
+    return '<div class="bt hot ' + ['gold', 'ok'][j] + ' w6"><div class="bl"><span class="bi">🏨</span>فنادق ' + esc(C.CITY_DEF[i].ar) + '<b style="margin-inline-start:auto;color:var(--c);font-size:20px">' + H.tot + '</b></div>' +
+      '<div class="bs">' + H.L.length + ' فندق · سُكّن ' + H.done + ' من ' + H.tot + ' حاج</div>' +
+      (top.length ? '<div class="hl">' + top.map(x => hotRow(x, mx)).join('') + '</div>' : '<div class="bs">لا توجد بيانات فنادق</div>') +
+      (H.L.length > top.length ? '<button type="button" class="btn sm" data-hot="' + i + '">عرض كل الفنادق (' + H.L.length + ') ↓</button>' : '') + '</div>';
+  }
+  function hotModal(i) {
+    const H = hotelStats(i), mx = H.L.length ? H.L[0].n : 1;
+    const ov = modal('<h3>🏨 فنادق ' + esc(C.CITY_DEF[i].ar) + ' <span class="hint">' + H.L.length + ' فندق · ' + H.tot + ' حاج</span></h3><div class="field" style="margin:8px 0"><input type="search" id="hQ" placeholder="بحث باسم الفندق…" autocomplete="off"></div><div class="hl hlm" id="hL"></div><div class="act"><button class="btn" id="hX">إغلاق</button></div>');
+    const draw = () => { const q = C.normAr(ov.querySelector('#hQ').value.trim()); ov.querySelector('#hL').innerHTML = H.L.filter(x => !q || C.normAr(x.h).includes(q)).map(x => hotRow(x, mx)).join('') || '<div class="empty">لا نتائج</div>'; };
+    ov.querySelector('#hQ').oninput = draw; ov.querySelector('#hX').onclick = () => ov.close(); draw();
+  }
   // بلاطة «تستدعي الانتباه»: حجاج مساراتهم فيها تعارض (إقامة قبل الوصول / مغادرة قبل أو بعد خروج آخر فندق)
   function jrTile() {
     const L = journeyList();
@@ -3327,6 +3353,7 @@ function initDashboard() {
       '<a class="vio" href="departure.html?appr=1"><span>لا يمكن اعتمادها</span><b>' + cant.length + '</b></a>' +
       '<a class="amber" href="departure.html?appr=all"><span>اعتمادات اليوم</span><b>' + tr.length + '</b></a></div>' +
       ['makkah', 'madinah'].map((i, j) => cityTile(i, j, today, now, ga, gd)).join('') +
+      ['makkah', 'madinah'].map((i, j) => hotelTile(i, j)).join('') +
       trCard(today) +
       '<div class="bt vio w6"><div class="bl"><span class="bi">🌍</span>الجنسيات<a href="#nat" data-jump="nat" class="hint" style="margin-inline-start:8px">القائمة ↓</a><b style="margin-inline-start:auto;color:var(--c);font-size:20px">' + nat.length + '</b></div><div class="fg">' + nat.slice(0, 18).map(x => '<button type="button" class="fgi" data-nat="' + esc(x.k) + '" title="' + esc(x.c ? x.c.ar : 'غير محدد') + ' — اضغط لعرض الأسماء">' + (x.c ? '<img alt="" loading="lazy" src="' + C.flagUrl(x.c.iso2, 40) + '" srcset="' + C.flagUrl(x.c.iso2, 80) + ' 2x" onerror="this.style.visibility=\'hidden\'">' : '<i class="ph">؟</i>') + x.n + '</button>').join('') + '</div>' + (nat.length > 18 ? '<div class="bs">+ ' + (nat.length - 18) + ' جنسية أخرى <a href="#nat" data-jump="nat" class="hint">في القائمة أدناه</a></div>' : '') + '</div>' +
       '<a class="bt amber w12" href="departure.html?appr=all"><div class="bl"><span class="bi">🚌</span>اعتمادات المغادرة اليوم</div><div class="two"><div><b>' + tr.filter(x => x.tp === 'bus').length + '</b>حافلة</div><div><b>' + tr.filter(x => x.tp === 'train').length + '</b>قطار</div></div><div class="bs">' + tr.reduce((n, x) => n + x.pax, 0) + ' فرد · أزحم ساعة: ' + peakTxt(peakOf(hourly('departure', 0))) + '</div></a>';
@@ -3383,7 +3410,7 @@ function initDashboard() {
   }
   $('#nat').addEventListener('click', e => { const n = e.target.closest('[data-nat]'); if (n) natModal(n.dataset.nat); });
   app.addEventListener('click', e => { const m = e.target.closest('.tmore'); if (m) { m.closest('.tl').classList.toggle('open'); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); } });
-  $('#kpis').addEventListener('click', e => { if (e.target.closest('[data-jr]')) { e.preventDefault(); jrModal(); return; } const n = e.target.closest('[data-nat]'); if (n) { e.preventDefault(); natModal(n.dataset.nat); return; } const j = e.target.closest('[data-jump]'); if (!j) return; e.preventDefault(); const el = document.getElementById(j.dataset.jump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  $('#kpis').addEventListener('click', e => { if (e.target.closest('[data-jr]')) { e.preventDefault(); jrModal(); return; } const n = e.target.closest('[data-nat]'); if (n) { e.preventDefault(); natModal(n.dataset.nat); return; } const hb = e.target.closest('[data-hot]'); if (hb) { e.preventDefault(); hotModal(hb.dataset.hot); return; } const j = e.target.closest('[data-jump]'); if (!j) return; e.preventDefault(); const el = document.getElementById(j.dataset.jump); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); });
   $('#xPrint').onclick = () => window.print();
   $('#xXls').onclick = async () => {
     const A = state.data.arrival, D = state.data.departure; if (!A && !D) return toast('لا توجد بيانات بعد', 'warn');
@@ -3709,8 +3736,30 @@ const pfDayKeyTxt = k => (typeof trDayTxt === 'function' ? trDayTxt(k) : k);
 function initPilgrim() {
   const app = $('#app'); const qp = new URLSearchParams(location.search).get('p') || ''; let sel = passKey(qp), q = qp, idx = null, idxSrc = '';
   app.innerHTML = '<section class="hero"><div><h1>رحلة <span>الحاج</span></h1><p>ابحث برقم الجواز أو الاسم لترى مساره كاملاً: الوصول، الإقامات، التنقلات، المغادرة</p></div></section>' +
-    '<div id="stale"></div><section class="panel"><div class="toolbar"><div class="field" style="flex:1;min-width:220px">' + ICON.search + '<input type="search" id="pQ" placeholder="رقم الجواز أو الاسم…" autocomplete="off" autofocus></div><span class="hint" id="pCnt"></span></div><div id="pRes"></div></section>';
+    '<div id="stale"></div><section class="panel"><div class="toolbar"><div class="field" style="flex:1;min-width:220px">' + ICON.search + '<input type="search" id="pQ" placeholder="رقم الجواز أو الاسم…" autocomplete="off" autofocus></div><span class="hint" id="pCnt"></span></div><div id="pFlt" class="nfilter"></div><div id="pRes"></div></section>';
   const build = () => pfIndex();
+  /* قوائم الحجاج الجاهزة (مرشحات) */
+  const pfReg = r => { try { const gk = C.groupRecords([r])[0].key, rd = state.ready[rk(gk)] || state.ready[rKey(r)]; return !!(rd && (rd.status === 'entered' || rd.status === 'approved')); } catch (e) { return false; } };
+  const LATE = () => (+S.lateH || 2) * 36e5;
+  const PF_FILTERS = [
+    { k: 'housed', ic: '✅', t: 'تم التسكين', fn: o => o.a.length && o.a.every(r => r.done) },
+    { k: 'unhoused', ic: '🛬', t: 'لم يُسكَّن', fn: o => o.a.some(r => !r.done) },
+    { k: 'left', ic: '🛫', t: 'تمت المغادرة', fn: o => o.d.length && o.d.every(r => r.done) },
+    { k: 'notleft', ic: '⌛', t: 'لم يغادر', fn: o => o.d.some(r => !r.done) },
+    { k: 'late', ic: '⏰', t: 'متأخر عن التسكين', fn: (o, now) => o.a.some(r => !r.done && r.when && r.when.getTime() < now - LATE()) },
+    { k: 'noprep', ic: '🛂', t: 'بلا استعداد مسبق', fn: o => o.a.some(r => !r.done && !pfReg(r)) },
+    { k: 'dep7', ic: '📅', t: 'يغادر خلال 7 أيام', fn: (o, now) => o.d.some(r => !r.done && r.when && r.when.getTime() > now && r.when.getTime() - now <= 7 * 864e5) },
+    { k: 'issues', ic: '⚠', t: 'تستدعي الانتباه', fn: o => journeyIssues(o).length > 0 },
+    { k: 'noarr', ic: '❓', t: 'بلا بيانات وصول', fn: o => !o.a.length },
+    { k: 'nodep', ic: '❓', t: 'بلا بيانات مغادرة', fn: o => !o.d.length }
+  ];
+  let flt = '', lim = 60;
+  const stLine = o => {
+    const a = o.a[0], d = o.d[o.d.length - 1], p = [];
+    if (a) p.push((a.done ? '✅ سُكّن' : '🛬 ' + (a.when ? 'يصل ' + C.fmtDayAr(a.when) : 'لم يُسكَّن')));
+    if (d) p.push((d.done ? '🛫 غادر' : '⌛ ' + (d.when ? 'يغادر ' + C.fmtDayAr(d.when) : 'لم يغادر')));
+    return p.join(' · ');
+  };
   const build0 = () => {
     const { A, D, T } = pfAll(), tag = [A, D, T].map(x => x ? x.records.length : 0).join('|') + (isMasked() ? 'm' : '');
     if (idx && idxSrc === tag + (A && A.records) + (D && D.records) + (T && T.records)) return idx;
@@ -3761,17 +3810,32 @@ function initPilgrim() {
     const errs = ['arrival', 'departure', 'transfers'].filter(k => !state.data[k]).map(k => ({ arrival: 'الوصول', departure: 'المغادرة', transfers: 'التنقلات' })[k]);
     stale.innerHTML = errs.length ? '<div class="stale">⚠ لم تُحمَّل بيانات: ' + errs.join('، ') + ' — يظهر المسار ناقصاً.</div>' : '';
     if (isMasked()) { box.innerHTML = '<div class="empty">أرقام الجوازات مخفية في وضع الزائر، فلا يمكن ربط سجلات الحاج بين التبويبات.<br>سجّل دخول المالك أو اطلب إظهار الجوازات للزوار من الإعدادات.</div>'; return; }
-    const I = build(), nq = C.normAr(q);
-    if (!nq) { box.innerHTML = '<div class="empty">اكتب رقم الجواز أو جزءاً من الاسم (' + I.list.length + ' حاج في البيانات)</div>'; $('#pCnt').textContent = ''; return; }
-    const hits = I.list.filter(o => C.normAr(o.passport).includes(nq) || (o.name && C.normAr(o.name).includes(nq))).slice(0, 40);
-    $('#pCnt').textContent = hits.length + (hits.length === 40 ? '+' : '') + ' نتيجة';
-    let cur = hits.find(o => o.k === sel); if (!cur && hits.length === 1) cur = hits[0];
+    const I = build(), nq = C.normAr(q), now0 = Date.now();
+    const fcnt = {}; PF_FILTERS.forEach(f => { fcnt[f.k] = I.list.filter(o => f.fn(o, now0)).length; });
+    $('#pFlt').innerHTML = PF_FILTERS.map(f => '<button type="button" class="qc' + (flt === f.k ? ' on' : '') + '" data-fl="' + f.k + '">' + f.ic + ' ' + f.t + ' <b>' + fcnt[f.k] + '</b></button>').join('');
+    const fl = flt ? PF_FILTERS.find(f => f.k === flt) : null;
+    if (!nq && !fl) { box.innerHTML = '<div class="empty">اكتب رقم الجواز أو جزءاً من الاسم، أو اختر قائمة من الأعلى (' + I.list.length + ' حاج في البيانات)</div>'; $('#pCnt').textContent = ''; return; }
+    let pool = fl ? I.list.filter(o => fl.fn(o, now0)) : I.list;
+    if (nq) pool = pool.filter(o => C.normAr(o.passport).includes(nq) || (o.name && C.normAr(o.name).includes(nq)));
+    const cap = fl ? lim : 40, hits = pool.slice(0, cap);
+    if (sel && !hits.some(o => o.k === sel)) { const so = I.list.find(o => o.k === sel); if (so) hits.unshift(so); }
+    $('#pCnt').textContent = (fl ? fl.t + ': ' : '') + pool.length + ' ' + (fl ? 'حاج' : 'نتيجة') + (!fl && pool.length > 40 ? ' (أول 40)' : '');
+    let cur = hits.find(o => o.k === sel); if (!cur && hits.length === 1 && !fl) cur = hits[0];
+    if (fl && cur) {
+      box.innerHTML = '<div class="act" style="margin:8px 0"><button class="btn sm" data-back="1">← رجوع إلى قائمة «' + fl.t + '» (' + pool.length + ')</button></div>' + '<div class="pfh"><div><h2>' + esc(cur.name || 'اسم غير متوفر') + '</h2><div class="hint" dir="ltr">' + esc(cur.passport) + '</div></div>' + (cur.nat ? '<div>' + flagImg(cur.nat) + '</div>' : '') + '</div>' + timeline(cur);
+      return;
+    }
+    if (fl) {
+      box.innerHTML = hits.length ? '<div class="pfl pfl2">' + hits.map(o => '<button type="button" class="pfi" data-pk="' + esc(o.k) + '"><span class="pn">' + (o.nat ? flagImg(o.nat) : '') + '<b>' + esc(o.name || '—') + '</b></span><span dir="ltr">' + esc(o.passport) + '</span><small>' + esc(stLine(o)) + '</small><em>رحلته ←</em></button>').join('') + '</div>' + (pool.length > hits.length ? '<div class="act" style="justify-content:center"><button class="btn" data-more="1">عرض المزيد (' + (pool.length - hits.length) + ' متبقٍ)</button></div>' : '') : '<div class="empty">لا يوجد حجاج في هذه القائمة</div>';
+      return;
+    }
     const list = hits.length > 1 || !cur ? '<div class="pfl">' + hits.map(o => '<button type="button" class="pfi' + (cur && cur.k === o.k ? ' on' : '') + '" data-pk="' + esc(o.k) + '"><b>' + esc(o.name || '—') + '</b><span dir="ltr">' + esc(o.passport) + '</span><small>' + (o.a.length ? '🛬' : '') + (o.t.length ? '🏨' : '') + (o.d.length ? '🛫' : '') + '</small></button>').join('') + '</div>' : '';
     box.innerHTML = list + (cur ? '<div class="pfh"><div><h2>' + esc(cur.name || 'اسم غير متوفر') + '</h2><div class="hint" dir="ltr">' + esc(cur.passport) + '</div></div>' + (cur.nat ? '<div>' + flagImg(cur.nat) + '</div>' : '') + '</div>' + timeline(cur) : (hits.length ? '<p class="hint">اختر حاجاً من القائمة</p>' : '<div class="empty">لا توجد نتائج</div>'));
   }
   $('#pQ').value = q;
-  $('#pQ').oninput = e => { q = e.target.value.trim(); sel = ''; render(); };
-  $('#pRes').onclick = e => { const b = e.target.closest('[data-pk]'); if (b) { sel = b.dataset.pk; render(); } };
+  $('#pQ').oninput = e => { q = e.target.value.trim(); sel = ''; lim = 60; render(); };
+  $('#pRes').onclick = e => { if (e.target.closest('[data-back]')) { sel = ''; render(); return; } if (e.target.closest('[data-more]')) { lim += 60; render(); return; } const b = e.target.closest('[data-pk]'); if (b) { sel = b.dataset.pk; render(); if (flt) window.scrollTo({ top: 0, behavior: 'smooth' }); } };
+  $('#pFlt').onclick = e => { const b = e.target.closest('[data-fl]'); if (!b) return; flt = flt === b.dataset.fl ? '' : b.dataset.fl; sel = ''; lim = 60; render(); };
   onData(render); render();
 }
 
