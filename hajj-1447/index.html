@@ -126,17 +126,34 @@ main{max-width:1500px;margin:0 auto;padding:22px 22px 60px}
 .bt .fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:10px 8px}.bt .fgi{background:none;border:0;font-family:inherit;cursor:pointer;border-radius:10px;padding:4px 2px;transition:background .15s}.bt .fgi:hover{background:color-mix(in srgb,var(--c) 18%,transparent)}.bt .fg .fgi{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
 .bt .fg img,.bt .fg i.ph{width:38px;height:26px;border-radius:4px;object-fit:cover;box-shadow:0 0 0 1px rgba(128,128,128,.35);display:grid;place-items:center;font-style:normal;color:var(--mut);font-size:12px;background:var(--card2)}
 .nlist{max-height:55vh;overflow:auto;display:flex;flex-direction:column;gap:6px}.nlr{display:flex;align-items:center;gap:10px;background:var(--line2);border-radius:12px;padding:8px 12px}.nlr .no{color:var(--mut);font-size:12px;min-width:28px}.nlr .i{flex:1;min-width:0;display:flex;flex-direction:column}.nlr .i small{color:var(--mut);direction:ltr;text-align:start}
-.tv #app{display:block;column-count:var(--tvc,4);column-gap:14px;column-fill:balance}
-.tv #kpis,.tv .tiles4,.tv .bento{display:contents}
-.tv #app>*,.tv #kpis>*,.tv .tiles4>*,.tv .bento>*{break-inside:avoid;-webkit-column-break-inside:avoid;width:auto!important;max-width:none!important;grid-column:auto!important;margin:0 0 12px!important;min-width:0}
-.tv .grid2,.tv #stale:empty{display:none}
-.tv .bt,.tv .panel{overflow:hidden}.tv .rr{gap:8px}.tv .rk{min-width:0;gap:8px}.tv .rk .rg{flex:none;width:64px;height:64px}.tv .cols2{display:block}.tv .cols2>div+div{margin-top:8px}
-.tv{overflow:hidden;height:100vh;cursor:none}.tv #nav{display:none!important}.tv #app{position:absolute;pointer-events:none;padding:0 14px 14px;margin:0;max-width:none}
-#tvbar{display:none}.tv #tvbar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:10px 26px;border-bottom:1px solid var(--line2);background:color-mix(in srgb,var(--card) 92%,transparent);position:relative;z-index:5;cursor:default}
-#tvbar .tvt{display:flex;align-items:center;gap:12px}#tvbar .tvl{display:grid;place-items:center;width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--gold),#7a5a1c);color:#111;font-size:24px}#tvbar b{font-size:24px}#tvbar small{display:block;color:var(--mut);font-size:13px}
-#tvbar .tvc{text-align:center}#tvbar .tvc b{font-size:34px;font-variant-numeric:tabular-nums;letter-spacing:1px;color:var(--gold2)}#tvbar .tvs{display:flex;align-items:center;gap:10px}
-.tvdot{width:12px;height:12px;border-radius:50%;background:#888}.tvdot.ok{background:#2fbf71;box-shadow:0 0 0 4px rgba(47,191,113,.2);animation:tvp 2s infinite}.tvdot.bad{background:#e5484d;box-shadow:0 0 0 4px rgba(229,72,77,.25)}@keyframes tvp{50%{box-shadow:0 0 0 8px rgba(47,191,113,0)}}
-.tvbtn{font:inherit;font-size:20px;border:1px solid var(--line2);background:var(--card2);color:inherit;border-radius:10px;padding:2px 10px;cursor:pointer}
+html.tvh,.tv{overflow:hidden!important;height:100%;cursor:none;background:#07101f}.tv #nav,.tv #app,.tv .toast,.tv #pwa{display:none!important}
+#tvroot{position:fixed;width:1920px;height:1080px;transform-origin:0 0;display:grid;grid-template-rows:84px 1fr;background:radial-gradient(1200px 600px at 85% -10%,rgba(14,165,233,.14),transparent),radial-gradient(900px 500px at 0 110%,rgba(197,160,89,.1),transparent),var(--bg,#07101f);color:var(--ink,#e8eefc);direction:rtl}
+#tvbar{display:flex;align-items:center;justify-content:space-between;padding:0 30px;border-bottom:1px solid var(--line2);background:color-mix(in srgb,var(--card) 90%,transparent)}
+#tvbar .tvt{display:flex;align-items:center;gap:14px}#tvbar .tvl{display:grid;place-items:center;width:52px;height:52px;border-radius:15px;background:linear-gradient(135deg,var(--gold),#7a5a1c);color:#111;font-size:28px}#tvbar b{font-size:28px}#tvbar small{display:block;color:var(--mut);font-size:15px}
+#tvbar .tvc{text-align:center}#tvbar .tvc b{font-size:46px;font-variant-numeric:tabular-nums;letter-spacing:2px;color:var(--gold2);line-height:1}#tvbar .tvs{display:flex;align-items:center;gap:12px}#tvbar .tvs small{font-size:16px}
+.tvdot{width:14px;height:14px;border-radius:50%;background:#888}.tvdot.ok{background:#2fbf71;box-shadow:0 0 0 4px rgba(47,191,113,.2);animation:tvp 2s infinite}.tvdot.bad{background:#e5484d;box-shadow:0 0 0 4px rgba(229,72,77,.25)}@keyframes tvp{50%{box-shadow:0 0 0 9px rgba(47,191,113,0)}}
+.tvbtn{font:inherit;font-size:22px;border:1px solid var(--line2);background:var(--card2);color:inherit;border-radius:10px;padding:2px 10px;cursor:pointer}
+#tvMain{display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:392px 118px 1fr 76px;gap:12px;padding:12px 18px 14px;min-height:0}
+.tvz{position:relative;border-radius:22px;border:1px solid var(--line2);background:linear-gradient(160deg,color-mix(in srgb,var(--card) 96%,transparent),color-mix(in srgb,var(--card2) 90%,transparent));box-shadow:var(--shadow);padding:16px 20px;min-width:0;min-height:0;overflow:hidden}
+.tvz::before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:var(--c,var(--gold))}
+.tvz h3{margin:0 0 8px;display:flex;align-items:center;gap:10px;font-size:26px;font-weight:800}.tvz h3 .tvi{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:color-mix(in srgb,var(--c,var(--gold)) 20%,transparent);font-size:24px}.tvz h3 small{margin-inline-start:auto;font-size:17px;font-weight:600;color:var(--mut)}
+.tvg{--c:#34c47a;grid-column:span 6}.tvd{--c:#0ea5e9;grid-column:span 6}
+.tvn{display:grid;grid-template-columns:1.25fr 1.25fr 1fr .8fr;gap:14px;align-items:end;margin-top:2px}.tvn>div{display:flex;flex-direction:column;gap:2px}.tvn small{color:var(--mut);font-size:19px;font-weight:600}.tvn b{font-size:116px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
+.tvn .done b{color:var(--c)}.tvn .left b{color:#f5a524}.tvn .td b{font-size:86px}.tvn .tm b{font-size:58px;color:var(--mut)}
+.tvbar2{margin-top:16px;height:22px;border-radius:12px;background:rgba(128,128,128,.22);overflow:hidden}.tvbar2 i{display:block;height:100%;background:linear-gradient(90deg,var(--c),color-mix(in srgb,var(--c) 60%,#fff));border-radius:12px}
+.tvp{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:20px;color:var(--mut)}.tvp b{font-size:30px;color:var(--c)}
+.tvap{display:flex;gap:12px;margin-top:10px}.tvap span{flex:1;padding:6px 12px;border-radius:12px;background:color-mix(in srgb,var(--c) 11%,transparent);font-size:17px;display:flex;justify-content:space-between;gap:8px}.tvap b{font-size:20px}
+.tvk{grid-column:span 2;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;--c:#8892a8}.tvk b{font-size:60px;line-height:1;font-weight:800;font-variant-numeric:tabular-nums;color:var(--c)}.tvk span{font-size:18px;color:var(--mut);margin-top:4px;font-weight:600}
+.tvk.bad{--c:#ef5b60;animation:tvk 1.8s infinite}.tvk.warn{--c:#f5a524}.tvk.ok{--c:#2fbf71}.tvk.ok b{opacity:.75}@keyframes tvk{50%{box-shadow:0 0 0 6px rgba(239,91,96,.22)}}
+.tvk.sm{grid-column:span 2}
+.tvc3{grid-column:span 3}.tvc4{grid-column:span 4}.tvc6{grid-column:span 6}
+.tvcols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px}.tvcols>div{border-radius:14px;padding:8px 12px;background:color-mix(in srgb,var(--ink) 4%,transparent)}.tvcols h4{margin:0 0 4px;font-size:17px;color:var(--mut);display:flex;justify-content:space-between}.tvcols h4 b{font-size:34px;color:var(--c);line-height:1}
+.tvr{display:flex;justify-content:space-between;font-size:20px;padding:2px 0}.tvr.td{color:var(--c);font-weight:800}.tvr b{font-variant-numeric:tabular-nums}
+.tvh2{margin-top:6px;border-top:1px dashed var(--line2);padding-top:6px}.tvh2 .tvr{font-size:17px;color:var(--mut)}.tvh2 .tvr b{color:var(--ink)}
+.tvf{display:grid;gap:5px}.tvfl{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;padding:6px 12px;border-radius:12px;background:color-mix(in srgb,var(--ink) 4%,transparent);font-size:19px;border-inline-start:5px solid var(--c)}.tvfl.a{--c:#34c47a}.tvfl.d{--c:#0ea5e9}.tvfl b{font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:.5px}.tvfl small{color:var(--mut);font-size:15px}.tvfl .tm{font-weight:800;font-variant-numeric:tabular-nums;color:var(--gold2)}.tvfl .cd{font-size:17px;color:var(--mut);min-width:96px;text-align:end}.tvfl .cd.late{color:#ef5b60;font-weight:800}
+.tvfoot{grid-column:span 12;display:flex;align-items:center;gap:26px;padding:8px 20px}.tvfoot .sec{display:flex;align-items:center;gap:10px;font-size:16px;color:var(--mut)}.tvfoot .sec b{color:var(--ink);font-size:20px}.tvfoot .fgs{display:flex;gap:10px;align-items:center}.tvfoot .fgs span{display:flex;align-items:center;gap:5px;font-size:16px}.tvfoot .fgs img{height:20px;border-radius:3px}
+.tvfoot .sep{width:1px;align-self:stretch;background:var(--line2)}
+.tvz.pulse{animation:tvk 1.8s infinite}
 .bt.hot{gap:8px;justify-content:flex-start}.bt.hot .hl{display:grid;gap:2px}.hr{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto auto;align-items:center;gap:8px;font-size:13px;color:inherit;text-decoration:none;padding:5px 6px;border-radius:9px}.hr:hover{background:color-mix(in srgb,var(--c,var(--gold)) 10%,transparent)}.hr .hn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}.hr .hb{height:7px;border-radius:6px;background:rgba(128,128,128,.22);overflow:hidden}.hr .hb i{display:block;height:100%;background:var(--c,var(--gold))}.hr b{font-variant-numeric:tabular-nums;min-width:26px;text-align:end}.hr small{color:var(--mut);font-size:11px;min-width:54px;text-align:end}.hlm{max-height:60vh;overflow:auto}.bt.cty{justify-content:flex-start;gap:10px}.bt .apr{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}.bt .ap{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;padding:9px 12px;border-radius:12px;background:color-mix(in srgb,var(--c) 12%,transparent);border:1px solid color-mix(in srgb,var(--c) 30%,transparent);text-decoration:none;color:var(--mut);font-size:12.5px;font-weight:700;transition:background .18s}.bt .ap:hover{background:color-mix(in srgb,var(--c) 22%,transparent)}.bt .ap b{font-size:22px;color:var(--c);font-variant-numeric:tabular-nums;grid-row:span 2}.bt .ap small{font-size:11px;font-weight:600}
 .bt .cols{display:grid;grid-template-columns:1fr 1fr;gap:10px}.bt .cc{display:flex;flex-direction:column;gap:5px}
 .bt .cc .ch{display:flex;align-items:baseline;justify-content:space-between;padding:8px 10px;border-radius:10px;font-size:12.5px;font-weight:800;color:var(--mut);background:color-mix(in srgb,var(--cc) 16%,transparent);border-bottom:2px solid var(--cc)}.bt .cc .ch b{font-size:22px;color:var(--cc);font-variant-numeric:tabular-nums}
@@ -3299,6 +3316,43 @@ function initDashboard() {
     const draw = () => { const q = C.normAr(ov.querySelector('#hQ').value.trim()); ov.querySelector('#hL').innerHTML = H.L.filter(x => !q || C.normAr(x.h).includes(q)).map(x => hotRow(x, mx)).join('') || '<div class="empty">لا نتائج</div>'; };
     ov.querySelector('#hQ').oninput = draw; ov.querySelector('#hX').onclick = () => ov.close(); draw();
   }
+  // لوحة غرفة التحكم: الأهم كبير (الواصلون/المتبقون/اليوم) والتفاصيل أصغر
+  function tvPaint(A, D, a, d, now) {
+    const root = $('#tvMain'); if (!root) return;
+    const sum = x => x.reduce((n, g) => n + g.pax, 0), o = overall(now), ga = grps('arrival'), gd = grps('departure');
+    const today = C.fmtDay(new Date(now)), tom = C.fmtDay(new Date(now + 864e5));
+    const dayPax = (gs, k, day) => sum(gs.filter(g => { const t = refT(k, g); return t && C.fmtDay(t) === day; }));
+    const pc = (v, n) => n ? Math.round(v / n * 100) : 0;
+    const big = (cls, ic, ttl, dn, lf, kind, gs, tot, done, left) => {
+      const ap = ['jeddah', 'madinah'].map(c => { const x = gs.filter(g => g.airCity === c); return '<span>✈ ' + (c === 'jeddah' ? 'جدة' : 'المدينة') + '<b>' + sum(x) + '</b><small>' + (kind === 'arrival' ? 'وصل ' : 'غادر ') + x.reduce((n, g) => n + g.done, 0) + '</small></span>'; }).join('');
+      return '<section class="tvz ' + cls + '"><h3><span class="tvi">' + ic + '</span>' + ttl + '<small>الإجمالي ' + tot + ' حاج</small></h3>' +
+        '<div class="tvn"><div class="done"><small>' + dn + '</small><b>' + done + '</b></div><div class="left"><small>' + lf + '</small><b>' + left + '</b></div><div class="td"><small>' + (kind === 'arrival' ? 'وصول اليوم' : 'مغادرة اليوم') + '</small><b>' + dayPax(gs, kind, today) + '</b></div><div class="tm"><small>غداً</small><b>' + dayPax(gs, kind, tom) + '</b></div></div>' +
+        '<div class="tvbar2"><i style="width:' + pc(done, tot) + '%"></i></div><div class="tvp"><span>نسبة الإنجاز</span><b>' + pc(done, tot) + '%</b></div><div class="tvap">' + ap + '</div></section>';
+    };
+    const kp = (cls, v, lb) => '<section class="tvz tvk ' + (v ? cls : 'ok') + '"><b>' + (v || '✓') + '</b><span>' + lb + '</span></section>';
+    const jl = journeyList(), jn = jl ? jl.length : 0;
+    const city = (i, j) => {
+      const col = (k, gs, lb) => { const days = new Map(); let tot = 0; gs.forEach(g => { if (g.stayCity !== i) return; tot += g.pax; const t = refT(k, g); if (!t) return; const dk = C.fmtDay(t); if (dk < today) return; days.set(dk, (days.get(dk) || 0) + g.pax); }); const rows = [...days.entries()].sort((x, y) => x[0] < y[0] ? -1 : 1).slice(0, 4);
+        return '<div><h4>' + lb + '<b>' + tot + '</b></h4>' + (rows.length ? rows.map(([dk, n]) => '<div class="tvr' + (dk === today ? ' td' : '') + '"><span>' + dk.slice(8) + '/' + dk.slice(5, 7) + (dk === today ? ' اليوم' : '') + '</span><b>' + n + '</b></div>').join('') : '<div class="tvr"><span>لا حركة قادمة</span></div>') + '</div>'; };
+      const H = hotelStats(i);
+      return '<section class="tvz tvc3" style="--c:' + ['#c5a059', '#34c47a'][j] + '"><h3><span class="tvi">' + ['🕋', '🕌'][j] + '</span>' + esc(C.CITY_DEF[i].ar) + '<small>' + H.tot + ' حاج · ' + H.L.length + ' فنادق</small></h3><div class="tvcols">' + col('arrival', ga, '🛬 وصول') + col('departure', gd, '🛫 مغادرة') + '</div><div class="tvh2">' + H.L.slice(0, 3).map(x => '<div class="tvr"><span>' + esc(x.h) + '</span><b>' + x.n + '</b></div>').join('') + '</div></section>';
+    };
+    const fl = [];
+    [['arrival', A, 'a'], ['departure', D, 'd']].forEach(([k, R, c]) => R && C.groupFlights(R.records).forEach(f => { if (f.when && f.done < f.pax && f.when.getTime() > now - 3 * 36e5) fl.push({ f, c, k }); }));
+    fl.sort((x, y) => x.f.when - y.f.when);
+    const cdTxt = t => { const ms = t - now; return ms < 0 ? '<span class="cd late">متأخرة ' + dur(-ms) + '</span>' : '<span class="cd">بعد ' + dur(ms) + '</span>'; };
+    const flights = '<section class="tvz tvc6" style="--c:#8b9bff"><h3><span class="tvi">✈</span>أقرب الرحلات<small>🟢 وصول · 🔵 مغادرة</small></h3><div class="tvf">' + (fl.slice(0, 5).map(({ f, c }) => '<div class="tvfl ' + c + '"><b>' + esc(f.flight) + '</b><span>' + esc(f.airline || '') + ' <small>' + f.pax + ' حاج' + (f.done ? ' · ' + (c === 'a' ? 'سُكّن ' : 'غادر ') + f.done : '') + '</small></span><span class="tm">' + esc(C.fmtDayAr(f.when).replace(/^\S+\s/, '')) + ' · ' + esc(C.fmtTime(f.when)) + '</span>' + cdTxt(f.when.getTime()) + '</div>').join('') || '<div class="empty">لا رحلات قادمة</div>') + '</div></section>';
+    // الأمم + التنقلات (تفاصيل ثانوية صغيرة)
+    const nm = new Map(); natBase().forEach(r => { const k = C.natKey(r); const e = nm.get(k) || { c: r.country, n: 0 }; e.n += r.pax; nm.set(k, e); });
+    const nat = [...nm.values()].sort((x, y) => y.n - x.n);
+    const T = state.data.transfers; let tr = '';
+    if (T) { let pax = 0, aT = 0, aOk = 0, tN = 0; T.moves.forEach(m => { pax += m.pax; if (m.date === today) tN++; trLegs(m).forEach(l => { if (l.apr) trBuses(m, l).forEach((b, i) => { aT++; if (trOk(trKey(m, l, i))) aOk++; }); }); }); tr = '<div class="sec">🔁 التنقلات الداخلية <b>' + T.moves.length + '</b> حركة · <b>' + pax + '</b> حاج · اليوم <b>' + tN + '</b> · اعتماد الحافلات <b>' + aOk + '/' + aT + '</b></div><div class="sep"></div>'; }
+    root.innerHTML =
+      big('tvg', '🛬', 'القادمون', 'تم التسكين', 'المتبقون', 'arrival', ga, a.total, a.done, a.pending) + big('tvd', '🛫', 'المغادرون', 'تمت المغادرة', 'المتبقون', 'departure', gd, d.total, d.done, d.pending) +
+      kp('bad', a.dangerRows + d.dangerRows, 'تنبيهات حرجة') + kp('warn', o.lt, 'مجموعات متأخرة') + kp('warn', o.is, 'مشاكل النقل') + kp('warn', o.nr, 'بلا استعداد (أسبوعان)') + kp('warn', o.na, 'بلا اعتماد (5 أيام)') + kp('warn', jn, 'تستدعي الانتباه') +
+      city('makkah', 0) + city('madinah', 1) + flights +
+      '<section class="tvz tvfoot" style="--c:#8b5cf6">' + tr + '<div class="sec">🌍 الجنسيات <b>' + nat.length + '</b></div><div class="fgs">' + nat.slice(0, 12).map(x => '<span>' + (x.c ? '<img alt="" src="' + C.flagUrl(x.c.iso2, 40) + '" onerror="this.style.visibility=\'hidden\'">' : '؟') + x.n + '</span>').join('') + '</div></section>';
+  }
   // بلاطة «تستدعي الانتباه»: حجاج مساراتهم فيها تعارض (إقامة قبل الوصول / مغادرة قبل أو بعد خروج آخر فندق)
   function jrTile() {
     const L = journeyList();
@@ -3405,6 +3459,7 @@ function initDashboard() {
     items.sort((x, y) => ST[y.r._st].lv - ST[x.r._st].lv || (x.r.when || 0) - (y.r.when || 0));
     $('#feed').innerHTML = items.length ? items.slice(0, 12).map(({ k, r }) => '<a class="nx" href="' + k + '.html?q=' + encodeURIComponent(r.passport || r.name) + '"><span class="no">' + esc(r.flight || '—') + '</span><span class="i">' + esc(r.name || '—') + '<small>' + (k === 'arrival' ? 'وصول' : 'مغادرة') + ' · ' + esc(r.country ? r.country.ar : r.natRaw) + '</small></span><span class="chip danger">' + esc(ST_LABEL[k][r._st]) + '</span><span class="c">' + (r.when ? '<span class="cd" data-w="' + r.when.getTime() + '"></span>' : '') + '</span></a>').join('') + (items.length > 12 ? '<div class="hint" style="padding:6px">+ ' + (items.length - 12) + ' أخرى — افتح صفحة الوصول/المغادرة وصفِّ بـ «حرجة»</div>' : '') : '<div class="empty" style="padding:18px">لا توجد تنبيهات حرجة حالياً ✓</div>';
     ovrPanel(now); rdyAlert(now); apprAlert(now); latePanel(now); issPanel(now); rdyPanel(now); apprPanel(now); peaksPanel(); tpPanel(A, D);
+    if (TV_MODE) tvPaint(A, D, a, d, now);
     tick();
   }
   $('#xPrint').insertAdjacentHTML('beforebegin', '<button class="btn" id="xWa">📋 ملخص اليوم</button>'); $('#xWa').onclick = openDaily;
@@ -3443,30 +3498,21 @@ function initDashboard() {
 }
 
 
-/* ---------------- شاشة العرض (غرفة التحكم): index.html?tv=1 أو tv.html ---------------- */
+/* ---------------- شاشة العرض (غرفة التحكم): index.html?tv=1 أو tv.html ----------------
+   لوحة ثابتة 1920×1080 تُكبَّر/تُصغَّر لتناسب أي شاشة، المهم فيها كبير والتفاصيل أصغر */
 const TV_MODE = /[?&]tv=1/.test(location.search);
 function initTv() {
-  const QS = new URLSearchParams(location.search), D_W = +QS.get('w') || 1920, COLS = Math.max(2, Math.min(6, +QS.get('c') || 4)), EVERY = Math.max(15, +QS.get('s') || 30);
-  document.body.classList.add('tv'); document.documentElement.style.setProperty('--tvc', COLS);
-  const app = $('#app'), bar = document.createElement('div'); bar.id = 'tvbar';
-  bar.innerHTML = '<div class="tvt"><span class="tvl">✈</span><div><b>منظومة تحركات الحجاج 1447هـ</b><small>غرفة التحكم · عرض مباشر</small></div></div><div class="tvc"><b id="tvClk">--:--:--</b><small id="tvDay"></small></div><div class="tvs"><span id="tvDot" class="tvdot"></span><small id="tvUp">جارٍ التحميل…</small><button type="button" id="tvFs" class="tvbtn" title="ملء الشاشة">⛶</button></div>';
-  document.body.insertBefore(bar, app);
-  ['.hero', '.grid2.even'].forEach(q => app.querySelectorAll(q).forEach(e => { e.style.display = 'none'; }));
-  const ct = $('#chT'); if (ct && ct.closest('section')) ct.closest('section').style.display = 'none';
-  app.querySelectorAll('.tmore').forEach(e => { e.style.display = 'none'; });
+  const QS = new URLSearchParams(location.search), EVERY = Math.max(15, +QS.get('s') || 30);
+  if (QS.get('theme') !== 'light') document.documentElement.dataset.theme = 'dark';
+  document.documentElement.classList.add('tvh'); document.body.classList.add('tv');
+  const root = document.createElement('div'); root.id = 'tvroot';
+  root.innerHTML = '<div id="tvbar"><div class="tvt"><span class="tvl">✈</span><div><b>منظومة تحركات الحجاج 1447هـ</b><small>غرفة التحكم · عرض مباشر</small></div></div><div class="tvc"><b id="tvClk">--:--:--</b><small id="tvDay"></small></div><div class="tvs"><span id="tvDot" class="tvdot"></span><small id="tvUp">جارٍ التحميل…</small><button type="button" id="tvFs" class="tvbtn" title="ملء الشاشة">⛶</button></div></div><div id="tvMain"><div class="empty" style="grid-column:1/-1;align-self:center;font-size:30px">جارٍ تحميل البيانات…</div></div>';
+  document.body.appendChild(root);
   let upd = Date.now();
-  const fixedC = +QS.get('c') || 0, fixedW = +QS.get('w') || 0;
   const fit = () => {
-    const avail = innerHeight - bar.offsetHeight - 6; let best = { k: 0, c: COLS, w: D_W };
-    app.style.transform = 'none';
-    for (const w of (fixedW ? [fixedW] : [1920, 2100, 2300, 2500, 2700, 2900])) for (const c of (fixedC ? [fixedC] : [3, 4, 5, 6, 7])) {
-      if (!fixedC && (w / c < 340 || w / c > 640)) continue;
-      app.style.width = w + 'px'; document.documentElement.style.setProperty('--tvc', c);
-      const k = Math.min(innerWidth / w, avail / app.scrollHeight); if (k > best.k + 0.004) best = { k, c, w };
-    }
-    app.style.width = best.w + 'px'; document.documentElement.style.setProperty('--tvc', best.c);
-    app.style.transformOrigin = 'top center'; app.style.transform = 'scale(' + best.k + ')'; app.style.left = '50%'; app.style.marginLeft = (-best.w / 2) + 'px';
-    app.style.top = bar.offsetHeight + 'px';
+    const k = Math.min(innerWidth / 1920, innerHeight / 1080);
+    root.style.transform = 'scale(' + k + ')'; root.style.left = Math.round((innerWidth - 1920 * k) / 2) + 'px'; root.style.top = Math.round((innerHeight - 1080 * k) / 2) + 'px';
+    window.scrollTo(0, 0);
   };
   const clock = () => {
     const d = new Date(), p = n => String(n).padStart(2, '0'); $('#tvClk').textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
@@ -3475,9 +3521,9 @@ function initTv() {
     $('#tvUp').textContent = (bad ? 'تعذّر التحديث · ' : 'آخر تحديث ') + (age < 60 ? 'قبل ' + age + ' ث' : 'قبل ' + Math.floor(age / 60) + ' د');
     $('#tvDot').className = 'tvdot ' + (bad || age > EVERY * 4 ? 'bad' : 'ok');
   };
-  const doRefresh = async () => { try { await refresh(); upd = Date.now(); } catch (e) { } setTimeout(fit, 400); };
+  const doRefresh = async () => { try { await refresh(); upd = Date.now(); } catch (e) { } };
   setInterval(doRefresh, EVERY * 1000); setInterval(clock, 1000); clock();
-  onData(() => { upd = Date.now(); setTimeout(fit, 350); }); setInterval(fit, 7000); addEventListener('resize', fit); setTimeout(fit, 800); setTimeout(fit, 2500);
+  onData(() => { upd = Date.now(); }); addEventListener('resize', fit); fit(); setInterval(fit, 5000);
   setTimeout(() => location.reload(), 6 * 3600e3);                    // إعادة تحميل دورية لتفادي تراكم الذاكرة
   const fs = () => { const el = document.documentElement; if (!document.fullscreenElement) (el.requestFullscreen || el.webkitRequestFullscreen || (() => { })).call(el); else document.exitFullscreen && document.exitFullscreen(); };
   $('#tvFs').onclick = fs; addEventListener('keydown', e => { if (e.key === 'f' || e.key === 'F') fs(); });
