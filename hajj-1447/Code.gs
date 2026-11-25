@@ -1,17 +1,18 @@
 /**
  * منظومة تحركات الحجاج 1447هـ — الخادم (Google Apps Script Web App)
  * ---------------------------------------------------------------------------
- *  • المالك: يدخل بالبريد وكلمة المرور (المكتوبين أدناه) فيضبط الإعدادات كلها ويحذفها.
- *  • الزائر: يرى البيانات بحسب ما يسمح به المالك، ويؤكد التسكين/المغادرة، ولا يرى الإعدادات ولا أي سر.
+ *  • الدخول إلزامي لكل أحد (اسم مستخدم + كلمة مرور). المالك: CONFIG.OWNER_USER وكلمة مروره في Script Properties (OWNER_PASSWORD).
+ *  • بقية المستخدمين وصلاحياتهم في تبويب «Users» بالملف، والمالك يديرهم من الموقع. الإعدادات والمستخدمون للمالك وحده.
  *  • الإعدادات تُحفظ هنا (خصائص السكربت) لا في المتصفح، فتظهر لكل من يفتح الموقع.
  *  • الجدول يُقرأ ويُكتب عبر هذا السكربت فقط، فيمكن إبقاء الجدول خاصاً (غير منشور).
  *
  * طريقة التركيب: README.md  — بعد أي تعديل هنا: نشر ← إدارة عمليات النشر ← ✏ ← إصدار جديد.
  */
 const CONFIG = {
-  // حساب المالك (غيّرهما قبل النشر، وكلمة المرور طويلة وفريدة)
-  OWNER_EMAIL: 'owner@example.com',
-  OWNER_PASSWORD: 'CHANGE-ME-TO-A-LONG-PASSWORD',
+  // حساب المالك: اسم المستخدم هنا، وكلمة المرور تُضبط في «خصائص السكربت» باسم OWNER_PASSWORD
+  // (Apps Script ← Project Settings ← Script properties) فلا تُكتب في هذا الملف المرفوع على GitHub.
+  OWNER_USER: 'prom1406',
+  OWNER_PASSWORD: '',
 
   // اتركه فارغاً إذا أنشأت السكربت من داخل الجدول (الإضافات ← Apps Script)، أو ضع معرّف الملف.
   // وللمالك أن يحدد الملف من لوحته برابطه، فيُقدَّم الرابط على هذا المعرّف.
@@ -29,6 +30,8 @@ const CONFIG = {
   SESSION_HOURS: 6,        // مدة جلسة المالك (الحد الأقصى 6 ساعات)
   MAX_OPS: 50,             // أقصى عدد سجلات في طلب كتابة واحد
   LOG_SHEET: 'Log',        // تبويب سجل التأكيدات (يُنشأ تلقائياً)
+  USERS_SHEET: 'Users',    // تبويب المستخدمين والصلاحيات (يُنشأ تلقائياً)
+  ACTIVITY_SHEET: 'Activity', // تبويب سجل الدخول والنشاط (يُنشأ تلقائياً)
   READY_SHEET: 'Readiness',// تبويب الاستعداد المسبق للرحلات (يُنشأ تلقائياً)
   NOTES_SHEET: 'Notes',    // تبويب الملاحظات وحالة النقل للمجموعات (يُنشأ تلقائياً)
   BACKUP_PREFIX: 'Backup_',// بادئة تبويبات النسخ الاحتياطي داخل الملف
@@ -44,55 +47,301 @@ const PROP_KEY = 'HAJJ_SETTINGS';
 function doGet(e) {
   const p = (e && e.parameter) || {};
   try {
-    switch (p.action) {
-      case 'public':      return json_(publicInfo_());
+    const act = String(p.action || '');
+    const ctx = auth_(p); p.ctx_ = ctx;
+    if (act && act !== 'public' && act !== 'login' && !ctx) return json_({ ok: false, error: 'auth' });
+    if (ctx && ctx.mustChange && ['public', 'whoami', 'logout', 'change_password'].indexOf(act) < 0) return json_({ ok: false, error: 'must_change' });
+    switch (act) {
+      case 'public':      return json_(publicInfo_(ctx));
       case 'login':       return json_(login_(payload_(p)));
-      case 'whoami':      return json_({ ok: true, owner: isOwner_(p.s) });
-      case 'logout':      cache_().remove('s_' + p.s); return json_({ ok: true });
-      case 'owner_get':   requireOwner_(p); return json_(ownerGet_());
-      case 'owner_save':  requireOwner_(p); { const r = ownerSave_(payload_(p)); bumpData_(); return json_(r); }
-      case 'owner_test':  requireOwner_(p); return json_(ownerTest_(payload_(p)));
-      case 'owner_reset': requireOwner_(p); PropertiesService.getScriptProperties().deleteProperty(PROP_KEY); bumpData_(); return json_({ ok: true });
-      case 'owner_backup':       requireOwner_(p); return json_(backupNow_('يدوي'));
-      case 'owner_backup_info':  requireOwner_(p); return json_(backupInfo_());
-      case 'owner_backup_daily': requireOwner_(p); return json_(backupDaily_(payload_(p).on === true));
+      case 'whoami':      return json_({ ok: true, owner: ctx.owner, user: publicUser_(ctx) });
+      case 'logout':      activity_(ctx || {}, ctx ? 'خروج' : '', ''); cache_().remove('s_' + p.s); return json_({ ok: true });
+      case 'change_password': return json_(changePassword_(payload_(p), ctx, p.s));
+      case 'owner_get':   requireOwner_(ctx); return json_(ownerGet_());
+      case 'owner_save':  requireOwner_(ctx); { const r = ownerSave_(payload_(p)); bumpData_(); return json_(r); }
+      case 'owner_test':  requireOwner_(ctx); return json_(ownerTest_(payload_(p)));
+      case 'owner_reset': requireOwner_(ctx); PropertiesService.getScriptProperties().deleteProperty(PROP_KEY); bumpData_(); bumpUsers_(); return json_({ ok: true });
+      case 'owner_backup':       requireOwner_(ctx); return json_(backupNow_('يدوي'));
+      case 'owner_backup_info':  requireOwner_(ctx); return json_(backupInfo_());
+      case 'owner_backup_daily': requireOwner_(ctx); return json_(backupDaily_(payload_(p).on === true));
+      case 'users_get':   requireOwner_(ctx); return json_(usersGet_());
+      case 'user_save':   requireOwner_(ctx); return json_(userSave_(payload_(p), ctx));
+      case 'user_delete': requireOwner_(ctx); return json_(userDelete_(payload_(p), ctx));
+      case 'activity_get':requireOwner_(ctx); return json_(activityGet_(payload_(p)));
       case 'ready_get':   return json_(memo_('ready', 15, readyGet_));
-      case 'ready_set':   return json_(readySet_(payload_(p), isOwner_(p.s)));
+      case 'ready_set':   return json_(readySet_(payload_(p), ctx));
       case 'fc_get':      return json_(memo_('fc', 15, fcGet_));
-      case 'fc_set':      return json_(fcSet_(payload_(p), isOwner_(p.s)));
-      case 'fc_lookup':   return json_(fcLookup_(payload_(p), isOwner_(p.s)));
+      case 'fc_set':      return json_(fcSet_(payload_(p), ctx));
+      case 'fc_lookup':   return json_(fcLookup_(payload_(p), ctx));
       case 'appr_get':    return json_(memo_('appr', 15, apprGet_));
-      case 'appr_set':    return json_(apprSet_(payload_(p), isOwner_(p.s)));
+      case 'appr_set':    return json_(apprSet_(payload_(p), ctx));
       case 'names_get':   return json_(namesCached_(p));
       case 'notes_get':   return json_(notesCached_(p));
-      case 'note_set':    return json_(noteSet_(payload_(p), isOwner_(p.s)));
+      case 'note_set':    return json_(noteSet_(payload_(p), ctx));
       case 'read':        return json_(read_(p));
-      case 'write':       return json_(write_(payload_(p), isOwner_(p.s)));
-      default:            return json_(p.action ? { ok: false, error: 'إجراء غير معروف: ' + p.action } : { ok: true, service: 'hajj-sync', v: 3 });
+      case 'write':       return json_(write_(payload_(p), ctx));
+      default:            return json_(act ? { ok: false, error: 'إجراء غير معروف: ' + act } : { ok: true, service: 'hajj-sync', v: 4 });
     }
   } catch (err) {
     return json_({ ok: false, error: String(err.message || err) });
   }
 }
 
-/* ============================ المالك والجلسات ============================ */
-function login_(req) {
-  const c = cache_();
-  const fails = Number(c.get('fails') || 0);
-  if (fails >= 5) return { ok: false, error: 'محاولات كثيرة خاطئة — انتظر 15 دقيقة ثم أعد المحاولة' };
-  const okMail = safeEq_(String(req.email || '').trim().toLowerCase(), String(CONFIG.OWNER_EMAIL).trim().toLowerCase());
-  const okPass = safeEq_(String(req.password || ''), CONFIG.OWNER_PASSWORD);
-  if (!(okMail && okPass) || /CHANGE-ME/.test(CONFIG.OWNER_PASSWORD)) {
-    c.put('fails', String(fails + 1), 900);
-    return { ok: false, error: /CHANGE-ME/.test(CONFIG.OWNER_PASSWORD) ? 'لم تُغيَّر كلمة مرور المالك في Code.gs' : 'البريد أو كلمة المرور غير صحيحة' };
-  }
-  c.remove('fails');
-  const s = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
-  c.put('s_' + s, '1', Math.min(21600, CONFIG.SESSION_HOURS * 3600));
-  return { ok: true, session: s, email: CONFIG.OWNER_EMAIL };
+
+/* ============================ الحسابات والصلاحيات ============================ */
+// المالك: اسمه في CONFIG.OWNER_USER وكلمة مروره في Script Properties باسم OWNER_PASSWORD (لا تُكتب في GitHub).
+// بقية المستخدمين: تبويب «Users» في ملف البيانات. كلمات المرور تُخزَّن مشفّرة (HMAC-SHA256 + ملح) ولا يمكن قراءتها.
+const PERM_KEYS = ['pDash', 'pArrival', 'pDeparture', 'pTransfers', 'pPilgrim', 'pFollow', 'confArr', 'confDep', 'notes', 'ready', 'appr', 'export', 'passports'];
+const PAGE_PERMS = ['pDash', 'pArrival', 'pDeparture', 'pTransfers', 'pPilgrim', 'pFollow'];
+function permSet_(list) { const o = {}; PERM_KEYS.forEach(function (k) { o[k] = list.indexOf(k) >= 0; }); return o; }
+const ROLES = {
+  supervisor:    { label: 'مشرف عام',     perms: permSet_(PAGE_PERMS.concat(['confArr', 'confDep', 'notes', 'ready', 'appr', 'export', 'passports'])) },
+  arrival_sup:   { label: 'مشرف وصول',    perms: permSet_(['pDash', 'pArrival', 'pTransfers', 'pPilgrim', 'pFollow', 'confArr', 'notes', 'ready', 'export', 'passports']) },
+  departure_sup: { label: 'مشرف مغادرة',  perms: permSet_(['pDash', 'pDeparture', 'pPilgrim', 'pFollow', 'confDep', 'notes', 'appr', 'export', 'passports']) },
+  viewer:        { label: 'مشاهدة فقط',   perms: permSet_(PAGE_PERMS) },
+  custom:        { label: 'مخصّص',        perms: permSet_([]) }
+};
+const CITY_KEYS = ['makkah', 'madinah', 'jeddah'];
+const CITY_RE = { makkah: /makk?ah|mecca|مكه/, madinah: /madin[ae]h?|medina|المدينه/, jeddah: /\bjedd?ah\b|jidda|جده|\bjed\b/ };
+const USER_HEADERS = ['اسم المستخدم', 'الاسم', 'بصمة كلمة المرور', 'ملح', 'النوع', 'صلاحيات مخصصة', 'الجوال', 'البريد', 'القسم', 'النطاق (المدن)', 'مفعّل', 'ينتهي في', 'تغيير الباس عند الدخول', 'أُنشئ في', 'أنشأه', 'آخر دخول'];
+const U = { USER: 0, NAME: 1, HASH: 2, SALT: 3, ROLE: 4, PERMS: 5, PHONE: 6, EMAIL: 7, DEPT: 8, SCOPE: 9, ACTIVE: 10, EXP: 11, MUST: 12, CREATED: 13, BY: 14, LAST: 15 };
+const TZ_ = 'Asia/Riyadh';
+
+function ownerPassword_() {
+  const v = PropertiesService.getScriptProperties().getProperty('OWNER_PASSWORD');
+  return String(v || CONFIG.OWNER_PASSWORD || '');
 }
-function isOwner_(s) { return !!s && cache_().get('s_' + s) === '1'; }
-function requireOwner_(p) { if (!isOwner_(p.s)) throw new Error('غير مصرّح — سجّل دخول المالك'); }
+function hashPw_(pw, salt) {
+  const key = Utilities.newBlob(String(salt)).getBytes();
+  let sig = Utilities.computeHmacSha256Signature(Utilities.newBlob(String(pw)).getBytes(), key);
+  for (let i = 0; i < 40; i++) sig = Utilities.computeHmacSha256Signature(sig, key);
+  return Utilities.base64Encode(sig);
+}
+function nowStr_() { return Utilities.formatDate(new Date(), TZ_, 'yyyy-MM-dd HH:mm'); }
+function todayStr_() { return Utilities.formatDate(new Date(), TZ_, 'yyyy-MM-dd'); }
+function isNo_(v) { return /^(لا|no|false|0|موقوف|متوقف|n)$/i.test(String(v == null ? '' : v).trim()); }
+function isYes_(v) { return /^(نعم|yes|true|1|مفعل|مفعّل|y)$/i.test(String(v == null ? '' : v).trim()); }
+function expired_(s) { s = String(s || '').trim(); return /^\d{4}-\d{2}-\d{2}$/.test(s) && todayStr_() > s; }
+function userUsable_(u) { return !!u.hash && !u.inactive && !expired_(u.expires); }
+
+function ownerCtx_() {
+  const perms = {}; PERM_KEYS.forEach(function (k) { perms[k] = true; });
+  return { owner: true, username: CONFIG.OWNER_USER, name: 'المالك', role: 'owner', roleLabel: 'المالك', perms: perms, scope: [], dept: '', phone: '', email: '', mustChange: false };
+}
+function effPerms_(u) {
+  const base = (ROLES[u.role] || ROLES.viewer).perms, ov = u.perms || {}, o = {};
+  PERM_KEYS.forEach(function (k) { o[k] = typeof ov[k] === 'boolean' ? ov[k] : !!base[k]; });
+  return o;
+}
+function userCtx_(u) {
+  return { owner: false, username: u.username, name: u.name || u.username, role: ROLES[u.role] ? u.role : 'viewer', roleLabel: (ROLES[u.role] || ROLES.viewer).label,
+    perms: effPerms_(u), scope: u.scope || [], dept: u.dept || '', phone: u.phone || '', email: u.email || '', mustChange: !!u.must };
+}
+function publicUser_(ctx) {
+  return { username: ctx.username, name: ctx.name, role: ctx.role, roleLabel: ctx.roleLabel, perms: ctx.perms, scope: ctx.scope, dept: ctx.dept, phone: ctx.phone, email: ctx.email, mustChange: !!ctx.mustChange, owner: !!ctx.owner };
+}
+function rowToUser_(r, row) {
+  let perms = {}; try { const j = JSON.parse(String(r[U.PERMS] || '{}')); if (j && typeof j === 'object') perms = j; } catch (e) { }
+  const scope = String(r[U.SCOPE] || '').toLowerCase().split(/[,،\s]+/).filter(function (x) { return CITY_KEYS.indexOf(x) >= 0; });
+  return { row: row, username: String(r[U.USER] || '').trim(), name: String(r[U.NAME] || '').trim(), hash: String(r[U.HASH] || ''), salt: String(r[U.SALT] || ''),
+    role: String(r[U.ROLE] || 'viewer').trim(), perms: perms, phone: String(r[U.PHONE] || '').trim(), email: String(r[U.EMAIL] || '').trim(), dept: String(r[U.DEPT] || '').trim(),
+    scope: scope, inactive: isNo_(r[U.ACTIVE]), expires: String(r[U.EXP] || '').trim(), must: isYes_(r[U.MUST]), created: String(r[U.CREATED] || ''), by: String(r[U.BY] || ''), last: String(r[U.LAST] || '') };
+}
+function usersSheet_(st, create) {
+  const ss = openSS_(st); let sh = ss.getSheetByName(CONFIG.USERS_SHEET);
+  if (!sh && create) {
+    sh = ss.insertSheet(CONFIG.USERS_SHEET);
+    sh.getRange(1, 1, 1, USER_HEADERS.length).setValues([USER_HEADERS]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    [U.PHONE, U.EXP, U.CREATED, U.LAST].forEach(function (c) { sh.getRange(1, c + 1, sh.getMaxRows(), 1).setNumberFormat('@'); });
+    try { sh.hideColumns(U.HASH + 1, 2); } catch (e) { }
+  }
+  return sh;
+}
+function usersRead_(st) {
+  const map = {}; const sh = usersSheet_(st, false);
+  if (sh && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, USER_HEADERS.length).getDisplayValues().forEach(function (r, i) {
+      const u = rowToUser_(r, i + 2); if (u.username) map[u.username.toLowerCase()] = u;
+    });
+  }
+  return map;
+}
+function usersMap_() {
+  const c = cache_(), raw = c.get('umap');
+  if (raw) { try { return JSON.parse(raw); } catch (e) { } }
+  const st = settings_(); let map = {};
+  if (st) { try { map = usersRead_(st); } catch (e) { map = {}; } }
+  try { c.put('umap', JSON.stringify(map), 120); } catch (e) { }
+  return map;
+}
+function bumpUsers_() { try { cache_().remove('umap'); } catch (e) { } }
+function sessVal_(u) { return 'u:' + u.username.toLowerCase() + '|' + String(u.hash).slice(0, 12); }
+function newSession_(val) {
+  const s = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+  cache_().put('s_' + s, val, Math.min(21600, CONFIG.SESSION_HOURS * 3600));
+  return s;
+}
+// يعيد سياق المستخدم من رمز الجلسة، أو null إن لم تصلح (انتهت، أُوقف الحساب، تغيّرت كلمة مروره…)
+function auth_(p) {
+  const s = String((p && p.s) || ''); if (s.length < 40) return null;
+  const v = cache_().get('s_' + s); if (!v) return null;
+  if (v === '@owner') return ownerCtx_();
+  if (v.indexOf('u:') === 0) {
+    const parts = v.slice(2).split('|'), u = usersMap_()[parts[0]];
+    if (!u || !userUsable_(u) || String(u.hash).slice(0, 12) !== parts[1]) { cache_().remove('s_' + s); return null; }
+    return userCtx_(u);
+  }
+  return null;
+}
+function requireOwner_(ctx) { if (!ctx || !ctx.owner) throw new Error('غير مصرّح — هذه الصفحة للمالك فقط'); }
+function deny_(ctx, flag) { return ctx && ctx.perms && ctx.perms[flag] ? null : { ok: false, error: 'forbidden' }; }
+function canKind_(ctx, kind) {
+  const P = ctx.perms;
+  if (kind === 'arrival') return !!(P.pDash || P.pArrival || P.pTransfers || P.pPilgrim || P.pFollow);
+  if (kind === 'departure') return !!(P.pDash || P.pDeparture || P.pPilgrim || P.pFollow);
+  if (kind === 'transfers') return !!(P.pTransfers || P.pPilgrim || P.pFollow);
+  return false;
+}
+function byOf_(ctx) { return cell_((ctx.name + (ctx.owner ? '' : ' (' + ctx.username + ')')).replace(/[\r\n\t]/g, ' ').trim().slice(0, 60)); }
+
+/* ---- نطاق المدن: يُطبَّق في الخادم على القراءة والكتابة ---- */
+function normTxt_(s) { return String(s == null ? '' : s).toLowerCase().replace(/[ً-ٰٟـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي'); }
+function inScope_(scope, cells) {
+  if (!scope || !scope.length) return true;
+  const t = normTxt_(cells.join(' | '));
+  return scope.some(function (c) { return CITY_RE[c] && CITY_RE[c].test(t); });
+}
+
+/* ---- سجل الدخول والنشاط (تبويب Activity) ---- */
+function activity_(who, ev, detail) {
+  try {
+    const st = settings_(); if (!st) return;
+    const ss = openSS_(st); let sh = ss.getSheetByName(CONFIG.ACTIVITY_SHEET);
+    if (!sh) { sh = ss.insertSheet(CONFIG.ACTIVITY_SHEET); sh.getRange(1, 1, 1, 5).setValues([['الوقت', 'اسم المستخدم', 'الاسم', 'الحدث', 'التفاصيل']]).setFontWeight('bold'); sh.setFrozenRows(1); }
+    sh.appendRow([nowStr_(), cell_(who.username || ''), cell_(who.name || ''), ev, cell_(String(detail || '').slice(0, 200))]);
+    if (sh.getLastRow() > 6000) sh.deleteRows(2, 1500);
+  } catch (e) { /* السجل لا يعطّل العمل */ }
+}
+function activityGet_(req) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const ss = openSS_(st), who = String(req.username || '').trim().toLowerCase(), out = { ok: true, logins: [], ops: [] };
+  const tail = function (sh, n) { const last = sh ? sh.getLastRow() : 0; if (last < 2) return []; const from = Math.max(2, last - n + 1); return sh.getRange(from, 1, last - from + 1, sh.getLastColumn()).getDisplayValues().reverse(); };
+  tail(ss.getSheetByName(CONFIG.ACTIVITY_SHEET), 600).forEach(function (r) { if (!who || String(r[1]).toLowerCase() === who) out.logins.push(r.slice(0, 5)); });
+  out.logins = out.logins.slice(0, 300);
+  tail(ss.getSheetByName(CONFIG.LOG_SHEET), 600).forEach(function (r) { if (!who || String(r[3]).toLowerCase().indexOf('(' + who + ')') >= 0) out.ops.push(r.slice(0, 7)); });
+  out.ops = out.ops.slice(0, 300);
+  return out;
+}
+
+/* ---- الدخول ---- */
+function login_(req) {
+  const uname = String(req.username || req.email || '').trim().toLowerCase().slice(0, 60), pw = String(req.password || '');
+  if (!uname || !pw) return { ok: false, error: 'أدخل اسم المستخدم وكلمة المرور' };
+  const c = cache_(), fkey = 'f_' + uname, fails = Number(c.get(fkey) || 0), gf = Number(c.get('f_all') || 0);
+  if (fails >= 5 || gf >= 60) return { ok: false, error: 'محاولات كثيرة خاطئة — انتظر 15 دقيقة ثم أعد المحاولة' };
+  let ctx = null, rec = null, why = '';
+  if (uname === String(CONFIG.OWNER_USER).toLowerCase()) {
+    const op = ownerPassword_();
+    if (!op) return { ok: false, error: 'لم تُضبط كلمة مرور المالك: أضِف OWNER_PASSWORD في خصائص السكربت (Project Settings ← Script properties)' };
+    if (safeEq_(pw, op)) ctx = ownerCtx_();
+  } else {
+    const u = usersMap_()[uname];
+    if (u && u.hash && safeEq_(hashPw_(pw, u.salt), u.hash)) {
+      if (u.inactive) why = 'هذا الحساب موقوف — راجع المالك';
+      else if (expired_(u.expires)) why = 'انتهت صلاحية هذا الحساب — راجع المالك';
+      else { rec = u; ctx = userCtx_(u); }
+    }
+  }
+  if (why) { activity_({ username: uname }, 'دخول مرفوض', why); return { ok: false, error: why }; }
+  if (!ctx) {
+    try { c.put(fkey, String(fails + 1), 900); c.put('f_all', String(gf + 1), 900); } catch (e) { }
+    if (uname === String(CONFIG.OWNER_USER).toLowerCase() || usersMap_()[uname]) activity_({ username: uname }, 'فشل دخول', 'كلمة مرور خاطئة (' + (fails + 1) + ')');
+    return { ok: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+  }
+  c.remove(fkey);
+  const session = newSession_(ctx.owner ? '@owner' : sessVal_(rec));
+  if (rec) { try { const st = settings_(); if (st) { usersSheet_(st, false).getRange(rec.row, U.LAST + 1).setValue(nowStr_()); bumpUsers_(); } } catch (e) { } }
+  activity_(ctx, 'دخول', '');
+  return { ok: true, session: session, email: ctx.username, user: publicUser_(ctx) };
+}
+function changePassword_(req, ctx, oldSession) {
+  if (ctx.owner) return { ok: false, error: 'كلمة مرور المالك تُغيَّر من خصائص السكربت (OWNER_PASSWORD) في Apps Script' };
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const oldPw = String(req.oldPassword || ''), npw = String(req.newPassword || '');
+  if (npw.length < 6 || npw.length > 64) return { ok: false, error: 'كلمة المرور الجديدة من 6 إلى 64 حرفاً' };
+  if (npw === oldPw) return { ok: false, error: 'اختر كلمة مرور مختلفة عن الحالية' };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const u = usersRead_(st)[ctx.username.toLowerCase()];
+    if (!u || !safeEq_(hashPw_(oldPw, u.salt), u.hash)) return { ok: false, error: 'كلمة المرور الحالية غير صحيحة' };
+    const salt = Utilities.getUuid(), hash = hashPw_(npw, salt), sh = usersSheet_(st, false);
+    sh.getRange(u.row, U.HASH + 1, 1, 2).setValues([[hash, salt]]);
+    sh.getRange(u.row, U.MUST + 1).setValue('لا');
+    bumpUsers_();
+    u.hash = hash; u.must = false;
+    cache_().remove('s_' + oldSession);
+    const session = newSession_(sessVal_(u));
+    activity_(ctx, 'تغيير كلمة المرور', '');
+    return { ok: true, session: session };
+  } finally { try { lock.releaseLock(); } catch (x) { } }
+}
+
+/* ---- إدارة المستخدمين (للمالك) ---- */
+function usersGet_() {
+  const st = settings_(); if (!st) return { ok: false, error: 'اربط ملف البيانات من الإعدادات أولاً — يُنشأ تبويب Users داخله' };
+  usersSheet_(st, true);
+  const map = usersRead_(st);
+  const users = Object.keys(map).map(function (k) {
+    const u = map[k], x = userCtx_(u);
+    return { username: u.username, name: u.name, role: ROLES[u.role] ? u.role : 'viewer', roleLabel: x.roleLabel, overrides: u.perms, perms: x.perms, phone: u.phone, email: u.email, dept: u.dept, scope: u.scope,
+      active: !u.inactive, expires: u.expires, expired: expired_(u.expires), must: u.must, created: u.created, by: u.by, last: u.last, hasPw: !!u.hash };
+  }).sort(function (a, b) { return a.name < b.name ? -1 : 1; });
+  const roles = Object.keys(ROLES).map(function (k) { return { key: k, label: ROLES[k].label, perms: ROLES[k].perms }; });
+  return { ok: true, users: users, roles: roles, permKeys: PERM_KEYS, owner: CONFIG.OWNER_USER };
+}
+function userSave_(req, ctx) {
+  const st = settings_(); if (!st) return { ok: false, error: 'اربط ملف البيانات من الإعدادات أولاً' };
+  const uname = String(req.username || '').trim().toLowerCase();
+  if (!/^[a-z0-9_.-]{3,30}$/.test(uname)) return { ok: false, error: 'اسم المستخدم: 3 إلى 30 حرفاً إنجليزياً أو أرقاماً أو _ . -' };
+  if (uname === String(CONFIG.OWNER_USER).toLowerCase()) return { ok: false, error: 'هذا اسم المالك — اختر اسماً آخر' };
+  const name = str_(req.name, 60); if (!name) return { ok: false, error: 'اكتب اسم المستخدم الظاهر (الاسم الكامل)' };
+  const role = ROLES[req.role] ? String(req.role) : 'viewer';
+  const ov = {}; if (req.perms && typeof req.perms === 'object') PERM_KEYS.forEach(function (k) { if (typeof req.perms[k] === 'boolean') ov[k] = req.perms[k]; });
+  const scope = (Array.isArray(req.scope) ? req.scope : []).filter(function (x) { return CITY_KEYS.indexOf(x) >= 0; });
+  const expires = /^\d{4}-\d{2}-\d{2}$/.test(String(req.expires || '')) ? String(req.expires) : '';
+  const pw = String(req.password || '');
+  if (pw && (pw.length < 6 || pw.length > 64)) return { ok: false, error: 'كلمة المرور من 6 إلى 64 حرفاً' };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const sh = usersSheet_(st, true), cur = usersRead_(st)[uname];
+    if (!cur && !pw) return { ok: false, error: 'اكتب كلمة مرور للمستخدم الجديد' };
+    let hash = cur ? cur.hash : '', salt = cur ? cur.salt : '';
+    if (pw) { salt = Utilities.getUuid(); hash = hashPw_(pw, salt); }
+    const must = req.mustChange === true ? true : (req.mustChange === false ? false : (cur ? cur.must : true));
+    const row = [uname, cell_(name), hash, salt, role, JSON.stringify(ov), cell_(str_(req.phone, 25)), cell_(str_(req.email, 80)), cell_(str_(req.dept, 40)), scope.join(','),
+      req.active === false ? 'لا' : 'نعم', expires, must ? 'نعم' : 'لا',
+      cur ? cur.created : nowStr_(), cur ? cur.by : ctx.username, cur ? cur.last : ''];
+    if (cur) sh.getRange(cur.row, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
+    bumpUsers_();
+    activity_(ctx, cur ? 'تعديل مستخدم' : 'إضافة مستخدم', uname + ' · ' + (ROLES[role] || {}).label + (pw ? ' · كلمة مرور جديدة' : '') + (req.active === false ? ' · موقوف' : ''));
+    return { ok: true, created: !cur };
+  } finally { try { lock.releaseLock(); } catch (x) { } }
+}
+function userDelete_(req, ctx) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const uname = String(req.username || '').trim().toLowerCase();
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const u = usersRead_(st)[uname]; if (!u) return { ok: false, error: 'المستخدم غير موجود' };
+    usersSheet_(st, false).deleteRow(u.row); bumpUsers_();
+    activity_(ctx, 'حذف مستخدم', uname);
+    return { ok: true };
+  } finally { try { lock.releaseLock(); } catch (x) { } }
+}
 function cache_() { return CacheService.getScriptCache(); }
 
 /* ---- ذاكرة مؤقتة للقراءة: تقلّل فتح الملف وقراءة الأوراق كاملة عند كل طلب (أكبر مصدر لبطء الخادم) ----
@@ -122,7 +371,7 @@ function memo_(name, ttl, fn) {
 }
 function namesCached_(p) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
-  if (!isOwner_(p.s) && !(st.perms && st.perms.showPassports)) return { ok: true, items: {}, hidden: true };
+  if (!(p.ctx_ && p.ctx_.perms.passports)) return { ok: true, items: {}, hidden: true };
   return memo_('names', 60, function () { return namesGet_(p); });
 }
 function notesCached_(p) {
@@ -150,14 +399,16 @@ function publicSettings_(st) {
   o.pinSet = !!st.pin; o.pinArrSet = !!st.pinArr; o.pinDepSet = !!st.pinDep;
   return o;
 }
-function publicInfo_() {
+function publicInfo_(ctx) {
   const st = settings_();
-  return { ok: true, service: 'hajj-sync', v: 3, configured: !!st, settings: st ? publicSettings_(st) : null };
+  const o = { ok: true, service: 'hajj-sync', v: 4, configured: !!st };
+  if (ctx) { o.settings = st ? publicSettings_(st) : null; o.user = publicUser_(ctx); }
+  return o;
 }
 function ownerView_(st) { if (!st) return st; const o = JSON.parse(JSON.stringify(st)); o.pinSet = !!st.pin; o.pinArrSet = !!st.pinArr; o.pinDepSet = !!st.pinDep; delete o.pin; delete o.pinArr; delete o.pinDep; return o; }
 function ownerGet_() {
   const st = settings_();
-  return { ok: true, email: CONFIG.OWNER_EMAIL, configured: !!st, settings: ownerView_(st) };
+  return { ok: true, email: CONFIG.OWNER_USER, configured: !!st, settings: ownerView_(st) };
 }
 function num_(v, d, lo, hi) { v = Number(v); return isFinite(v) && v >= lo && v <= hi ? v : d; }
 function str_(v, max) { return typeof v === 'string' ? v.trim().slice(0, max) : ''; }
@@ -214,16 +465,21 @@ function ownerTest_(req) {
 
 /* ============================ القراءة ============================ */
 function read_(p) {
-  const st = settings_();
+  const st = settings_(), ctx = p.ctx_;
   if (!st) return { ok: false, error: 'not_configured' };
   if (p.kind !== 'arrival' && p.kind !== 'departure' && p.kind !== 'transfers') return { ok: false, error: 'kind غير صالح' };
+  if (!canKind_(ctx, p.kind)) return { ok: false, error: 'forbidden' };
   let rows = dataGet_('rows_' + p.kind);
   if (!rows) { rows = sheetOf_(st, p.kind).getDataRange().getDisplayValues(); dataPut_('rows_' + p.kind, rows, 20); }   // تُحفظ الصفوف الخام قبل التقنيع
-  if (!isOwner_(p.s) && !(st.perms && st.perms.showPassports)) {
-    const hi = headerIdx_(rows), col = passCol_(st, p.kind, rows[hi] || []);
+  const hi = headerIdx_(rows), masked = !ctx.perms.passports, scope = ctx.owner ? [] : ctx.scope;
+  if (masked) {
+    const col = passCol_(st, p.kind, rows[hi] || []);
     if (col >= 0) for (let i = hi + 1; i < rows.length; i++) rows[i][col] = mask_(rows[i][col]);
   }
-  return { ok: true, rows: rows, ts: Date.now(), masked: !isOwner_(p.s) && !(st.perms && st.perms.showPassports) };
+  if (scope.length) {   // نطاق المدن: تُفرَّغ الصفوف خارج النطاق وتبقى أرقام الصفوف كما هي
+    for (let i = hi + 1; i < rows.length; i++) if (!inScope_(scope, rows[i])) rows[i] = rows[i].map(function () { return ''; });
+  }
+  return { ok: true, rows: rows, ts: Date.now(), masked: masked, scoped: scope.length > 0 };
 }
 function mask_(v) { v = String(v == null ? '' : v).trim(); return v ? '••••' + v.slice(-4) : ''; }
 function headerIdx_(rows) {
@@ -242,37 +498,16 @@ function passCol_(st, kind, headers) {
 /* ============================ الكتابة ============================ */
 // صلاحية الكتابة للزائر بحسب وضع المالك (all / pin / off)؛ تعيد null إن سُمح
 // area: arrival | departure (التنقلات والاعتمادات تتبع مشرف المغادرة). في وضع roles: رمز عام، أو رمز دور المنطقة؛ ومن لا يملك رمزاً مراقب (عرض فقط)
-function visitorDenied_(st, req, owner, area) {
-  if (owner) return null;
-  const mode = (st.perms && st.perms.confirm) || 'all';
-  if (mode === 'off') return { ok: false, error: 'readonly' };
-  if (mode === 'roles') {
-    const c = cache_(), pf = Number(c.get('pfails') || 0);
-    if (pf >= 8) return { ok: false, error: 'locked' };
-    const given = String(req.pin || ''), role = area === 'arrival' ? st.pinArr : st.pinDep;
-    const ok = given && ((st.pin && safeEq_(given, st.pin)) || (role && safeEq_(given, role)));
-    if (!ok) { c.put('pfails', String(pf + 1), 900); return { ok: false, error: 'bad_pin' }; }
-    c.remove('pfails');
-    return null;
-  }
-  if (mode === 'pin') {
-    const c = cache_(), pf = Number(c.get('pfails') || 0);
-    if (pf >= 8) return { ok: false, error: 'locked' };
-    if (!st.pin || !safeEq_(String(req.pin || ''), st.pin)) { c.put('pfails', String(pf + 1), 900); return { ok: false, error: 'bad_pin' }; }
-    c.remove('pfails');
-  }
-  return null;
-}
+
 function pgOf_(kind) { return kind === 'arrival' ? 'الوصول' : kind === 'transfers' ? 'التنقلات' : 'المغادرة'; }
-function byOf_(req, owner) { return cell_(String(req.by || '').replace(/[\r\n\t]/g, ' ').trim().slice(0, 40)) || (owner ? 'المالك' : 'زائر'); }
-function write_(req, owner) {
+function write_(req, ctx) {
   const st = settings_();
   if (!st) return { ok: false, error: 'not_configured' };
   const kind = req.kind, cfg = CONFIG.KINDS[kind];
   if (!cfg) return { ok: false, error: 'kind غير صالح' };
   const ops = (req.ops || []).slice(0, CONFIG.MAX_OPS);
-  const denied = visitorDenied_(st, req, owner, kind === 'arrival' ? 'arrival' : 'departure'); if (denied) return denied;
-  const by = byOf_(req, owner);
+  const denied = deny_(ctx, kind === 'arrival' ? 'confArr' : 'confDep'); if (denied) return denied;
+  const by = byOf_(ctx);
   if (ops.length >= CONFIG.BACKUP_BULK_MIN) backupIfStale_(st, 'قبل تعديل جماعي');
   const lock = LockService.getScriptLock();
   try {
@@ -285,7 +520,7 @@ function write_(req, owner) {
     if (colCheck < 0) return { ok: false, error: 'العمود ' + checkName + ' غير موجود في الورقة' };
     const colAt = cfg.atHeader ? findCol_(headers, cfg.atHeader) : -1;
     const colBy = cfg.byHeader ? findCol_(headers, cfg.byHeader) : -1;
-    const masked = !owner && !(st.perms && st.perms.showPassports);
+    const masked = !ctx.perms.passports, scope = ctx.owner ? [] : ctx.scope;
     const pcol = masked ? passCol_(st, kind, headers) : -1;
     const norm = function (col, v) { v = String(v == null ? '' : v).trim(); return (masked && col === pcol) ? mask_(v) : v; };
 
@@ -303,6 +538,7 @@ function write_(req, owner) {
             if (row === -2) throw new Error('القيمة المفتاحية مكرّرة — تعذّر تحديد الصف');
           }
         }
+        if (scope.length) { const rv = sh.getRange(row, 1, 1, sh.getLastColumn()).getDisplayValues()[0]; if (!inScope_(scope, rv)) throw new Error('هذا السجل خارج نطاق صلاحيتك'); }
         const on = op.value === true;
         sh.getRange(row, colCheck + 1).setValue(CONFIG.WRITE_AS === 'text' ? (on ? (cfg.textOn || 'تم') : CONFIG.TEXT_OFF) : on);
         if (colAt >= 0) sh.getRange(row, colAt + 1).setValue(on ? new Date() : '');
@@ -313,7 +549,7 @@ function write_(req, owner) {
       }
     });
     SpreadsheetApp.flush(); bumpData_();
-    log_(st, kind, owner, by, ops[0] && ops[0].value === true, results, String(req.ctx || '').slice(0, 120));
+    log_(st, kind, ctx, by, ops[0] && ops[0].value === true, results, String(req.ctx || '').slice(0, 120));
     return { ok: true, results: results, v: 3 };
   } finally {
     try { lock.releaseLock(); } catch (x) { }
@@ -327,7 +563,7 @@ function write_(req, owner) {
 const NAMES_SHEET = 'Main';
 function namesGet_(p) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
-  if (!isOwner_(p.s) && !(st.perms && st.perms.showPassports)) return { ok: true, items: {}, hidden: true };
+  if (!(p.ctx_ && p.ctx_.perms.passports)) return { ok: true, items: {}, hidden: true };
   const sh = openSS_(st).getSheetByName(NAMES_SHEET);
   if (!sh) return { ok: false, error: 'لا يوجد تبويب باسم ' + NAMES_SHEET };
   const rows = sh.getDataRange().getDisplayValues(), hi = headerIdx_(rows), H = rows[hi] || [];
@@ -363,14 +599,14 @@ function notesGet_(p) {
   }
   return { ok: true, items: items, ts: Date.now() };
 }
-function noteSet_(req, owner) {
+function noteSet_(req, ctx) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
   if (req.kind !== 'arrival' && req.kind !== 'departure' && req.kind !== 'transfers') return { ok: false, error: 'kind غير صالح' };
-  const denied = visitorDenied_(st, req, owner, req.kind === 'arrival' ? 'arrival' : 'departure'); if (denied) return denied;
+  const denied = deny_(ctx, 'notes'); if (denied) return denied;
   const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح المجموعة مفقود' };
   const status = NOTE_STATUS.indexOf(String(req.status || '')) >= 0 ? String(req.status || '') : '';
   const note = cell_(String(req.note || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 300));
-  const pg = pgOf_(req.kind), by = byOf_(req, owner);
+  const pg = pgOf_(req.kind), by = byOf_(ctx);
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
@@ -384,7 +620,7 @@ function noteSet_(req, owner) {
       if (at > 0) sh.getRange(at, 1, 1, rec.length).setValues([rec]); else sh.appendRow(rec);
     }
     SpreadsheetApp.flush(); bumpData_();
-    log_(st, req.kind, owner, by, true, [{ ok: true }], 'ملاحظة/حالة: ' + (status || '—') + ' | ' + String(req.label || '').slice(0, 80), cleared ? 'مسح ملاحظة' : 'ملاحظة');
+    log_(st, req.kind, ctx, by, true, [{ ok: true }], 'ملاحظة/حالة: ' + (status || '—') + ' | ' + String(req.label || '').slice(0, 80), cleared ? 'مسح ملاحظة' : 'ملاحظة');
     return { ok: true, cleared: cleared };
   } finally { try { lock.releaseLock(); } catch (x) { } }
 }
@@ -403,14 +639,14 @@ function readyGet_() {
   if (sh) { const rows = sh.getDataRange().getDisplayValues(); for (let i = 1; i < rows.length; i++) if (rows[i][0]) items.push({ key: rows[i][0], flight: rows[i][1], status: rows[i][2], eta: rows[i][3], hall: rows[i][4], gate: rows[i][5], note: rows[i][6], by: rows[i][7], at: rows[i][8] }); }
   return { ok: true, items: items, ts: Date.now() };
 }
-function readySet_(req, owner) {
+function readySet_(req, ctx) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
-  const denied = visitorDenied_(st, req, owner, 'arrival'); if (denied) return denied;
+  const denied = deny_(ctx, 'ready'); if (denied) return denied;
   const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح الرحلة مفقود' };
   const status = READY_STATUS.indexOf(String(req.status || '')) >= 0 ? String(req.status || '') : '';
   const eta = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(req.eta || '')) ? String(req.eta) : '';
   const clean = function (v, n) { return cell_(String(v || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, n)); };
-  const hall = clean(req.hall, 30), gate = clean(req.gate, 30), note = clean(req.note, 300), by = byOf_(req, owner);
+  const hall = clean(req.hall, 30), gate = clean(req.gate, 30), note = clean(req.note, 300), by = byOf_(ctx);
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
@@ -424,7 +660,7 @@ function readySet_(req, owner) {
       sh.getRange(rowIdx, 1, 1, rec.length).setValues([rec]);
     }
     SpreadsheetApp.flush(); bumpData_();
-    log_(st, 'arrival', owner, by, true, [{ ok: true }], 'استعداد: ' + (status || '—') + (eta ? ' ETA ' + eta : '') + ' | ' + clean(req.label, 80), cleared ? 'مسح استعداد' : 'استعداد مسبق');
+    log_(st, 'arrival', ctx, by, true, [{ ok: true }], 'استعداد: ' + (status || '—') + (eta ? ' ETA ' + eta : '') + ' | ' + clean(req.label, 80), cleared ? 'مسح استعداد' : 'استعداد مسبق');
     return { ok: true, cleared: cleared };
   } finally { try { lock.releaseLock(); } catch (x) { } }
 }
@@ -464,15 +700,15 @@ function fcWrite_(st, rec) {   // rec: {key,flight,airline,date,status,official,
     SpreadsheetApp.flush(); bumpData_();
   } finally { try { lock.releaseLock(); } catch (x) { } }
 }
-function fcSet_(req, owner) {
+function fcSet_(req, ctx) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
-  const denied = visitorDenied_(st, req, owner, (String(req.role) === 'departure' ? 'departure' : 'arrival')); if (denied) return denied;
+  const denied = deny_(ctx, 'notes'); if (denied) return denied;
   const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح الرحلة مفقود' };
   const status = FC_STATUS.indexOf(String(req.status || '')) >= 0 ? String(req.status || '') : '';
   const official = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(String(req.official || '')) ? String(req.official) : '';
-  const by = byOf_(req, owner);
+  const by = byOf_(ctx);
   fcWrite_(st, { key: key, flight: fcClean_(req.flight, 20), airline: fcClean_(req.airline, 60), date: fcClean_(req.date, 12), status: status, official: official, mode: 'manual', note: fcClean_(req.note, 200), by: by });
-  log_(st, 'arrival', owner, by, true, [{ ok: true }], 'تحقق رحلة: ' + (status || '—') + ' | ' + fcClean_(req.label, 80), status ? 'تحقق من رحلة' : 'مسح تحقق رحلة');
+  log_(st, 'arrival', ctx, by, true, [{ ok: true }], 'تحقق رحلة: ' + (status || '—') + ' | ' + fcClean_(req.label, 80), status ? 'تحقق من رحلة' : 'مسح تحقق رحلة');
   return { ok: true };
 }
 // يجلب رحلة من المزوّد → {found, official:'YYYY-MM-DD HH:MM' (بتوقيت مطار الوصول أو الإقلاع حسب role)}
@@ -492,8 +728,9 @@ function fcFetch_(flight, date, dep) {
   const sd = dep ? f.departure : f.arrival, t = sd && sd.scheduledTime && sd.scheduledTime.local || '';
   return { found: true, official: t ? String(t).slice(0, 16).replace('T', ' ') : '' };
 }
-function fcLookup_(req, owner) {
+function fcLookup_(req, ctx) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const denied = deny_(ctx, 'notes'); if (denied) return denied;
   if (!fcHasKey_()) return { ok: false, error: 'no_key' };
   const key = String(req.key || '').trim().slice(0, 200), flight = String(req.flight || '').replace(/\s+/g, '').toUpperCase(), date = String(req.date || '');
   if (!key || !/^[A-Z0-9]{2}\d{1,4}[A-Z]?$/.test(flight) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, error: 'no_code' };
@@ -517,13 +754,13 @@ function apprGet_() {
   if (sh) { const rows = sh.getDataRange().getDisplayValues(); for (let i = 1; i < rows.length; i++) if (rows[i][0] && rows[i][2] === 'approved') items.push({ key: rows[i][0], flight: rows[i][1], status: 'approved', by: rows[i][3], at: rows[i][4] }); }
   return { ok: true, items: items, ts: Date.now() };
 }
-function apprSet_(req, owner) {
+function apprSet_(req, ctx) {
   const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
-  const denied = visitorDenied_(st, req, owner, 'departure'); if (denied) return denied;
+  const denied = deny_(ctx, 'appr'); if (denied) return denied;
   const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح الرحلة مفقود' };
   const approved = String(req.status || '') === 'approved';
   const clean = function (v) { return cell_(String(v || '').replace(/[\r\n\t]+/g, ' ').trim().slice(0, 80)); };
-  const by = byOf_(req, owner);
+  const by = byOf_(ctx);
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
@@ -535,7 +772,7 @@ function apprSet_(req, owner) {
       sh.getRange(rowIdx, 1, 1, APPR_HEAD.length).setValues([[cell_(key), clean(req.label), 'approved', by, new Date()]]);
     }
     SpreadsheetApp.flush(); bumpData_();
-    log_(st, 'departure', owner, by, true, [{ ok: true }], 'اعتماد: ' + (approved ? 'معتمدة' : 'إلغاء') + ' | ' + clean(req.label), approved ? 'اعتماد رحلة' : 'إلغاء اعتماد');
+    log_(st, 'departure', ctx, by, true, [{ ok: true }], 'اعتماد: ' + (approved ? 'معتمدة' : 'إلغاء') + ' | ' + clean(req.label), approved ? 'اعتماد رحلة' : 'إلغاء اعتماد');
     return { ok: true, cleared: !approved };
   } finally { try { lock.releaseLock(); } catch (x) { } }
 }
@@ -587,14 +824,14 @@ function dailyBackup() { try { backupNow_('يومي تلقائي'); } catch (e) 
 // يمنع تحويل نص يبدأ بـ = + - @ إلى معادلة في الجدول
 function cell_(v) { v = String(v == null ? '' : v); return /^[=+\-@]/.test(v) ? "'" + v : v; }
 
-function log_(st, kind, owner, by, on, results, ctx, label) {
+function log_(st, kind, who, by, on, results, ctx, label) {
   try {
     const okN = results.filter(function (r) { return r.ok; }).length;
     if (!okN) return;
     const ss = openSS_(st);
     let sh = ss.getSheetByName(CONFIG.LOG_SHEET);
     if (!sh) { sh = ss.insertSheet(CONFIG.LOG_SHEET); sh.appendRow(['الوقت', 'الصفحة', 'الدور', 'الاسم', 'الإجراء', 'العدد', 'التفاصيل']); }
-    sh.appendRow([new Date(), pgOf_(kind), owner ? 'المالك' : 'زائر', by,
+    sh.appendRow([new Date(), pgOf_(kind), (who && who.roleLabel) || 'زائر', by,
       label || (on ? (kind === 'arrival' ? 'تسكين' : 'مغادرة') : 'تراجع'), okN, cell_(ctx)]);
   } catch (e) { /* السجل لا يُفشل الكتابة */ }
 }

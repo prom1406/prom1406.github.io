@@ -572,12 +572,42 @@ details.sg>.set{padding:2px 14px 14px}details.sg.danger>summary{color:var(--red,
 .bnums{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.bnums .bn{background:rgba(74,163,255,.15);border:1px solid rgba(74,163,255,.35);border-radius:8px;padding:1px 8px;font-size:12px}.bnums .bn.ok{background:rgba(47,191,113,.15);border-color:rgba(47,191,113,.4)}
 .dr-wrap{overflow:auto;max-height:52vh;margin:8px 0;border:1px solid var(--line2,rgba(128,128,128,.3));border-radius:10px;background:#fff;color:#000;padding:8px}
 .drh{text-align:center;margin:4px 0;font-size:16px}.drs{text-align:center;margin-bottom:8px;font-size:13px}.drt{width:100%;border-collapse:collapse;font-size:12px;min-width:860px}.drt th{background:#4faa3c;color:#fff;padding:6px 4px;border:1px solid #fff}.drt td{padding:4px;text-align:center;border:1px solid #cfe8c8}.drt tbody tr:nth-child(odd) td{background:#dff1d9}.drt tfoot td{border-color:#4faa3c}
+/* ===== الدخول والمستخدمون والصلاحيات ===== */
+.ov.gate{background:var(--bg,#07182D);backdrop-filter:none;z-index:1000}
+[data-theme=light] .ov.gate{background:#EEF2F7}
+.gatebox{width:min(400px,100%);text-align:center}
+.gatebox h3{font-size:21px;margin:8px 0 4px}.gatebox h3 span{color:var(--gold)}
+.gatelogo{width:58px;height:58px;margin:0 auto 4px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,var(--gold),#A98440);color:#07182D}
+.gatelogo svg{width:30px;height:30px}
+.gatebox .set{text-align:right}.set.one{grid-template-columns:1fr}
+.gatebox .act{justify-content:center;position:static;border:0}
+.gatemsg{min-height:20px;margin-top:8px}
+.usbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.usbar input{flex:1;min-width:160px;padding:9px 12px;border-radius:11px;border:1px solid var(--line);background:var(--card);color:inherit;font:inherit}
+.usr{display:grid;grid-template-columns:1.2fr 1.6fr 1fr;gap:6px 14px;padding:11px 12px;margin:8px 0;border:1px solid var(--line2);border-radius:13px;background:var(--card)}
+.usr.off{opacity:.62}.usr .un b{display:block;font-size:15px}.usr .un>span{font-size:12px;color:var(--mut)}
+.usr .um,.usr .ud{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--mut)}
+.usr .ua{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap}
+.pgrp{grid-column:1/-1;border:1px solid var(--line2);border-radius:11px;padding:8px 12px}.pgrp h4{margin:0 0 6px;font-size:13.5px}
+.pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 12px}
+.mykv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}.mykv span{color:var(--mut)}
+.mychips{display:flex;flex-wrap:wrap;gap:6px}
+.chip.crit{color:#ff6b6b;background:rgba(229,72,77,.16)}
+.acbody{max-height:58vh;overflow:auto}
+.alog{display:grid;grid-template-columns:130px 1.2fr 1fr 1.6fr;gap:8px;padding:7px 4px;border-bottom:1px solid var(--line2);font-size:12.5px}
+.alog.h{font-weight:800;color:var(--mut);position:sticky;top:0;background:inherit}
+.alog small{color:var(--mut)}
+@media(max-width:700px){.usr{grid-template-columns:1fr}.alog{grid-template-columns:1fr 1fr}.pg{grid-template-columns:1fr}}
+body.n-notes [data-gnote],body.n-notes [data-fcbar],body.n-notes [data-fc]{display:none!important}
+body.n-ready [data-fready],body.n-ready [data-gready]{display:none!important}
+body.n-appr [data-fappr]{display:none!important}
+body.n-exp #xXls,body.n-exp #xPdf,body.n-exp #xPrint,body.n-exp #xWa,body.n-exp #xDay,body.n-exp #tX,body.n-exp #tP,body.n-exp [data-mx]{display:none!important}
+
 </style>
 </head>
 <body data-page="transfers">
 <header id="nav"></header>
 <main id="app"></main>
-<script src="config.js?v=20261118"></script>
+<script src="config.js?v=20261125"></script>
 <script>
 /* =====================================================================
    منظومة تحركات الحجاج 1447هـ — الطبقة الأساسية (منطق بحت بلا DOM)
@@ -1249,13 +1279,14 @@ const clone = o => JSON.parse(JSON.stringify(o));
 function merge(a, b) { for (const k in b) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k])) a[k] = merge(a[k] && typeof a[k] === 'object' ? a[k] : {}, b[k]); else a[k] = b[k]; } return a; }
 const WEB_RE = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec$/;
 // الاتصال المحفوظ في هذا المتصفح: رابط الخادم (عام) وجلسة المالك فقط. الإعدادات نفسها تأتي من الخادم.
-const CONN = { webapp: '', session: '' };
+const CONN = { webapp: '', session: '', user: null };
 try { Object.assign(CONN, JSON.parse(localStorage.getItem(LS_CONN) || '{}')); } catch (e) { }
-const saveConn = () => { try { localStorage.setItem(LS_CONN, JSON.stringify({ webapp: CONN.webapp, session: CONN.session })); } catch (e) { } };
-const REMOTE = { configured: false, owner: false, email: '', error: '', locked: false };
+const saveConn = () => { try { localStorage.setItem(LS_CONN, JSON.stringify({ webapp: CONN.webapp, session: CONN.session, user: CONN.user })); } catch (e) { } };
+const REMOTE = { configured: false, owner: false, email: '', error: '', locked: false, user: null };
 let S = clone(C.DEFAULTS);
 function applyRemote(st) { S = merge(clone(C.DEFAULTS), st || {}); S.webapp = CONN.webapp; S.readVia = 'webapp'; }
-function isMasked() { return !REMOTE.owner && !(S.perms && S.perms.showPassports); }
+const can = k => !!(REMOTE.owner || (REMOTE.user && REMOTE.user.perms && REMOTE.user.perms[k]));
+function isMasked() { return !can('passports'); }
 async function api(action, extra, payload) {
   if (!CONN.webapp) throw new Error('لم يُضبط رابط الخادم');
   const q = new URLSearchParams(); q.set('action', action);
@@ -1268,6 +1299,8 @@ async function api(action, extra, payload) {
   catch (e) { throw new Error('تعذّر الاتصال بالخادم — تحقق من الإنترنت'); }
   let j; try { j = JSON.parse(txt); }
   catch (e) { throw new Error('ردّ غير متوقع من الخادم («' + txt.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50) + '») — تأكد من رابط Apps Script ومن نشر أحدث Code.gs'); }
+  if (j && j.ok === false && j.error === 'auth' && action !== 'login') { CONN.session = ''; CONN.user = null; REMOTE.user = null; REMOTE.owner = false; saveConn(); clearCaches(); showLoginGate('انتهت جلستك — سجّل الدخول من جديد'); throw new Error('انتهت الجلسة'); }
+  if (j && j.ok === false && j.error === 'must_change') { showChangePw(true); throw new Error('يجب تغيير كلمة المرور أولاً'); }
   // الخادم القديم يردّ {ok:true,service} على أي إجراء لا يعرفه — فيبدو الحفظ ناجحاً وهو لم يحدث
   if (j && j.ok && j.service && j.configured === undefined && action !== '') throw new Error('إصدار Code.gs المنشور قديم ولا يدعم «' + action + '» — في Apps Script: نشر ← إدارة عمليات النشر ← ✏ ← إصدار جديد ← نشر');
   return j;
@@ -1491,7 +1524,7 @@ async function trSetAppr(key, label, on) {
   const auth = await ensureAuth(); if (!auth) throw new Error('لم يُؤكَّد الدخول');
   const st = on ? 'approved' : '';
   const j = await api('appr_set', {}, { key, label: String(label).slice(0, 80), status: st, by: auth.by, pin: auth.pin });
-  if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
+  if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ forbidden: 'ليست لديك صلاحية لهذا الإجراء', auth: 'انتهت الجلسة', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
   if (!st) delete state.appr[key]; else state.appr[key] = { key, status: st, by: auth.by };
   guardSet('appr', key, st ? state.appr[key] : null);
   try { localStorage.setItem('hajj1447.appr', JSON.stringify(state.appr)); } catch (x) { }
@@ -1801,9 +1834,13 @@ async function loadNotes(kind) {
 }
 // الزائر: التقط أي تغيير أجراه المالك في الإعدادات دون إعادة تحميل الصفحة
 async function syncPublic() {
-  if (REMOTE.owner || !CONN.webapp || Date.now() - lastPubTs < 60000) return;
+  if (!CONN.webapp || Date.now() - lastPubTs < 60000) return;
   try {
     const j = await api('public'); if (!j.ok) return; lastPubTs = Date.now();
+    if (!j.user) { doLogout(); return; }
+    const sig = u => JSON.stringify([u && u.perms, u && u.scope, u && u.role]);
+    if (!REMOTE.owner && sig(j.user) !== sig(REMOTE.user)) { setUser(j.user); toast('تغيّرت صلاحياتك — جارٍ التحديث', 'warn'); setTimeout(() => location.reload(), 900); return; }
+    if (REMOTE.owner) return;
     REMOTE.configured = !!j.configured;
     if (!j.configured) { clearCaches(); return; }
     if (j.settings && j.settings.updatedAt !== S.updatedAt) { applyRemote(j.settings); try { localStorage.setItem(LS_PUB, JSON.stringify({ configured: true, settings: j.settings })); } catch (e) { } }
@@ -1837,34 +1874,227 @@ const lsGet = k => { try { return localStorage.getItem(k) || ''; } catch (e) { r
 const lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) { } };
 const ssGet = k => { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } };
 const ssSet = (k, v) => { try { v ? sessionStorage.setItem(k, v) : sessionStorage.removeItem(k); } catch (e) { } };
-const confirmMode = () => (S.perms && S.perms.confirm) || 'all';
-const canConfirm = () => REMOTE.owner || confirmMode() !== 'off';
-const needPin = () => !REMOTE.owner && (confirmMode() === 'pin' || confirmMode() === 'roles');
-const PAGE_ROLE = document.body.dataset.page === 'arrival' ? 'مشرف الوصول' : 'مشرف المغادرة';
+const PAGE_NOW = document.body.dataset.page;
+const canConfirm = () => PAGE_NOW === 'arrival' ? can('confArr') : PAGE_NOW === 'departure' ? can('confDep') : (can('confArr') || can('confDep'));
+const needPin = () => false;
 function roleInfo() {
-  if (REMOTE.owner) return { t: 'المالك', c: 'owner', d: 'تعدّل الإعدادات وتؤكد دون قيود.' };
-  const m = confirmMode();
-  if (m === 'off') return { t: 'زائر · عرض فقط', c: 'view', d: 'يمكنك مشاهدة البيانات وتصديرها دون تأكيد التسكين أو المغادرة.' };
-  if (m === 'roles') return ssGet(SS_PIN) ? { t: 'مشرف · عرض + تأكيد', c: 'sup', d: 'أدخلت رمز دورك (مشرف الوصول أو المغادرة أو العام) فيمكنك التأكيد في هذه الجلسة.' } : { t: 'مراقب · عرض', c: 'view', d: 'المشاهدة والتصدير مفتوحان. التأكيد يتطلب رمز مشرف الوصول (لتأكيد التسكين والاستعداد) أو رمز مشرف المغادرة (للمغادرة والتنقلات والاعتمادات).' };
-  if (m === 'pin') return ssGet(SS_PIN) ? { t: 'مشرف · عرض + تأكيد', c: 'sup', d: 'أدخلت رمز المشرف، فيمكنك التأكيد في هذه الجلسة.' } : { t: 'زائر · التأكيد برمز', c: 'view', d: 'المشاهدة مفتوحة، والتأكيد يتطلب رمز المشرف (يُطلب عند أول تأكيد).' };
-  return { t: 'زائر · عرض + تأكيد', c: 'view', d: 'يمكنك مشاهدة البيانات وتأكيد التسكين والمغادرة، ويُسجَّل اسمك مع كل تأكيد.' };
+  const u = REMOTE.user;
+  if (!u) return { t: 'غير مسجَّل', c: 'view', d: 'سجّل الدخول للمتابعة.' };
+  if (u.owner) return { t: 'المالك', c: 'owner', d: 'تعدّل الإعدادات وتدير المستخدمين وتؤكد دون قيود.' };
+  const ok = canConfirm();
+  return { t: (u.name || u.username) + ' · ' + u.roleLabel, c: ok ? 'sup' : 'view', d: ok ? 'يمكنك مشاهدة البيانات وتأكيد ما تملك صلاحيته، ويُسجَّل اسمك مع كل تأكيد.' : 'صلاحيتك للمشاهدة فقط في هذه الصفحة.' };
 }
 function updateRole() {
-  const b = $('#bRole'); document.body.classList.toggle('ro', !canConfirm());
+  const b = $('#bRole'), cl = document.body.classList;
+  cl.toggle('ro', !canConfirm()); cl.toggle('n-notes', !can('notes')); cl.toggle('n-ready', !can('ready')); cl.toggle('n-appr', !can('appr')); cl.toggle('n-exp', !can('export'));
   if (!b) return; const r = roleInfo(), cn = 'pill ' + r.c; if (b.textContent !== r.t) b.textContent = r.t; if (b.className !== cn) b.className = cn; if (b.title !== r.d) b.title = r.d;
 }
-// الاسم (للزائر) ورمز المشرف عند الحاجة؛ تعيد null عند الإلغاء أو المنع
+// الهوية من الحساب المسجَّل؛ تعيد null عند المنع
 async function ensureAuth() {
-  if (!canConfirm()) { toast('الموقع بوضع العرض فقط — لا يمكن التأكيد', 'warn'); return null; }
-  let by = REMOTE.owner ? 'المالك' : lsGet(LS_BY);
-  if (!by) { by = await askText('اسمك', 'يُسجَّل اسمك مع كل تأكيد في الجدول وفي سجل العمليات.', 'الاسم'); if (!by) return null; lsSet(LS_BY, by); }
-  let pin = '';
-  if (needPin()) {
-    pin = ssGet(SS_PIN);
-    if (!pin) { pin = await askText(confirmMode() === 'roles' ? 'رمز ' + PAGE_ROLE : 'رمز المشرف', confirmMode() === 'roles' ? 'أدخل رمز ' + PAGE_ROLE + ' (أو الرمز العام) للتأكيد.' : 'أدخل رمز المشرف لتأكيد التسكين أو المغادرة.', 'الرمز', true); if (!pin) return null; ssSet(SS_PIN, pin); updateRole(); }
-  }
-  return { by, pin };
+  if (!REMOTE.user) { showLoginGate(); return null; }
+  if (!canConfirm()) { toast('صلاحيتك لا تتيح التأكيد في هذه الصفحة', 'warn'); return null; }
+  return { by: REMOTE.user.name || REMOTE.user.username, pin: '' };
 }
+/* ---------------- الدخول الإلزامي والحساب والمستخدمون ---------------- */
+const PAGE_KEY = { index: 'pDash', arrival: 'pArrival', departure: 'pDeparture', transfers: 'pTransfers', pilgrim: 'pPilgrim', follow: 'pFollow' };
+const PERM_LABELS = { pDash: 'لوحة المؤشرات', pArrival: 'متابعة الوصول', pDeparture: 'متابعة المغادرة', pTransfers: 'التنقلات', pPilgrim: 'رحلة حاج', pFollow: 'المتابعة',
+  confArr: 'تأكيد التسكين (الوصول)', confDep: 'تأكيد المغادرة', notes: 'الملاحظات وحالة النقل والتحقق من الرحلات', ready: 'الاستعداد المسبق للوصول', appr: 'اعتمادات المغادرة', export: 'التصدير والطباعة', passports: 'رؤية أرقام الجوازات كاملة' };
+const PERM_GROUPS = [['الصفحات المسموحة', ['pDash', 'pArrival', 'pDeparture', 'pTransfers', 'pPilgrim', 'pFollow']], ['الإجراءات', ['confArr', 'confDep', 'notes', 'ready', 'appr', 'export', 'passports']]];
+const CITY_LABELS = { makkah: 'مكة المكرمة', madinah: 'المدينة المنورة', jeddah: 'جدة' };
+const scopeText = sc => (sc && sc.length) ? sc.map(c => CITY_LABELS[c] || c).join('، ') : 'كل المدن';
+function setUser(u) { REMOTE.user = u || null; REMOTE.owner = !!(u && u.owner); CONN.user = u || null; saveConn(); }
+async function doLogout() {
+  try { await api('logout'); } catch (e) { }
+  CONN.session = ''; CONN.user = null; REMOTE.user = null; REMOTE.owner = false; saveConn(); clearCaches(); location.reload();
+}
+function pageAllowed(page) {
+  if (can(PAGE_KEY[page])) return true;
+  const alt = ['index', 'arrival', 'departure', 'transfers', 'pilgrim', 'follow'].find(p => can(PAGE_KEY[p]));
+  if (alt) { location.replace(alt + '.html'); return false; }
+  renderNav(page); updateRole();
+  const app = $('#app'); if (app) app.innerHTML = '<div class="empty" style="padding:60px 16px;text-align:center">ليست لديك صلاحية لأي صفحة — راجع مالك المنظومة.</div>';
+  return false;
+}
+
+// نافذة الدخول: لا تُغلق ولا يُرى خلفها شيء قبل الدخول
+function showLoginGate(msg) {
+  const old = document.getElementById('loginGate');
+  if (old) { const m = old.querySelector('#lgMsg'); if (m && msg) m.textContent = msg; return; }
+  const ov = document.createElement('div'); ov.className = 'ov gate'; ov.id = 'loginGate';
+  ov.innerHTML = '<div class="modal gatebox" role="dialog" aria-modal="true"><div class="gatelogo">' + ICON.plane + '</div>' +
+    '<h3>منظومة تحركات الحجاج <span>1447هـ</span></h3><p class="hint">سجّل الدخول للمتابعة</p>' +
+    '<div class="set one"><label>اسم المستخدم<input id="lgU" dir="ltr" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>' +
+    '<label>كلمة المرور<input id="lgP" type="password" dir="ltr" autocomplete="current-password"></label></div>' +
+    '<div id="lgMsg" class="hint gatemsg">' + esc(msg || '') + '</div>' +
+    '<div class="act"><button class="btn gold" id="lgOk" type="button" style="min-width:180px;justify-content:center">دخول</button></div></div>';
+  document.body.appendChild(ov);
+  const say = (t, bad) => { const m = $('#lgMsg', ov); m.textContent = t || ''; m.style.color = bad ? 'var(--red)' : ''; };
+  const go = async () => {
+    const u = $('#lgU', ov).value.trim(), p = $('#lgP', ov).value, b = $('#lgOk', ov);
+    if (!u || !p) { say('أدخل اسم المستخدم وكلمة المرور', true); return; }
+    b.disabled = true; say('جارٍ التحقق…');
+    try {
+      const j = await api('login', {}, { username: u, password: p });
+      if (!j.ok) throw new Error(j.error || 'تعذّر الدخول');
+      CONN.session = j.session; setUser(j.user); clearCaches(); location.reload();
+    } catch (e) { say('✗ ' + (e.message || e), true); b.disabled = false; $('#lgP', ov).value = ''; $('#lgP', ov).focus(); }
+  };
+  $('#lgOk', ov).onclick = go;
+  ov.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  setTimeout(() => { const i = $('#lgU', ov); if (i) i.focus(); }, 60);
+}
+function openLogin() { showLoginGate(); }
+
+function showChangePw(force) {
+  if (force && document.getElementById('cpGate')) return;
+  const html = '<h3>تغيير كلمة المرور</h3>' + (force ? '<p class="hint">طلب منك المالك تغيير كلمة المرور قبل المتابعة.</p>' : '') +
+    '<div class="set one"><label>كلمة المرور الحالية<input id="cpO" type="password" dir="ltr" autocomplete="current-password"></label>' +
+    '<label>كلمة المرور الجديدة (6 أحرف فأكثر)<input id="cpN" type="password" dir="ltr" autocomplete="new-password"></label>' +
+    '<label>تأكيد كلمة المرور الجديدة<input id="cpC" type="password" dir="ltr" autocomplete="new-password"></label></div>' +
+    '<div id="cpMsg" class="hint" style="min-height:20px;margin-top:8px"></div>' +
+    '<div class="act"><button class="btn gold" id="cpOk" type="button">حفظ</button>' + (force ? '<button class="btn" id="cpOut" type="button">تسجيل الخروج</button>' : '<button class="btn" id="cpX" type="button">إلغاء</button>') + '</div>';
+  let ov;
+  if (force) { ov = document.createElement('div'); ov.className = 'ov gate'; ov.id = 'cpGate'; ov.innerHTML = '<div class="modal gatebox" style="text-align:right">' + html + '</div>'; document.body.appendChild(ov); ov.close = () => ov.remove(); }
+  else ov = modal(html);
+  const say = (t, bad) => { const m = $('#cpMsg', ov); m.textContent = t || ''; m.style.color = bad ? 'var(--red)' : ''; };
+  if ($('#cpX', ov)) $('#cpX', ov).onclick = () => ov.close();
+  if ($('#cpOut', ov)) $('#cpOut', ov).onclick = () => doLogout();
+  $('#cpOk', ov).onclick = async () => {
+    const o = $('#cpO', ov).value, n = $('#cpN', ov).value, c = $('#cpC', ov).value;
+    if (!o || !n) { say('املأ الحقول', true); return; }
+    if (n.length < 6) { say('كلمة المرور الجديدة 6 أحرف على الأقل', true); return; }
+    if (n !== c) { say('تأكيد كلمة المرور غير مطابق', true); return; }
+    const b = $('#cpOk', ov); b.disabled = true; say('جارٍ الحفظ…');
+    try {
+      const j = await api('change_password', {}, { oldPassword: o, newPassword: n });
+      if (!j.ok) throw new Error(j.error || 'تعذّر الحفظ');
+      CONN.session = j.session; if (REMOTE.user) { REMOTE.user.mustChange = false; setUser(REMOTE.user); } else saveConn();
+      toast('تم تغيير كلمة المرور', 'ok'); ov.close(); if (force) location.reload();
+    } catch (e) { say('✗ ' + (e.message || e), true); b.disabled = false; }
+  };
+  setTimeout(() => { const i = $('#cpO', ov); if (i) i.focus(); }, 60);
+}
+
+function openRole() {
+  const u = REMOTE.user; if (!u) { showLoginGate(); return; }
+  const r = roleInfo(), rows = [['الاسم', u.name], ['اسم المستخدم', u.username], ['نوع الصلاحية', u.roleLabel], ['القسم', u.dept], ['الجوال', u.phone], ['البريد', u.email], ['نطاق المدن', scopeText(u.scope)]].filter(x => x[1]);
+  const allowed = [].concat(...PERM_GROUPS.map(g => g[1])).filter(k => can(k));
+  const ov = modal('<h3>' + esc(r.t) + '</h3><p class="hint">' + esc(r.d) + '</p>' +
+    '<div class="mykv">' + rows.map(x => '<span>' + esc(x[0]) + '</span><b dir="auto">' + esc(x[1]) + '</b>').join('') + '</div>' +
+    '<h4 style="margin:14px 0 6px">ما تملكه</h4><div class="mychips">' + (allowed.length ? allowed.map(k => '<span class="chip ok">' + esc(PERM_LABELS[k]) + '</span>').join('') : '<span class="hint">لا شيء</span>') + '</div>' +
+    '<div class="act">' + (u.owner ? '<button class="btn gold" id="rUs" type="button">👥 المستخدمون</button><button class="btn" id="rSt" type="button">⚙ الإعدادات</button>' : '<button class="btn" id="rPw" type="button">تغيير كلمة المرور</button>') +
+    '<button class="btn" id="rOut" type="button" style="color:var(--red)">تسجيل الخروج</button><button class="btn" id="rX" type="button">إغلاق</button></div>');
+  $('#rX', ov).onclick = () => ov.close();
+  $('#rOut', ov).onclick = () => doLogout();
+  if ($('#rPw', ov)) $('#rPw', ov).onclick = () => { ov.close(); showChangePw(false); };
+  if ($('#rUs', ov)) $('#rUs', ov).onclick = () => { ov.close(); openUsers(); };
+  if ($('#rSt', ov)) $('#rSt', ov).onclick = () => { ov.close(); openSettings(false); };
+}
+
+const genPw = () => { const a = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = new Uint32Array(10); (window.crypto || window.msCrypto).getRandomValues(r); return [...r].map(x => a[x % a.length]).join(''); };
+
+async function openUsers() {
+  if (!REMOTE.owner) return;
+  const ov = modal('<h3>👥 المستخدمون والصلاحيات</h3><div id="usBody"><p class="hint">جارٍ التحميل…</p></div>'); ov.firstChild.classList.add('wide');
+  let data = null, q = '';
+  const body = () => $('#usBody', ov);
+  const chips = u => (u.active ? '<span class="chip ok">نشط</span>' : '<span class="chip warn">موقوف</span>') + (u.expired ? ' <span class="chip crit">منتهٍ</span>' : '') + (u.must ? ' <span class="chip info">سيغيّر كلمته</span>' : '');
+  const draw = () => {
+    const list = data.users.filter(u => !q || (u.name + ' ' + u.username + ' ' + u.dept + ' ' + u.roleLabel).toLowerCase().includes(q.toLowerCase()));
+    body().innerHTML = '<div class="usbar"><button class="btn gold" id="usNew" type="button">＋ مستخدم جديد</button><input id="usQ" placeholder="بحث بالاسم أو اليوزر أو القسم" value="' + esc(q) + '"><button class="btn" id="usLog" type="button">🕘 السجل</button><button class="btn" id="usX" type="button">إغلاق</button></div>' +
+      '<p class="hint" style="margin:0 0 10px">المالك: <b dir="ltr">' + esc(data.owner) + '</b> (ثابت، وكلمة مروره في إعدادات Apps Script). المستخدمون محفوظون في تبويب <b>Users</b> بملف البيانات، وكلمات مرورهم مشفّرة.</p>' +
+      (list.length ? list.map(u => '<div class="usr' + (u.active && !u.expired ? '' : ' off') + '" data-u="' + esc(u.username) + '">' +
+        '<div class="un"><b>' + esc(u.name) + '</b><span dir="ltr">@' + esc(u.username) + '</span><div>' + chips(u) + '</div></div>' +
+        '<div class="um"><span><span class="chip info">' + esc(u.roleLabel) + '</span></span><span>' + esc([u.dept, scopeText(u.scope)].filter(Boolean).join(' · ')) + '</span><span dir="ltr">' + esc([u.phone, u.email].filter(Boolean).join(' · ')) + '</span></div>' +
+        '<div class="ud"><span>آخر دخول: ' + esc(u.last || '—') + '</span><span>ينتهي: ' + esc(u.expires || 'بلا انتهاء') + '</span></div>' +
+        '<div class="ua"><button class="btn sm" data-a="e" type="button">تعديل</button><button class="btn sm" data-a="t" type="button">' + (u.active ? 'إيقاف' : 'تفعيل') + '</button><button class="btn sm" data-a="k" type="button">كلمة مرور</button><button class="btn sm" data-a="l" type="button">سجل</button><button class="btn sm" data-a="d" type="button" style="color:var(--red)">حذف</button></div></div>').join('')
+        : '<div class="empty" style="padding:26px;text-align:center">' + (data.users.length ? 'لا نتائج' : 'لا يوجد مستخدمون بعد — اضغط «مستخدم جديد» لإضافة أول مستخدم.') + '</div>');
+    $('#usX', ov).onclick = () => ov.close();
+    $('#usNew', ov).onclick = () => userForm(null);
+    $('#usLog', ov).onclick = () => openActivity();
+    $('#usQ', ov).oninput = e => { q = e.target.value; const pos = e.target.selectionStart; draw(); const n = $('#usQ', ov); n.focus(); try { n.setSelectionRange(pos, pos); } catch (x) { } };
+    $$('.usr', ov).forEach(row => {
+      const u = data.users.find(x => x.username === row.dataset.u);
+      row.querySelectorAll('[data-a]').forEach(b => b.onclick = () => ({ e: () => userForm(u), t: () => toggle(u), k: () => resetPw(u), l: () => openActivity(u.username), d: () => del(u) })[b.dataset.a]());
+    });
+  };
+  const load = async () => {
+    try { const j = await api('users_get'); if (!j.ok) throw new Error(j.error || 'تعذّر التحميل'); data = j; draw(); }
+    catch (e) { body().innerHTML = '<div style="color:var(--red)">✗ ' + esc(e.message || e) + '</div><div class="act"><button class="btn" id="usX2" type="button">إغلاق</button></div>'; $('#usX2', ov).onclick = () => ov.close(); }
+  };
+  const payloadOf = (u, over) => Object.assign({ username: u.username, name: u.name, role: u.role, perms: u.overrides || {}, phone: u.phone, email: u.email, dept: u.dept, scope: u.scope, active: u.active, expires: u.expires || '' }, over || {});
+  const save = async (p, okMsg) => { const j = await api('user_save', {}, p); if (!j.ok) throw new Error(j.error || 'تعذّر الحفظ'); toast(okMsg, 'ok'); await load(); };
+  const toggle = async u => { try { await save(payloadOf(u, { active: !u.active }), u.active ? 'أُوقف الحساب فوراً' : 'تم تفعيل الحساب'); } catch (e) { toast(e.message || String(e), 'err'); } };
+  const del = async u => { if (!(await confirmBox('حذف مستخدم', 'سيُحذف «' + u.name + '» (@' + u.username + ') نهائياً ويخرج من جلساته. لا يمكن التراجع.', 'نعم، احذف'))) return; try { const j = await api('user_delete', {}, { username: u.username }); if (!j.ok) throw new Error(j.error); toast('تم الحذف', 'ok'); await load(); } catch (e) { toast(e.message || String(e), 'err'); } };
+  const resetPw = u => {
+    const m = modal('<h3>كلمة مرور جديدة — ' + esc(u.name) + '</h3><div class="set one"><label>كلمة المرور الجديدة<span style="display:flex;gap:6px"><input id="rpP" dir="ltr" value="' + esc(genPw()) + '" autocomplete="off" style="flex:1"><button class="btn sm" id="rpG" type="button">🎲</button></span></label>' +
+      '<label class="sw"><input type="checkbox" id="rpM" checked> يغيّرها عند أول دخول</label></div><p class="hint">انسخها وأرسلها له؛ لن تظهر بعد الحفظ. ويُنهى أي دخول سابق له.</p><div id="rpMsg" class="hint"></div><div class="act"><button class="btn gold" id="rpOk" type="button">حفظ</button><button class="btn" id="rpX" type="button">إلغاء</button></div>');
+    $('#rpG', m).onclick = () => { $('#rpP', m).value = genPw(); }; $('#rpX', m).onclick = () => m.close();
+    $('#rpOk', m).onclick = async () => { const pw = $('#rpP', m).value.trim(); if (pw.length < 6) { $('#rpMsg', m).textContent = '6 أحرف على الأقل'; return; } $('#rpOk', m).disabled = true; try { await save(payloadOf(u, { password: pw, mustChange: $('#rpM', m).checked }), 'تم تعيين كلمة المرور'); try { await navigator.clipboard.writeText(pw); toast('نُسخت كلمة المرور للحافظة', 'ok'); } catch (e) { } m.close(); } catch (e) { $('#rpMsg', m).textContent = '✗ ' + (e.message || e); $('#rpOk', m).disabled = false; } };
+  };
+  const userForm = u => {
+    const isNew = !u, roles = data.roles, cur = u || { role: 'viewer', overrides: {}, scope: [], active: true, perms: {} };
+    const permsNow = {}; Object.keys(PERM_LABELS).forEach(k => { permsNow[k] = !!(isNew ? roles.find(r => r.key === 'viewer').perms[k] : cur.perms[k]); });
+    const chk = k => '<label class="sw"><input type="checkbox" data-pk="' + k + '"' + (permsNow[k] ? ' checked' : '') + '> ' + esc(PERM_LABELS[k]) + '</label>';
+    const f = modal('<h3>' + (isNew ? 'مستخدم جديد' : 'تعديل: ' + esc(u.name)) + '</h3><div class="set">' +
+      '<label>الاسم الكامل *<input id="ufN" maxlength="60" value="' + esc(cur.name || '') + '"></label>' +
+      '<label>اسم المستخدم (إنجليزي) *<input id="ufU" dir="ltr" maxlength="30" autocapitalize="none" autocomplete="off" value="' + esc(cur.username || '') + '"' + (isNew ? '' : ' readonly') + '></label>' +
+      '<label>' + (isNew ? 'كلمة المرور *' : 'كلمة مرور جديدة (اتركها فارغة للإبقاء)') + '<span style="display:flex;gap:6px"><input id="ufP" dir="ltr" autocomplete="off" style="flex:1" value="' + (isNew ? esc(genPw()) : '') + '"><button class="btn sm" id="ufG" type="button">🎲</button></span></label>' +
+      '<label>نوع الصلاحية<select id="ufR">' + roles.map(r => '<option value="' + r.key + '"' + (r.key === cur.role ? ' selected' : '') + '>' + esc(r.label) + '</option>').join('') + '</select></label>' +
+      PERM_GROUPS.map(g => '<div class="pgrp"><h4>' + g[0] + '</h4><div class="pg">' + g[1].map(chk).join('') + '</div></div>').join('') +
+      '<p class="hint" style="grid-column:1/-1;margin:0">تتغيّر الخيارات تلقائياً عند اختيار النوع، ويمكنك تعديلها لكل مستخدم على حدة (حفظ التعديل يجعلها مخصّصة له).</p>' +
+      '<div class="pgrp"><h4>نطاق المدن <small class="hint">(بلا اختيار = كل المدن؛ يُطبَّق في الخادم على القراءة والتأكيد)</small></h4><div class="pg">' + Object.keys(CITY_LABELS).map(c => '<label class="sw"><input type="checkbox" data-sc="' + c + '"' + ((cur.scope || []).includes(c) ? ' checked' : '') + '> ' + CITY_LABELS[c] + '</label>').join('') + '</div></div>' +
+      '<label>القسم (اختياري)<input id="ufD" maxlength="40" value="' + esc(cur.dept || '') + '"></label>' +
+      '<label>الجوال (اختياري)<input id="ufT" dir="ltr" maxlength="25" inputmode="tel" value="' + esc(cur.phone || '') + '"></label>' +
+      '<label>البريد (اختياري)<input id="ufE" dir="ltr" maxlength="80" type="email" value="' + esc(cur.email || '') + '"></label>' +
+      '<label>ينتهي الحساب في (اختياري)<input id="ufX" type="date" dir="ltr" value="' + esc(cur.expires || '') + '"></label>' +
+      '<label class="sw"><input type="checkbox" id="ufA"' + (cur.active !== false ? ' checked' : '') + '> الحساب مفعّل</label>' +
+      '<label class="sw"><input type="checkbox" id="ufM"' + ((isNew || cur.must) ? ' checked' : '') + '> يغيّر كلمة المرور عند أول دخول</label></div>' +
+      '<div id="ufMsg" class="hint" style="min-height:20px;margin-top:8px"></div><div class="act"><button class="btn gold" id="ufOk" type="button">حفظ</button><button class="btn" id="ufCx" type="button">إلغاء</button></div>');
+    f.firstChild.classList.add('wide');
+    const applyPreset = key => { const r = roles.find(x => x.key === key); if (!r || key === 'custom') return; $$('[data-pk]', f).forEach(c => { c.checked = !!r.perms[c.dataset.pk]; }); };
+    $('#ufR', f).onchange = e => applyPreset(e.target.value);
+    $('#ufG', f).onclick = () => { $('#ufP', f).value = genPw(); }; $('#ufCx', f).onclick = () => f.close();
+    $('#ufOk', f).onclick = async () => {
+      const say = t => { $('#ufMsg', f).innerHTML = '<span style="color:var(--red)">✗ ' + esc(t) + '</span>'; };
+      const name = $('#ufN', f).value.trim(), un = $('#ufU', f).value.trim().toLowerCase(), pw = $('#ufP', f).value.trim(), role = $('#ufR', f).value;
+      if (!name) return say('اكتب الاسم الكامل');
+      if (!/^[a-z0-9_.-]{3,30}$/.test(un)) return say('اسم المستخدم: 3–30 حرفاً إنجليزياً أو أرقاماً أو _ . -');
+      if (isNew && !pw) return say('اكتب كلمة مرور');
+      if (pw && pw.length < 6) return say('كلمة المرور 6 أحرف على الأقل');
+      const preset = (roles.find(r => r.key === role) || { perms: {} }).perms, ov2 = {};
+      $$('[data-pk]', f).forEach(c => { const k = c.dataset.pk; if (c.checked !== !!preset[k]) ov2[k] = c.checked; });
+      const p = { username: un, name, role, perms: ov2, phone: $('#ufT', f).value.trim(), email: $('#ufE', f).value.trim(), dept: $('#ufD', f).value.trim(), scope: $$('[data-sc]', f).filter(c => c.checked).map(c => c.dataset.sc), active: $('#ufA', f).checked, expires: $('#ufX', f).value, mustChange: $('#ufM', f).checked };
+      if (pw) p.password = pw;
+      $('#ufOk', f).disabled = true;
+      try {
+        await save(p, isNew ? 'أُضيف المستخدم' : 'تم حفظ التعديلات');
+        if (pw) { try { await navigator.clipboard.writeText('المستخدم: ' + un + '\nكلمة المرور: ' + pw); toast('نُسخ اسم المستخدم وكلمة المرور للحافظة', 'ok'); } catch (e) { } }
+        f.close();
+      } catch (e) { say(e.message || String(e)); $('#ufOk', f).disabled = false; }
+    };
+  };
+  load();
+}
+
+async function openActivity(username) {
+  if (!REMOTE.owner) return;
+  const ov = modal('<h3>🕘 سجل الدخول والنشاط' + (username ? ' — <span dir="ltr">@' + esc(username) + '</span>' : '') + '</h3>' +
+    '<div class="usbar"><button class="btn sm gold" data-t="l" type="button">الدخول والإدارة</button><button class="btn sm" data-t="o" type="button">عمليات التأكيد والاستعداد</button></div><div id="acBody" class="acbody"><p class="hint">جارٍ التحميل…</p></div><div class="act"><button class="btn" id="acX" type="button">إغلاق</button></div>');
+  ov.firstChild.classList.add('wide'); $('#acX', ov).onclick = () => ov.close();
+  let j = null, tab = 'l';
+  const draw = () => {
+    $$('[data-t]', ov).forEach(b => b.classList.toggle('gold', b.dataset.t === tab));
+    const rows = tab === 'l' ? j.logins : j.ops;
+    $('#acBody', ov).innerHTML = rows.length ? (tab === 'l'
+      ? '<div class="alog h"><span>الوقت</span><span>المستخدم</span><span>الحدث</span><span>التفاصيل</span></div>' + rows.map(r => '<div class="alog"><span dir="ltr">' + esc(r[0]) + '</span><span>' + esc(r[2] || r[1]) + ' <small dir="ltr">@' + esc(r[1]) + '</small></span><span>' + esc(r[3]) + '</span><span>' + esc(r[4]) + '</span></div>').join('')
+      : '<div class="alog o h"><span>الوقت</span><span>الاسم</span><span>الإجراء</span><span>التفاصيل</span></div>' + rows.map(r => '<div class="alog o"><span dir="ltr">' + esc(r[0]) + '</span><span>' + esc(r[3]) + '</span><span>' + esc(r[4]) + (r[5] ? ' (' + esc(r[5]) + ')' : '') + '</span><span>' + esc(r[1]) + ' · ' + esc(r[6]) + '</span></div>').join('')) : '<div class="empty" style="padding:22px;text-align:center">لا سجلات</div>';
+  };
+  $$('[data-t]', ov).forEach(b => b.onclick = () => { tab = b.dataset.t; if (j) draw(); });
+  try { j = await api('activity_get', {}, { username: username || '' }); if (!j.ok) throw new Error(j.error || 'تعذّر التحميل'); draw(); }
+  catch (e) { $('#acBody', ov).innerHTML = '<div style="color:var(--red)">✗ ' + esc(e.message || e) + '</div>'; }
+}
+
 function openQuality() {
   const kinds = ['arrival', 'departure'].filter(k => state.data[k]);
   if (!kinds.length) { toast('لا توجد بيانات محمّلة بعد', 'warn'); return; }
@@ -1881,17 +2111,6 @@ function openQuality() {
       (loose.length ? '<div class="qrow"><span>أعمدة غير مستخدمة</span><small>' + esc(loose.join('، ')) + '</small></div>' : '');
   });
   const ov = modal('<h3>فحص جودة البيانات</h3><div class="qual">' + body + '</div><div class="act"><button class="btn" data-n>إغلاق</button></div>'); ov.querySelector('[data-n]').onclick = () => ov.close();
-}
-function openRole() {
-  const r = roleInfo(), pinMode = needPin();
-  const ov = modal('<h3>' + esc(r.t) + '</h3><p>' + esc(r.d) + '</p>' +
-    (REMOTE.owner ? '' : '<div class="set"><label class="full">اسمك (يُسجَّل مع كل تأكيد)<input id="rNm" maxlength="40" value="' + esc(lsGet(LS_BY)) + '"></label>' +
-      (pinMode ? '<label class="full">رمز المشرف<input id="rPin" type="password" autocomplete="off" dir="ltr" placeholder="' + (ssGet(SS_PIN) ? '•••• (مُدخل)' : 'غير مُدخل') + '"></label>' : '') + '</div>') +
-    '<div class="act">' + (REMOTE.owner ? '' : '<button class="btn green" id="rOk">حفظ</button>') + (pinMode && ssGet(SS_PIN) ? '<button class="btn" id="rForget">نسيان الرمز</button>' : '') + '<button class="btn" id="rX">إغلاق</button></div>' +
-    (REMOTE.owner ? '' : '<p class="hint" style="margin-top:10px">للإعدادات والتحكم الكامل: زر ⚙ ثم دخول المالك.</p>'));
-  $('#rX', ov).onclick = () => ov.close();
-  if ($('#rOk', ov)) $('#rOk', ov).onclick = () => { lsSet(LS_BY, $('#rNm', ov).value.trim()); if ($('#rPin', ov) && $('#rPin', ov).value.trim()) ssSet(SS_PIN, $('#rPin', ov).value.trim()); updateRole(); ov.close(); toast('تم الحفظ', 'ok'); };
-  if ($('#rForget', ov)) $('#rForget', ov).onclick = () => { ssSet(SS_PIN, ''); updateRole(); ov.close(); toast('نُسي الرمز', 'ok'); };
 }
 // وصف مختصر لما سيُحدَّث: الرحلات والفنادق
 const ctxOf = recs => {
@@ -1921,7 +2140,7 @@ async function writeChecks(kind, recs, value, isUndo) {
       const j = await api('write', {}, payload);
       if (!j.ok) {
         if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); }
-        throw new Error({ not_configured: 'المنظومة لم تُهيّأ بعد', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ');
+        throw new Error({ not_configured: 'المنظومة لم تُهيّأ بعد', forbidden: 'ليست لديك صلاحية لهذا الإجراء', auth: 'انتهت الجلسة', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ');
       }
       if (!Array.isArray(j.results)) throw new Error('الكود المنشور قديم: ألصق أحدث Code.gs ثم نشر ← إدارة عمليات النشر ← ✏ ← إصدار جديد');
       results.push(...j.results); doneN = i + part.length;
@@ -2019,13 +2238,15 @@ function renderNav(page) {
   const tabs = [['index', 'لوحة المؤشرات', 'dash'], ['arrival', 'متابعة الوصول', 'land'], ['departure', 'متابعة المغادرة', 'take'], ['transfers', 'التنقلات', 'swap'], ['pilgrim', 'رحلة حاج', 'user'], ['follow', 'المتابعة', 'bell']];
   const nav = $('#nav'); nav.className = 'nav';
   nav.innerHTML = '<a class="brand" href="index.html"><span class="logo">' + ICON.plane + '</span><span><b>منظومة تحركات الحجاج</b><small>موسم 1447هـ</small></span></a>' +
-    '<nav class="tabs" aria-label="التنقل الرئيسي">' + tabs.map(t => '<a class="tab' + (t[0] === page ? ' active' : '') + '" href="' + t[0] + '.html"' + (t[0] === page ? ' aria-current="page"' : '') + '>' + ICON[t[2]] + '<span class="tl">' + t[1] + '</span>' + (t[0] !== 'index' ? '<span class="badge" id="bd-' + t[0] + '" hidden></span>' : '') + '</a>').join('') + '</nav>' +
+    '<nav class="tabs" aria-label="التنقل الرئيسي">' + tabs.filter(t => can(PAGE_KEY[t[0]])).map(t => '<a class="tab' + (t[0] === page ? ' active' : '') + '" href="' + t[0] + '.html"' + (t[0] === page ? ' aria-current="page"' : '') + '>' + ICON[t[2]] + '<span class="tl">' + t[1] + '</span>' + (t[0] !== 'index' ? '<span class="badge" id="bd-' + t[0] + '" hidden></span>' : '') + '</a>').join('') + '</nav>' +
     '<div class="tools"><button class="pill view" id="bRole" type="button"></button><span class="live" id="live"><i></i><em id="syncTxt">—</em></span>' +
     '<button class="ibtn" id="bRef" title="تحديث الآن" aria-label="تحديث">' + ICON.refresh + '</button>' +
     '<button class="ibtn" id="bTheme" title="الوضع الفاتح/الداكن" aria-label="تبديل السمة">' + ICON.theme + '</button>' +
-    '<button class="ibtn" id="bSet" title="الإعدادات" aria-label="الإعدادات">' + ICON.gear + '</button></div>';
+    (REMOTE.owner ? '<button class="ibtn" id="bUsers" title="المستخدمون والصلاحيات" aria-label="المستخدمون">' + ICON.user + '</button><button class="ibtn" id="bSet" title="الإعدادات" aria-label="الإعدادات">' + ICON.gear + '</button>' : '') + '<button class="ibtn" id="bOut" title="تسجيل الخروج" aria-label="خروج">' + ic('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>') + '</button></div>';
   $('#bRef').onclick = () => refresh();
-  $('#bSet').onclick = () => openSettings(false);
+  if ($('#bSet')) $('#bSet').onclick = () => openSettings(false);
+  if ($('#bUsers')) $('#bUsers').onclick = () => openUsers();
+  $('#bOut').onclick = () => doLogout();
   $('#bRole').onclick = () => openRole();
   $('#bTheme').onclick = () => {
     const n = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
@@ -2057,26 +2278,27 @@ async function initConnection() {
   const fixed = window.HAJJ_CONFIG && window.HAJJ_CONFIG.webapp;           // مثبّت من ملف config.js على الموقع (الأقوى)
   if (typeof fixed === 'string' && WEB_RE.test(fixed)) {
     REMOTE.locked = true;
-    if (CONN.webapp !== fixed) { CONN.webapp = fixed; CONN.session = ''; clearCaches(); saveConn(); }
+    if (CONN.webapp !== fixed) { CONN.webapp = fixed; CONN.session = ''; CONN.user = null; clearCaches(); saveConn(); }
   } else await handleHash();
   if (!CONN.webapp) return;
   try {
-    const pw = CONN.session ? api('whoami').catch(e => ({ ok: false, _err: e })) : null;
     const j = await api('public');
     if (!j.ok) throw new Error(j.error || 'خطأ في الخادم');
     lastPubTs = Date.now();
-    REMOTE.configured = !!j.configured; applyRemote(j.settings);
-    try { localStorage.setItem(LS_PUB, JSON.stringify({ configured: REMOTE.configured, settings: j.settings })); } catch (e) { }
-    if (CONN.session) {
-      const w = await pw; if (w && w._err) throw w._err;
-      if (w.ok && w.owner) {
+    REMOTE.configured = !!j.configured;
+    if (j.user) {
+      setUser(j.user);
+      if (j.settings) applyRemote(j.settings);
+      try { localStorage.setItem(LS_PUB, JSON.stringify({ configured: REMOTE.configured, settings: j.settings })); } catch (e) { }
+      if (j.user.owner) {
         const g = await api('owner_get');
-        if (g.ok) { REMOTE.owner = true; REMOTE.email = g.email || ''; if (g.settings) { S = merge(clone(C.DEFAULTS), g.settings); S.webapp = CONN.webapp; S.readVia = 'webapp'; } }
-      } else { CONN.session = ''; saveConn(); }
-    }
+        if (g.ok) { REMOTE.email = g.email || ''; if (g.settings) { S = merge(clone(C.DEFAULTS), g.settings); S.webapp = CONN.webapp; S.readVia = 'webapp'; } }
+      }
+    } else { CONN.session = ''; CONN.user = null; REMOTE.user = null; REMOTE.owner = false; saveConn(); }
   } catch (e) {
+    if (e && e.message === 'انتهت الجلسة') return;
     REMOTE.error = e.message || String(e);
-    try { const c = JSON.parse(localStorage.getItem(LS_PUB) || 'null'); if (c && c.configured) { REMOTE.configured = true; applyRemote(c.settings); } } catch (x) { }   // دون اتصال: آخر إعدادات عامة محفوظة
+    try { const c = JSON.parse(localStorage.getItem(LS_PUB) || 'null'); if (c && c.configured && CONN.session && CONN.user) { REMOTE.configured = true; REMOTE.user = CONN.user; REMOTE.owner = !!CONN.user.owner; applyRemote(c.settings); } } catch (x) { }   // دون اتصال: آخر إعدادات محفوظة لمن سبق دخوله
   }
 }
 
@@ -2115,7 +2337,7 @@ function openLogin() {
 
 /* ---------------- لوحة المالك (الإعدادات) ---------------- */
 function openSettings(first) {
-  if (!REMOTE.owner) { openLogin(); return; }
+  if (!REMOTE.owner) { toast('صفحة الإعدادات للمالك فقط', 'warn'); return; }
   first = first === true;
   const lab = (t, inner, full) => '<label' + (full ? ' class="full"' : '') + '>' + t + inner + '</label>';
   const inp = (id, v, ph, type, dir) => '<input id="' + id + '" type="' + (type || 'text') + '" value="' + esc(v == null ? '' : v) + '" placeholder="' + esc(ph || '') + '" dir="' + (dir || 'ltr') + '">';
@@ -2136,14 +2358,9 @@ function openSettings(first) {
     lab('اسم صفحة الوصول', inp('sTabA', S.source.arrivalTab, 'Arrival', 'text', 'auto')) +
     lab('اسم صفحة المغادرة', inp('sTabD', S.source.departureTab, 'Departure', 'text', 'auto')) +
     '<p class="hint" style="grid-column:1/-1;margin:0">يجب أن يطابق الاسمان تبويبي الملف. إن تركت الرابط فارغاً استُخدم الملف المربوط بالسكربت.</p>' +
-    '</div></details><details class="sg" open><summary>🔐 الصلاحيات والرموز</summary><div class="set">' +
-    '<label class="sw" style="grid-column:1/-1"><input type="checkbox" id="sShowPP"' + (S.perms && S.perms.showPassports ? ' checked' : '') + '> السماح للزوار برؤية أرقام الجوازات كاملة (الأصل: مقنّعة ••••1234)</label>' +
-    lab('من يستطيع تأكيد التسكين/المغادرة؟', '<select id="sConf"><option value="all"' + (confirmMode() === 'all' ? ' selected' : '') + '>كل الزوار (يُسجَّل اسم المؤكِّد)</option><option value="pin"' + (confirmMode() === 'pin' ? ' selected' : '') + '>من يملك رمز المشرف فقط</option><option value="roles"' + (confirmMode() === 'roles' ? ' selected' : '') + '>أدوار: مشرف وصول / مشرف مغادرة / مراقب</option><option value="off"' + (confirmMode() === 'off' ? ' selected' : '') + '>لا أحد — عرض فقط</option></select>') +
-    lab('رمز المشرف (اتركه فارغاً للإبقاء على الحالي)', '<input id="sPin" type="password" autocomplete="new-password" dir="ltr" placeholder="' + (S.pinSet ? '•••• (محدد)' : 'غير محدد') + '">') +
-    (S.pinSet ? '<label class="sw"><input type="checkbox" id="sPinClr"> إزالة رمز المشرف</label>' : '') +
-    lab('رمز مشرف الوصول (التسكين والاستعداد) — وضع الأدوار', '<input id="sPinA" type="password" autocomplete="new-password" dir="ltr" placeholder="' + (S.pinArrSet ? '•••• (محدد)' : 'غير محدد') + '">') + (S.pinArrSet ? '<label class="sw"><input type="checkbox" id="sPinAClr"> إزالة رمز مشرف الوصول</label>' : '') +
-    lab('رمز مشرف المغادرة (المغادرة والتنقلات والاعتمادات) — وضع الأدوار', '<input id="sPinD" type="password" autocomplete="new-password" dir="ltr" placeholder="' + (S.pinDepSet ? '•••• (محدد)' : 'غير محدد') + '">') + (S.pinDepSet ? '<label class="sw"><input type="checkbox" id="sPinDClr"> إزالة رمز مشرف المغادرة</label>' : '') +
-    '<p class="hint" style="grid-column:1/-1;margin:0">الزائر يرى ويصدّر ولا يرى الإعدادات ولا رابط الملف، والإخفاء يتم في الخادم. كل تأكيد يُسجَّل في Check_By وفي Log.</p>' +
+    '</div></details><details class="sg" open><summary>🔐 المستخدمون والصلاحيات</summary><div class="set">' +
+    '<p class="hint" style="grid-column:1/-1;margin:0">الدخول إلزامي لكل أحد. تضيف المستخدمين وتحدد صلاحياتهم ونطاق مدنهم من هنا، وتُحفظ في تبويب <b>Users</b> بالملف بكلمات مرور مشفّرة. هذه الصفحة للمالك وحده.</p>' +
+    '<div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn gold" type="button" id="sUsers">👥 إدارة المستخدمين</button><button class="btn" type="button" id="sAct">🕘 سجل الدخول والنشاط</button></div>' +
     '</div></details><details class="sg"><summary>⏱ التوقيت والتنبيهات</summary><div class="set">' +
     lab('فاصل التحديث (ثوانٍ)', inp('sRef', S.refreshSec, '', 'number')) +
     lab('ترتيب التاريخ في الجدول', '<select id="sOrd"><option value="DMY"' + (S.dateOrder === 'DMY' ? ' selected' : '') + '>يوم/شهر/سنة</option><option value="MDY"' + (S.dateOrder === 'MDY' ? ' selected' : '') + '>شهر/يوم/سنة</option></select>') +
@@ -2162,7 +2379,7 @@ function openSettings(first) {
     '</div></details><details class="sg"><summary>🧰 الأدوات والمشاركة</summary><div class="set">' +
     '<div style="grid-column:1/-1"><button class="btn" type="button" id="sQual">فحص جودة البيانات</button></div>' +
     '<div style="grid-column:1/-1" class="bk"><b>النسخ الاحتياطي</b><div class="hint" id="sBkInfo">جارٍ التحقق…</div><div class="act" style="margin-top:6px"><button class="btn" type="button" id="sBkNow">نسخة الآن</button><button class="btn" type="button" id="sBkDaily">—</button></div><div class="hint">تُحفظ النسخ كتبويبات مخفية Backup_… في الملف نفسه (آخر 12). وتُؤخذ نسخة تلقائياً قبل أي تأكيد جماعي (10 فأكثر). للاستعادة: أظهر التبويب وانسخ محتواه.</div></div>' +
-    '<h4>رابط الزوار</h4><p class="hint" style="grid-column:1/-1;margin:0">يفتح الموقع ويرى ما سمحت به، ولا يحمل أي سر.</p>' +
+    '<h4>رابط الموقع</h4><p class="hint" style="grid-column:1/-1;margin:0">يفتح الموقع ويطلب اسم المستخدم وكلمة المرور، ولا يحمل أي سر.</p>' +
     '<div class="full" style="grid-column:1/-1;display:flex;gap:8px"><input id="sShare" readonly dir="ltr" style="flex:1" value="' + esc(visitorLink()) + '"><button class="btn sky" type="button" id="sCopy">نسخ الرابط</button></div>' +
     '<p class="hint" style="grid-column:1/-1;margin:0">لتثبيته لكل الزوار: ضع هذا في ملف <b>config.js</b> بجانب الصفحات:</p>' +
     '<input class="full" style="grid-column:1/-1" readonly dir="ltr" id="sCfg" value="' + esc('window.HAJJ_CONFIG = { webapp: "' + CONN.webapp + '" };') + '">' +
@@ -2171,13 +2388,8 @@ function openSettings(first) {
     (REMOTE.locked ? '' : '<button class="btn" type="button" id="sUnlink" style="color:var(--red)">فصل هذا المتصفح عن الخادم</button>') + '</div>' +
     '<p class="hint" style="grid-column:1/-1;margin:0">الحذف يمسح الإعدادات ورابط الملف فيرى الزوار «لم تُهيّأ بعد».</p>' +
     '</div></details><div id="sMsg" class="hint" style="margin-top:6px"></div><div class="act"><button class="btn gold" id="sOk">حفظ واعتماد</button><button class="btn" id="sClose">إغلاق</button></div>');
-  // إظهار حقول الرموز بحسب وضع التأكيد
-  const syncPin = () => {
-    const m = $('#sConf', ov).value, show = (id, on) => { const e = $('#' + id, ov); if (e) { const l = e.closest('label'); if (l) l.hidden = !on; } };
-    show('sPin', m === 'pin' || m === 'roles'); show('sPinClr', m === 'pin' || m === 'roles');
-    ['sPinA', 'sPinAClr', 'sPinD', 'sPinDClr'].forEach(id => show(id, m === 'roles'));
-  };
-  $('#sConf', ov).onchange = syncPin; syncPin();
+  $('#sUsers', ov).onclick = () => { ov.close(); openUsers(); };
+  $('#sAct', ov).onclick = () => openActivity();
   const val = id => $('#' + id, ov).value.trim();
   const passIdx = (k, map) => { const d = state.data[k]; if (d) { const h = (map[k] || {}).passport; const i = h ? d.headers.indexOf(h) : d.map.passport; if (i != null && i >= 0) return i; } return (S.passCol || {})[k]; };
   const collect = () => {
@@ -2190,10 +2402,7 @@ function openSettings(first) {
       criticalH: +val('sCrit') || 3, warnH: +val('sWarn') || 12, lateH: +val('sLate') || 2,
       lead: { 'makkah>jeddah': n('sLdMJ'), 'makkah>madinah': n('sLdMM'), 'madinah>madinah': n('sLdDM'), 'madinah>jeddah': n('sLdDJ') },
       transport: { arrival: $('#sTpA', ov).checked, departure: $('#sTpD', ov).checked, busMin: Math.max(1, +val('sBus') || 4) },
-      map, perms: { showPassports: $('#sShowPP', ov).checked, confirm: val('sConf') },
-      ...($('#sPinClr', ov) && $('#sPinClr', ov).checked ? { pin: '' } : (val('sPin') ? { pin: val('sPin') } : {})),
-      ...($('#sPinAClr', ov) && $('#sPinAClr', ov).checked ? { pinArr: '' } : (val('sPinA') ? { pinArr: val('sPinA') } : {})),
-      ...($('#sPinDClr', ov) && $('#sPinDClr', ov).checked ? { pinDep: '' } : (val('sPinD') ? { pinDep: val('sPinD') } : {})),
+      map, perms: { showPassports: false, confirm: 'all' },
       passCol: { arrival: passIdx('arrival', map), departure: passIdx('departure', map) }
     };
   };
@@ -2209,7 +2418,7 @@ function openSettings(first) {
   api('owner_backup_info').then(bkDraw, () => bkDraw(null));
   $('#sBkNow', ov).onclick = async () => { $('#sBkNow', ov).disabled = true; try { const j = await api('owner_backup'); if (!j.ok) throw new Error(j.error); toast('تمت النسخة الاحتياطية', 'ok'); bkDraw(await api('owner_backup_info')); } catch (e) { toast('فشلت النسخة: ' + (e.message || e), 'err'); } $('#sBkNow', ov).disabled = false; };
   $('#sBkDaily', ov).onclick = async () => { try { bkDraw(await api('owner_backup_daily', {}, { on: !$('#sBkDaily', ov).dataset.on })); } catch (e) { toast('تعذّر: ' + (e.message || e), 'err'); } };
-  $('#sOut', ov).onclick = async () => { try { await api('logout'); } catch (e) { } CONN.session = ''; saveConn(); clearCaches(); location.reload(); };
+  $('#sOut', ov).onclick = () => doLogout();
   $('#sWipe', ov).onclick = async () => {
     if (!(await confirmBox('حذف كل الإعدادات', 'سيُحذف من الخادم رابط الملف وكل الإعدادات، ولن يرى الزوار أي بيانات حتى تُهيّئ المنظومة من جديد. لا يمكن التراجع.', 'نعم، احذف'))) return;
     try { const j = await api('owner_reset'); if (!j.ok) throw new Error(j.error); clearCaches(); toast('تم حذف الإعدادات', 'ok'); setTimeout(() => location.reload(), 600); } catch (e) { toast('تعذّر الحذف: ' + (e.message || e), 'err'); }
@@ -2521,7 +2730,7 @@ function initTracker(kind) {
       const auth = await ensureAuth(); if (!auth) return;
       try {
         const j = await api('ready_set', {}, Object.assign({ key: gk, label: 'رحلة ' + g.flight + (hotel ? ' — ' + hotel : ''), by: auth.by, pin: auth.pin }, v));
-        if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
+        if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ forbidden: 'ليست لديك صلاحية لهذا الإجراء', auth: 'انتهت الجلسة', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
         if (j.cleared) delete state.ready[gk]; else state.ready[gk] = Object.assign({ key: gk }, v, { by: auth.by }); guardSet('ready', gk, j.cleared ? null : state.ready[gk]);
         try { localStorage.setItem('hajj1447.ready', JSON.stringify(state.ready)); } catch (x) { }
         applyReady(); ov.close(); render(); toast(j.cleared ? 'تم مسح الاستعداد' : 'تم حفظ الاستعداد المسبق', 'ok');
@@ -2582,7 +2791,7 @@ function initTracker(kind) {
       const auth = await ensureAuth(); if (!auth) return;
       try {
         const j = await api('appr_set', {}, { key: g.key, label: 'رحلة ' + g.flight, status: st, by: auth.by, pin: auth.pin });
-        if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
+        if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ forbidden: 'ليست لديك صلاحية لهذا الإجراء', auth: 'انتهت الجلسة', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
         if (!st) delete state.appr[g.key]; else state.appr[g.key] = { key: g.key, status: st, by: auth.by }; guardSet('appr', g.key, st ? state.appr[g.key] : null);
         try { localStorage.setItem('hajj1447.appr', JSON.stringify(state.appr)); } catch (x) { }
         ov.close(); render(); toast(st ? 'تم تسجيل الاعتماد' : 'أُلغي الاعتماد', 'ok');
@@ -2606,7 +2815,7 @@ function initTracker(kind) {
       const auth = await ensureAuth(); if (!auth) return;
       try {
         const j = await api('note_set', {}, { kind, key: nkey(g), label: gTitle(g), status: st, note, by: auth.by, pin: auth.pin });
-        if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
+        if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ forbidden: 'ليست لديك صلاحية لهذا الإجراء', auth: 'انتهت الجلسة', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
         if (!st && !note) delete state.notes[kind][nkey(g)]; else state.notes[kind][nkey(g)] = { key: nkey(g), status: st, note, by: auth.by, at: '' };
         try { localStorage.setItem('hajj1447.notes.' + kind, JSON.stringify(state.notes[kind])); } catch (e) { }
         guardSet('notes.' + kind, nkey(g), (!st && !note) ? null : state.notes[kind][nkey(g)]);
@@ -3304,7 +3513,7 @@ function initTransfers() {
       const auth = await ensureAuth(); if (!auth) return;
       try {
         const j = await api('note_set', {}, { kind: 'transfers', key: nkey(m), label: mTitle(m), status: st, note, by: auth.by, pin: auth.pin });
-        if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
+        if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ forbidden: 'ليست لديك صلاحية لهذا الإجراء', auth: 'انتهت الجلسة', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
         const N = state.notes.transfers;
         if (!st && !note) delete N[nkey(m)]; else N[nkey(m)] = { key: nkey(m), status: st, note, by: auth.by, at: '' };
         try { localStorage.setItem('hajj1447.notes.transfers', JSON.stringify(N)); } catch (e) { }
@@ -3481,8 +3690,8 @@ function initTransfers() {
   };
   const EXH = ['التاريخ', 'النوع', 'من', 'إلى', 'الوسيلة', '#', 'الاسم', 'رقم الجواز', 'الجنسية', 'الحافلة (✓ معتمدة)'];
   const expMeta = () => ['المعروض حسب التصفية الحالية' + (ui.day !== 'all' ? ' — يوم ' + ui.day : '') + (ui.type !== 'all' ? ' — ' + TR_TYPES[ui.type].ar : ''), 'تاريخ الإصدار: ' + C.fmtDay(new Date())];
-  $('#tX').onclick = () => { if (isMasked()) { toast('أرقام الجوازات مخفية — سجّل دخول المالك للتصدير', 'warn'); return; } const r = expRows(); if (!r.length) { toast('لا توجد بيانات للتصدير', 'warn'); return; } EXP.xlsx('transfers-' + (ui.day !== 'all' ? ui.day : 'all') + '-' + C.fmtDay(new Date()), 'التنقلات الداخلية', expMeta(), EXH, r); toast('تم إنشاء ملف Excel (' + r.length + ' صف)', 'ok'); };
-  $('#tP').onclick = () => { if (isMasked()) { toast('أرقام الجوازات مخفية — سجّل دخول المالك للتصدير', 'warn'); return; } const r = expRows(); if (!r.length) { toast('لا توجد بيانات للتصدير', 'warn'); return; } EXP.pdf('التنقلات الداخلية', expMeta(), EXH, r); };
+  $('#tX').onclick = () => { if (isMasked()) { toast('أرقام الجوازات مخفية — لا تملك صلاحية رؤية أرقام الجوازات كاملة', 'warn'); return; } const r = expRows(); if (!r.length) { toast('لا توجد بيانات للتصدير', 'warn'); return; } EXP.xlsx('transfers-' + (ui.day !== 'all' ? ui.day : 'all') + '-' + C.fmtDay(new Date()), 'التنقلات الداخلية', expMeta(), EXH, r); toast('تم إنشاء ملف Excel (' + r.length + ' صف)', 'ok'); };
+  $('#tP').onclick = () => { if (isMasked()) { toast('أرقام الجوازات مخفية — لا تملك صلاحية رؤية أرقام الجوازات كاملة', 'warn'); return; } const r = expRows(); if (!r.length) { toast('لا توجد بيانات للتصدير', 'warn'); return; } EXP.pdf('التنقلات الداخلية', expMeta(), EXH, r); };
   $('#list').onclick = e => {
     const b = e.target.closest('[data-mact]'); if (!b) return;
     const card = b.closest('[data-mv]'), m = (state.data.transfers ? state.data.transfers.moves : [])[+(card && card.dataset.mv)]; if (!m) return;
@@ -3801,12 +4010,21 @@ async function boot() {
   let early = false;
   try {
     const fixed = window.HAJJ_CONFIG && window.HAJJ_CONFIG.webapp, pub = JSON.parse(localStorage.getItem(LS_PUB) || 'null');
-    if (typeof fixed === 'string' && WEB_RE.test(fixed) && CONN.webapp === fixed && pub && pub.configured && pub.settings) {
-      REMOTE.locked = true; REMOTE.configured = true; applyRemote(pub.settings);
+    if (typeof fixed === 'string' && WEB_RE.test(fixed) && CONN.webapp === fixed && CONN.session && CONN.user && pub && pub.configured && pub.settings) {
+      REMOTE.locked = true; REMOTE.configured = true; REMOTE.user = CONN.user; REMOTE.owner = !!CONN.user.owner; applyRemote(pub.settings);
+      if (!pageAllowed(page)) return;
       renderNav(page); initInstall(); hydrate(kindsInUse); startUi(); early = true;
     }
   } catch (e) { early = false; console.error('fast-path', e && e.stack || e); }
   await initConnection();
+  if (!CONN.webapp) { openConnect(); return; }
+  if (!REMOTE.user) {
+    if (early) { CONN.session = ''; CONN.user = null; saveConn(); clearCaches(); location.reload(); return; }
+    clearCaches(); showLoginGate(REMOTE.error || ''); return;
+  }
+  if (REMOTE.user.mustChange) { clearCaches(); showChangePw(true); return; }
+  if (!early && !pageAllowed(page)) return;
+  if (early && (!can(PAGE_KEY[page]))) { location.reload(); return; }
   if (!early) { renderNav(page); initInstall(); if (REMOTE.configured) hydrate(kindsInUse); else if (!REMOTE.error) clearCaches(); startUi(); }
   else { if (!REMOTE.configured) { clearCaches(); kindsInUse.forEach(k => { state.data[k] = null; }); } updateRole(); emit(); }
   setInterval(() => tick(), 1000);
