@@ -4002,6 +4002,7 @@ function initFollow() {
 
 /* ---------------- تقرير الوصول اليومي (مشابه لتقرير «رحلات الوصول لحج 1447») ---------------- */
 const DR_LS = 'hajj1447.drOpts';
+const DR_ETA = { jeddah: { makkah: 1, madinah: 4 }, madinah: { madinah: 1, makkah: 4 } };
 const drOpts = () => { try { return Object.assign({ lag: 1, note: 'بعد التحديث والمراجعة' }, JSON.parse(localStorage.getItem(DR_LS) || '{}')); } catch (e) { return { lag: 1, note: 'بعد التحديث والمراجعة' }; } };
 async function openDailyArrival(records, busMin) {
   const A = records || [];
@@ -4042,7 +4043,7 @@ async function openDailyArrival(records, busMin) {
     '</tbody><tfoot><tr><td colspan="' + HD.length + '"><b>' + R.total + '</b></td></tr></tfoot></table>';
   let R = null;
   const draw = () => { R = build(); $('#drInfo', ov).textContent = R.rows.length + ' رحلة · ' + R.total + ' حاج' + (tmap.size ? '' : (isMasked() ? ' · عمود المغادرة يحتاج صلاحية رؤية الجوازات' : ' · لا تتوفر تواريخ المغادرة (تبويب Transfers)')); $('#drPrev').innerHTML = '<h4 class="drh">رحلات الوصول لحج 1447</h4><div class="drs">' + esc(R.sub) + '</div>' + tableHtml(R); };
-  ['drDay', 'drLag', 'drNote'].forEach(id => $('#' + id, ov).addEventListener('input', draw)); draw();
+  ['drDay', 'drNote'].forEach(id => $('#' + id, ov).addEventListener('input', draw)); draw();
   $('#drClose', ov).onclick = () => ov.close();
   $('#drX', ov).onclick = () => { EXP.xlsx('arrival-report-' + R.d, 'رحلات الوصول لحج 1447', [R.sub], HD, R.rows.concat([['', '', '', 'الإجمالي', R.total, '', '', '', '', '', '']])); toast('تم إنشاء ملف Excel', 'ok'); };
   $('#drP', ov).onclick = async () => {

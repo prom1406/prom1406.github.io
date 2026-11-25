@@ -4002,6 +4002,7 @@ function initFollow() {
 
 /* ---------------- تقرير الوصول اليومي (مشابه لتقرير «رحلات الوصول لحج 1447») ---------------- */
 const DR_LS = 'hajj1447.drOpts';
+const DR_ETA = { jeddah: { makkah: 1, madinah: 4 }, madinah: { madinah: 1, makkah: 4 } };
 const drOpts = () => { try { return Object.assign({ lag: 1, note: 'بعد التحديث والمراجعة' }, JSON.parse(localStorage.getItem(DR_LS) || '{}')); } catch (e) { return { lag: 1, note: 'بعد التحديث والمراجعة' }; } };
 async function openDailyArrival(records, busMin) {
   const A = records || [];
@@ -4011,7 +4012,6 @@ async function openDailyArrival(records, busMin) {
   if (!days.length) { toast('لا توجد تواريخ وصول في البيانات', 'warn'); return; }
   let day = days.includes(today) ? today : (days.find(d => d > today) || days[days.length - 1]), O = drOpts();
   const ov = modal('<h3>📋 تقرير الوصول اليومي</h3><div class="set"><label>اليوم<select id="drDay">' + days.map(k => '<option value="' + k + '">' + esc(dmy(k)) + '</option>').join('') + '</select></label>' +
-    '<label>الوصول المقدّر للوجهة = الهبوط + (ساعات)<input id="drLag" type="number" min="0" max="12" step="0.25" value="' + O.lag + '" dir="ltr"></label>' +
     '<label class="full">عبارة العنوان الفرعي<input id="drNote" type="text" value="' + esc(O.note) + '"></label></div>' +
     '<div class="hint" id="drInfo"></div><div class="dr-wrap"><div id="drPrev"></div></div><div class="act"><button class="btn green" id="drX">📊 Excel</button><button class="btn sky" id="drP">📄 PDF / طباعة</button><button class="btn" id="drClose">إغلاق</button></div>');
   ov.classList.add('wide'); $('#drDay', ov).value = day;
@@ -4026,11 +4026,11 @@ async function openDailyArrival(records, busMin) {
   };
   const HD = ['الرقم', 'الطيران', 'رقم الرحلة', 'تاريخ ووقت الوصول', 'عدد الحجاج', 'مدينة الوصول', 'طريقة التنقل للوجهة', 'مدينة الوجهة', 'وقت الوصول المقدر', 'الفندق', 'المغادرة'];
   const build = () => {
-    const lag = Math.max(0, +$('#drLag', ov).value || 0), note = $('#drNote', ov).value.trim(), d = $('#drDay', ov).value;
-    try { localStorage.setItem(DR_LS, JSON.stringify({ lag, note })); } catch (e) { }
+    const note = $('#drNote', ov).value.trim(), d = $('#drDay', ov).value;
+    try { localStorage.setItem(DR_LS, JSON.stringify({ note })); } catch (e) { }
     const gs = groups.filter(g => g.when && C.fmtDay(g.when) === d).sort((a, b) => a.when - b.when || (a.flight > b.flight ? 1 : -1));
     const rows = gs.map((g, i) => {
-      const eta = new Date(g.when.getTime() + lag * 36e5), tp = C.transportFor(g.airCity, g.stayCity, g.pax, busMin || 8);
+      const lag = (DR_ETA[g.airCity] || {})[g.stayCity] || 0, eta = new Date(g.when.getTime() + lag * 36e5), tp = C.transportFor(g.airCity, g.stayCity, g.pax, busMin || 8);
       return [i + 1, g.airline || '', g.flight || '', dmy(d) + (g.approx ? '' : ' ' + C.fmtTime(g.when)), g.pax, g.airCityRaw || C.cityName(g.airCity, ''), tp ? C.TRANSPORT[tp].ar : '', g.stayCityRaw || C.cityName(g.stayCity, ''), g.approx ? '' : dmy(C.fmtDay(eta)) + ' ' + C.fmtTime(eta), g.hotel || '', outOf(g)];
     });
     const total = rows.reduce((n, r) => n + (+r[4] || 0), 0);
@@ -4043,7 +4043,7 @@ async function openDailyArrival(records, busMin) {
     '</tbody><tfoot><tr><td colspan="' + HD.length + '"><b>' + R.total + '</b></td></tr></tfoot></table>';
   let R = null;
   const draw = () => { R = build(); $('#drInfo', ov).textContent = R.rows.length + ' رحلة · ' + R.total + ' حاج' + (tmap.size ? '' : (isMasked() ? ' · عمود المغادرة يحتاج صلاحية رؤية الجوازات' : ' · لا تتوفر تواريخ المغادرة (تبويب Transfers)')); $('#drPrev').innerHTML = '<h4 class="drh">رحلات الوصول لحج 1447</h4><div class="drs">' + esc(R.sub) + '</div>' + tableHtml(R); };
-  ['drDay', 'drLag', 'drNote'].forEach(id => $('#' + id, ov).addEventListener('input', draw)); draw();
+  ['drDay', 'drNote'].forEach(id => $('#' + id, ov).addEventListener('input', draw)); draw();
   $('#drClose', ov).onclick = () => ov.close();
   $('#drX', ov).onclick = () => { EXP.xlsx('arrival-report-' + R.d, 'رحلات الوصول لحج 1447', [R.sub], HD, R.rows.concat([['', '', '', 'الإجمالي', R.total, '', '', '', '', '', '']])); toast('تم إنشاء ملف Excel', 'ok'); };
   $('#drP', ov).onclick = async () => {
