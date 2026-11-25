@@ -629,6 +629,22 @@ body.n-exp #xXls,body.n-exp #xPdf,body.n-exp #xPrint,body.n-exp #xWa,body.n-exp 
 }
 /* ===== الجوال: منع تكبير iOS التلقائي عند الكتابة (الحقول 16px فأكثر) ===== */
 @media(hover:none) and (pointer:coarse){input:not([type=checkbox]):not([type=radio]),select,textarea{font-size:16px!important}}
+/* ===== أزرار الجوال: شبكة منتظمة ===== */
+@media(max-width:700px){
+  .hero-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+  .hero-actions .btn{justify-content:center;text-align:center;min-height:46px;padding:10px 8px;font-size:14px;white-space:nowrap;width:100%}
+  .hero-actions .btn svg{flex:none}
+  .hero-actions>:last-child:nth-child(odd){grid-column:1/-1}
+  .pdpart{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line2)}.pdpart b{flex:1}
+  .modal .act{display:grid;grid-template-columns:1fr 1fr}.modal .act>.btn:last-child:nth-child(odd){grid-column:1/-1}
+  .modal .act .btn{justify-content:center;min-height:44px}
+}
+.pdpart{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line2)}.pdpart b{flex:1}
+@media(max-width:700px){
+  .tools{gap:4px}.tools .ibtn{width:36px;height:36px;min-width:36px}.tools .ibtn svg{width:18px;height:18px}
+  .pill.view,.pill{max-width:none;flex:none;overflow:visible;text-overflow:clip}
+  .live{padding:0 1px}
+}
 </style>
 </head>
 <body data-page="arrival">
@@ -2500,14 +2516,48 @@ function pdfDeliver(blob, filename) {
   const url = URL.createObjectURL(blob);
   if (!IS_MOBILE) { const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 6000); return; }
   const file = new File([blob], filename, { type: 'application/pdf' });
-  const ov = modal('<h3>📄 ملف PDF جاهز</h3><p class="sub" dir="ltr">' + esc(filename) + ' · ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB</p><p class="hint">اضغط «مشاركة / حفظ» ثم اختر «حفظ في الملفات» أو أرسله لتطبيق آخر.</p><div class="act"><button class="btn green" id="pdS">📤 مشاركة / حفظ</button><a class="btn sky" id="pdO" href="' + url + '" target="_blank" rel="noopener">👁 فتح</a><button class="btn" id="pdX">إغلاق</button></div>');
+  const ov = modal('<h3>📄 ملف PDF جاهز</h3><p class="sub" dir="ltr">' + esc(filename) + ' · ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB</p><p class="hint">اضغط «مشاركة / حفظ» ثم اختر «حفظ في الملفات» أو أرسله لتطبيق آخر.</p><div class="act"><button class="btn green" id="pdS">📤 مشاركة / حفظ</button><a class="btn gold" id="pdD" href="' + url + '" download="' + esc(filename) + '">⬇ تنزيل</a><a class="btn sky" id="pdO" href="' + url + '" target="_blank" rel="noopener">👁 فتح</a><button class="btn" id="pdX">إغلاق</button></div>');
   $('#pdS', ov).onclick = async () => {
     try { if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: filename }); else window.open(url, '_blank'); }
     catch (e) { if (e && e.name !== 'AbortError') { window.open(url, '_blank'); } }
   };
   $('#pdX', ov).onclick = () => ov.close();
 }
+// الجوال: توليد ملف PDF حقيقي (صور صفحات) يُسلَّم بزر تنزيل/مشاركة، مع تقسيم الجداول الطويلة إلى أجزاء كي لا تتجاوز ذاكرة آيفون
+async function mobilePDF(html, filename, landscape) {
+  await loadLib(LIBS.pdf);
+  const W = landscape ? 1122 : 794, MAXR = landscape ? 260 : 300;
+  const host = document.createElement('div');
+  host.style.cssText = 'position:fixed;left:-12000px;top:0;width:' + W + 'px;background:#fff;direction:rtl;font-family:Tajawal,Tahoma,Arial,sans-serif;z-index:-1';
+  host.innerHTML = html; document.body.appendChild(host);
+  try {
+    try { if (document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 2500))]); } catch (e) { }
+    const imgs = [...host.querySelectorAll('img')];
+    await Promise.race([Promise.all(imgs.map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))), new Promise(r => setTimeout(r, 3000))]);
+    const tb = host.querySelector('tbody'), rows = tb ? [...tb.children] : [];
+    const parts = []; const n = Math.max(1, Math.ceil(rows.length / MAXR));
+    const opt = { margin: [6, 6, 8, 6], image: { type: 'jpeg', quality: 0.9 }, html2canvas: { scale: 1.4, useCORS: true, backgroundColor: '#fff', logging: false, windowWidth: W }, jsPDF: { unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' } };
+    for (let k = 0; k < n; k++) {
+      if (n > 1) toast('جارٍ تجهيز الجزء ' + (k + 1) + ' من ' + n + '…');
+      let el = host;
+      if (n > 1) { el = host.cloneNode(true); el.style.left = '-12000px'; document.body.appendChild(el); const t2 = el.querySelector('tbody'); [...t2.children].forEach((r, i) => { if (i < k * MAXR || i >= (k + 1) * MAXR) r.remove(); }); }
+      try { parts.push(await html2pdf().set(opt).from(el).outputPdf('blob')); } finally { if (el !== host) el.remove(); }
+    }
+    if (n === 1) pdfDeliver(parts[0], filename);
+    else pdfDeliverMany(parts, filename);
+  } finally { host.remove(); }
+}
+function pdfDeliverMany(blobs, filename) {
+  const base = String(filename).replace(/\.pdf$/i, '');
+  const items = blobs.map((b, i) => { const nm = base + '-part' + (i + 1) + '.pdf', url = URL.createObjectURL(b), file = new File([b], nm, { type: 'application/pdf' }); return { nm, url, file, kb: Math.max(1, Math.round(b.size / 1024)) }; });
+  const ov = modal('<h3>📄 التقرير جاهز (' + items.length + ' أجزاء)</h3><p class="hint">التقرير طويل فقُسّم إلى أجزاء. اضغط «تنزيل» لكل جزء، أو «مشاركة» للحفظ في الملفات.</p>' +
+    items.map((x, i) => '<div class="pdpart"><b>الجزء ' + (i + 1) + '</b><small dir="ltr">' + x.kb + ' KB</small><a class="btn gold sm" href="' + x.url + '" download="' + esc(x.nm) + '">⬇ تنزيل</a><button class="btn green sm" data-s="' + i + '" type="button">📤 مشاركة</button></div>').join('') +
+    '<div class="act"><button class="btn" id="pdX" type="button">إغلاق</button></div>');
+  $$('[data-s]', ov).forEach(b => b.onclick = async () => { const x = items[+b.dataset.s]; try { if (navigator.canShare && navigator.canShare({ files: [x.file] })) await navigator.share({ files: [x.file], title: x.nm }); else window.open(x.url, '_blank'); } catch (e) { if (e && e.name !== 'AbortError') window.open(x.url, '_blank'); } });
+  $('#pdX', ov).onclick = () => ov.close();
+}
 async function savePDF(html, filename, landscape) {
+  if (IS_MOBILE) { try { await mobilePDF(html, filename, landscape); return; } catch (e) { console.error('mobilePDF', e); toast('تعذّر إنشاء الملف مباشرة — سيُفتح عرض الطباعة', 'warn'); } }
   // PDF حقيقي (نص قابل للتحديد والنسخ، لا صورة): نعرض التقرير في طبقة داخل الصفحة (زر رجوع + زر طباعة/حفظ) ونترك المتصفح يحفظه PDF
   const title = String(filename).replace(/\.pdf$/i, '');
   const page = '<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + title + '</title>'
