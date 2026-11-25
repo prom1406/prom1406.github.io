@@ -2526,9 +2526,12 @@ function pdfDeliver(blob, filename) {
 // الجوال: صفحة تقرير مستقلة (نص حقيقي) فيها زر «طباعة / حفظ PDF»؛ في آيفون: معاينة الطباعة ← زر المشاركة ← «حفظ في الملفات»
 function mobileReport(page, filename) {
   const bar = '<div class="nopr" style="position:sticky;top:0;z-index:9;background:#0b5d3b;color:#fff;padding:12px;font-family:Tajawal,Tahoma,Arial,sans-serif;direction:rtl">'
-    + '<button onclick="print()" style="font:inherit;font-weight:800;font-size:17px;padding:12px 18px;border:0;border-radius:12px;background:#f2c14e;color:#222;width:100%">🖨 طباعة / حفظ PDF</button>'
-    + '<div style="font-size:13.5px;line-height:1.7;margin-top:9px">للحفظ على الآيفون: اضغط الزر أعلاه، ثم من معاينة الطباعة اضغط زر المشاركة ⬆ واختر <b>«حفظ في الملفات»</b>. (أندرويد: اختر «حفظ كـ PDF».)</div></div>'
-    + '<style>@media print{.nopr{display:none!important}}</style>';
+    + '<button id="pb" style="font:inherit;font-weight:800;font-size:17px;padding:12px 18px;border:0;border-radius:12px;background:#f2c14e;color:#222;width:100%">🖨 طباعة / حفظ PDF</button>'
+    + '<div id="hlp" style="display:none;background:#fff;color:#111;border-radius:12px;padding:11px 13px;margin-top:10px;font-size:14.5px;line-height:1.9"><b>هذا المتصفح لا يفتح الطباعة مباشرة، احفظ PDF بهذه الطريقة:</b><br>١) اضغط زر المشاركة ⬆ في شريط المتصفح (أسفل الشاشة أو أعلاها).<br>٢) اضغط <b>«خيارات»</b> تحت اسم الصفحة واختر <b>PDF</b> ثم «تم».<br>٣) اختر <b>«حفظ في الملفات»</b>.<br><span style="color:#555">أو: من قائمة المشاركة اختر «طباعة» ثم اضغط زر المشاركة في المعاينة واختر «حفظ في الملفات».</span></div>'
+    + '<div style="font-size:13px;line-height:1.7;margin-top:9px;opacity:.95">للحفظ: اضغط الزر أعلاه ثم «حفظ في الملفات». إن لم يحدث شيء ستظهر لك طريقة بديلة.</div></div>'
+    + '<style>@media print{.nopr{display:none!important}}</style>'
+    + '<script>(function(){var f=false;addEventListener("beforeprint",function(){f=true});var b=document.getElementById("pb"),h=document.getElementById("hlp");'
+    + 'b.addEventListener("click",function(){f=false;try{window.print()}catch(e){}setTimeout(function(){if(!f){h.style.display="block";h.scrollIntoView({block:"nearest"})}},900)})})()<\/script>';
   const doc = page.replace('<body>', '<body>' + bar);
   const url = URL.createObjectURL(new Blob([doc], { type: 'text/html;charset=utf-8' }));
   const ov = modal('<h3>📄 التقرير جاهز</h3><p class="sub" dir="ltr">' + esc(filename) + '</p><p class="hint">افتح التقرير ثم اضغط «طباعة / حفظ PDF» لحفظه في الملفات أو مشاركته.</p><div class="act"><a class="btn gold" id="pdOpen" href="' + url + '" target="_blank" rel="noopener">📄 فتح التقرير</a><button class="btn" id="pdX" type="button">إغلاق</button></div>');
