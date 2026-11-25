@@ -600,7 +600,7 @@ details.sg>.set{padding:2px 14px 14px}details.sg.danger>summary{color:var(--red,
 body.n-notes [data-gnote],body.n-notes [data-fcbar],body.n-notes [data-fc]{display:none!important}
 body.n-ready [data-fready],body.n-ready [data-gready]{display:none!important}
 body.n-appr [data-fappr]{display:none!important}
-body.n-exp #xXls,body.n-exp #xPdf,body.n-exp #xPrint,body.n-exp #xWa,body.n-exp #xDay,body.n-exp #tX,body.n-exp #tP,body.n-exp [data-mx]{display:none!important}
+body.n-exp #xXls,body.n-exp #xPdf,body.n-exp #xPrint,body.n-exp #xWa,body.n-exp #xDay,body.n-exp #xDayD,body.n-exp #tX,body.n-exp #tP,body.n-exp [data-mx]{display:none!important}
 
 /* ===== لابتوب: ترويسة كاملة وبطاقات أصغر ===== */
 @media(min-width:901px) and (max-width:1320px){
@@ -645,6 +645,8 @@ body.n-exp #xXls,body.n-exp #xPdf,body.n-exp #xPrint,body.n-exp #xWa,body.n-exp 
   .pill.view,.pill{max-width:none;flex:none;overflow:visible;text-overflow:clip}
   .live{padding:0 1px}
 }
+
+@media(max-width:700px){.dr-wrap{padding:4px}.drt{min-width:0;table-layout:fixed;font-size:9px}.drt th,.drt td{padding:3px 1px;word-break:break-word;overflow-wrap:anywhere}.drt th{font-size:8.5px;white-space:normal;line-height:1.3;overflow:visible;text-overflow:clip;vertical-align:middle;word-break:keep-all}.drt td{font-size:9px}.drh{font-size:14px}}
 </style>
 </head>
 <body data-page="pilgrim">
@@ -2689,7 +2691,7 @@ function initTracker(kind) {
   setInterval(() => { if (lastFl) drawRail(lastFl, Date.now()); }, 20000);   // تنتقل الرحلات بين الأقسام مع الوقت
 
   app.innerHTML = '<section class="hero"><div><h1>' + K.title + '</h1><p>' + K.sub + '</p></div><div class="hero-actions">' +
-    (kind === 'arrival' ? '<button class="btn gold" id="xDay">📋 تقرير الوصول اليومي</button>' : '') + '<button class="btn green" id="xXls">' + ICON.xls + 'Excel</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
+    (kind === 'arrival' ? '<button class="btn gold" id="xDay">📋 تقرير الوصول اليومي</button>' : '') + (kind === 'departure' ? '<button class="btn gold" id="xDayD">📋 تقرير المغادرة اليومي</button>' : '') + '<button class="btn green" id="xXls">' + ICON.xls + 'Excel</button><button class="btn sky" id="xPdf">' + ICON.pdf + 'PDF</button><button class="btn" id="xPrint">' + ICON.print + 'طباعة</button></div></section>' +
     '<div id="stale"></div><div class="kpis" id="kpis"></div><div id="alertbar"></div><div id="rdybar"></div><div id="fcbar"></div>' +
     '<section class="secs"><div class="sectiles" id="secTiles"></div><div class="secpanel panel" id="secPanel" hidden></div></section>' +
     '<section class="panel"><div id="tphint"></div><div class="toolbar">' +
@@ -3230,6 +3232,7 @@ function initTracker(kind) {
     'العدد': g.pax, [K.doneL]: g.done, 'المتبقي': g.pax - g.done, 'عدد الجوازات': g.rows.length, 'الجنسيات': natText(g), 'الحالة': g.open ? (ST_LABEL[kind][g.st] || '') : ST_LABEL[kind].done
   });
   if ($('#xDay')) $('#xDay').onclick = () => openDailyArrival(recs(), S.transport && S.transport.busMin);
+  if ($('#xDayD')) $('#xDayD').onclick = () => openDailyDeparture(recs(), S);
   $('#xXls').onclick = async () => {
     try {
       const gs = shownGroups;
@@ -4034,7 +4037,7 @@ async function openDailyArrival(records, busMin) {
     const gs = groups.filter(g => g.when && C.fmtDay(g.when) === d).sort((a, b) => a.when - b.when || (a.flight > b.flight ? 1 : -1));
     const rows = gs.map((g, i) => {
       const lag = (DR_ETA[g.airCity] || {})[g.stayCity] || 0, eta = new Date(g.when.getTime() + lag * 36e5), tp = C.transportFor(g.airCity, g.stayCity, g.pax, busMin || 8);
-      return [i + 1, g.airline || '', g.flight || '', dmy(d) + (g.approx ? '' : ' ' + C.fmtTime(g.when)), g.pax, g.airCityRaw || C.cityName(g.airCity, ''), tp ? C.TRANSPORT[tp].ar : '', g.stayCityRaw || C.cityName(g.stayCity, ''), g.approx ? '' : dmy(C.fmtDay(eta)) + ' ' + C.fmtTime(eta), g.hotel || '', outOf(g)];
+      return [i + 1, g.airline || '', g.flight || '', dmy(d) + (g.approx ? '' : ' ' + C.fmtTime(g.when)), g.pax, g.airCityRaw || C.cityName(g.airCity, ''), tp ? C.TRANSPORT[tp].ar : '', g.stayCityRaw || C.cityName(g.stayCity, ''), g.approx ? '' : dmy(C.fmtDay(eta)) + ' ' + C.fmtTime(eta), g.hotel || '', outOf(g)].map(v => (v === '' || v == null) ? '—' : v);
     });
     const total = rows.reduce((n, r) => n + (+r[4] || 0), 0);
     const wd = new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { timeZone: C.TZ_NAME, weekday: 'long' }).format(new Date(d + 'T12:00:00+03:00'));
@@ -4048,12 +4051,63 @@ async function openDailyArrival(records, busMin) {
   const draw = () => { R = build(); $('#drInfo', ov).textContent = R.rows.length + ' رحلة · ' + R.total + ' حاج' + (tmap.size ? '' : (isMasked() ? ' · عمود المغادرة يحتاج صلاحية رؤية الجوازات' : ' · لا تتوفر تواريخ المغادرة (تبويب Transfers)')); $('#drPrev').innerHTML = '<h4 class="drh">رحلات الوصول لحج 1447</h4><div class="drs">' + esc(R.sub) + '</div>' + tableHtml(R); };
   ['drDay', 'drNote'].forEach(id => $('#' + id, ov).addEventListener('input', draw)); draw();
   $('#drClose', ov).onclick = () => ov.close();
-  $('#drX', ov).onclick = () => { EXP.xlsx('arrival-report-' + R.d, 'رحلات الوصول لحج 1447', [R.sub], HD, R.rows.concat([['', '', '', 'الإجمالي', R.total, '', '', '', '', '', '']])); toast('تم إنشاء ملف Excel', 'ok'); };
+  $('#drX', ov).onclick = () => { EXP.xlsx('arrival-report-' + R.d, 'رحلات الوصول لحج 1447', [R.sub], HD, R.rows.concat([['—', '—', '—', 'الإجمالي', R.total, '—', '—', '—', '—', '—', '—']])); toast('تم إنشاء ملف Excel', 'ok'); };
   $('#drP', ov).onclick = async () => {
     const css = '.drpdf{font-family:Tajawal,Tahoma,Arial,sans-serif;color:#000;background:#fff;direction:rtl;padding:4px}.drpdf h1{text-align:center;font-size:20px;margin:4px 0 2px;font-weight:600}.drpdf .s{text-align:center;font-size:14px;margin:0 0 8px}.drpdf table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:10px}.drpdf th,.drpdf td{white-space:normal;word-break:break-word;overflow-wrap:anywhere}.drpdf th{background:#4faa3c;color:#fff;padding:6px 3px;border:1px solid #fff;font-weight:600}.drpdf td{padding:4px;text-align:center;border:1px solid #cfe8c8}.drpdf tbody tr:nth-child(odd) td{background:#dff1d9}.drpdf tbody tr:nth-child(even) td{background:#fff}.drpdf td.hl{font-size:10px}.drpdf tfoot td{border:1px solid #4faa3c;font-size:13px;padding:5px;background:#fff}';
     const frag = '<div class="drpdf" dir="rtl"><style>' + css + '</style><h1>رحلات الوصول لحج 1447</h1><div class="s">' + esc(R.sub) + '</div>' + tableHtml(R, true) + '</div>';
     toast('جارٍ تجهيز PDF…');
     try { await savePDF(frag, 'arrival-report-' + R.d + '.pdf', true); void 0; } catch (e) { toast('تعذّر إنشاء PDF: ' + (e.message || e), 'err'); }
+  };
+}
+
+/* ---------------- تقرير المغادرة اليومي (نفس نظام تقرير الوصول اليومي وبنفس البيانات) ---------------- */
+async function openDailyDeparture(records, Sx) {
+  const A = records || [], busMin = Sx && Sx.transport && Sx.transport.busMin, lead = Sx && Sx.lead;
+  if (!A.length) { toast('لا توجد بيانات مغادرة بعد', 'warn'); return; }
+  const groups = C.groupRecords(A), dmy = k => k ? k.slice(8, 10) + '/' + k.slice(5, 7) + '/' + k.slice(0, 4) : '';
+  const days = [...new Set(groups.filter(g => g.when).map(g => C.fmtDay(g.when)))].sort(), today = C.fmtDay(new Date());
+  if (!days.length) { toast('لا توجد تواريخ مغادرة في البيانات', 'warn'); return; }
+  let day = days.includes(today) ? today : (days.find(d => d > today) || days[days.length - 1]), O = drOpts();
+  const ov = modal('<h3>📋 تقرير المغادرة اليومي</h3><div class="set"><label>اليوم<select id="drDay">' + days.map(k => '<option value="' + k + '">' + esc(dmy(k)) + '</option>').join('') + '</select></label>' +
+    '<label class="full">عبارة العنوان الفرعي<input id="drNote" type="text" value="' + esc(O.note) + '"></label></div>' +
+    '<div class="hint" id="drInfo"></div><div class="dr-wrap"><div id="drPrev"></div></div><div class="act"><button class="btn green" id="drX">📊 Excel</button><button class="btn sky" id="drP">📄 PDF / طباعة</button><button class="btn" id="drClose">إغلاق</button></div>');
+  ov.classList.add('wide'); $('#drDay', ov).value = day;
+  let AR = state.data.arrival;
+  if (!AR) { $('#drInfo', ov).textContent = 'جارٍ تحميل تواريخ الوصول…'; try { await loadKind('arrival'); AR = state.data.arrival; } catch (e) { } }
+  const amap = new Map(); if (AR && !isMasked()) AR.records.forEach(r => { const w = r.when0 || r.when; if (r.passport && w) amap.set(passKey(r.passport), C.fmtDay(w)); });
+  const arrOf = g => {
+    if (!amap.size) return '';
+    const cnt = new Map(); g.rows.forEach(r => { const a = amap.get(passKey(r.passport)); if (a) cnt.set(a, (cnt.get(a) || 0) + 1); });
+    let best = '', n = 0; cnt.forEach((v, k) => { if (v > n) { n = v; best = k; } }); return dmy(best);
+  };
+  const HD = ['الرقم', 'الطيران', 'رقم الرحلة', 'تاريخ ووقت الإقلاع', 'عدد الحجاج', 'مدينة المغادرة', 'طريقة التنقل للمطار', 'مطار المغادرة', 'وقت التحرك من الفندق', 'الفندق', 'تاريخ الوصول'];
+  const cell = v => (v === '' || v == null) ? '—' : v;
+  const build = () => {
+    const note = $('#drNote', ov).value.trim(), d = $('#drDay', ov).value;
+    try { localStorage.setItem(DR_LS, JSON.stringify({ note })); } catch (e) { }
+    const gs = groups.filter(g => g.when && C.fmtDay(g.when) === d).sort((a, b) => a.when - b.when || (a.flight > b.flight ? 1 : -1));
+    const rows = gs.map((g, i) => {
+      const mv = C.movementTime(g.when, g.stayCity, g.airCity, lead), tp = C.transportFor(g.airCity, g.stayCity, g.pax, busMin || 8);
+      return [i + 1, g.airline, g.flight, dmy(d) + (g.approx ? '' : ' ' + C.fmtTime(g.when)), g.pax, g.stayCityRaw || C.cityName(g.stayCity, ''), tp ? C.TRANSPORT[tp].ar : '', g.airport || g.airCityRaw || C.cityName(g.airCity, ''), mv && !g.approx ? dmy(C.fmtDay(mv)) + ' ' + C.fmtTime(mv) : '', g.hotel, arrOf(g)].map(cell);
+    });
+    const total = rows.reduce((n, r) => n + (+r[4] || 0), 0);
+    const wd = new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { timeZone: C.TZ_NAME, weekday: 'long' }).format(new Date(d + 'T12:00:00+03:00'));
+    const sub = 'رحلات يوم ' + wd + ' ' + dmy(d).replace(/\//g, '-') + (note ? ' ' + note : '');
+    return { rows, total, sub, d, note };
+  };
+  const tableHtml = R => '<table class="drt"><thead><tr>' + HD.map(h => '<th>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' +
+    (R.rows.length ? R.rows.map(r => '<tr>' + r.map((v, j) => '<td' + (j === 9 ? ' class="hl"' : '') + '>' + esc(v) + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="' + HD.length + '">لا توجد رحلات في هذا اليوم</td></tr>') +
+    '</tbody><tfoot><tr><td colspan="' + HD.length + '"><b>' + R.total + '</b></td></tr></tfoot></table>';
+  let R = null;
+  const draw = () => { R = build(); $('#drInfo', ov).textContent = R.rows.length + ' رحلة · ' + R.total + ' حاج' + (amap.size ? '' : (isMasked() ? ' · عمود تاريخ الوصول يحتاج صلاحية رؤية الجوازات' : ' · لا تتوفر تواريخ الوصول')); $('#drPrev').innerHTML = '<h4 class="drh">رحلات المغادرة لحج 1447</h4><div class="drs">' + esc(R.sub) + '</div>' + tableHtml(R); };
+  ['drDay', 'drNote'].forEach(id => $('#' + id, ov).addEventListener('input', draw)); draw();
+  $('#drClose', ov).onclick = () => ov.close();
+  $('#drX', ov).onclick = () => { EXP.xlsx('departure-report-' + R.d, 'رحلات المغادرة لحج 1447', [R.sub], HD, R.rows.concat([['—', '—', '—', 'الإجمالي', R.total, '—', '—', '—', '—', '—', '—']])); toast('تم إنشاء ملف Excel', 'ok'); };
+  $('#drP', ov).onclick = async () => {
+    const css = '.drpdf{font-family:Tajawal,Tahoma,Arial,sans-serif;color:#000;background:#fff;direction:rtl;padding:4px}.drpdf h1{text-align:center;font-size:20px;margin:4px 0 2px;font-weight:600}.drpdf .s{text-align:center;font-size:14px;margin:0 0 8px}.drpdf table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:10px}.drpdf th,.drpdf td{white-space:normal;word-break:break-word;overflow-wrap:anywhere}.drpdf th{background:#4faa3c;color:#fff;padding:6px 3px;border:1px solid #fff;font-weight:600}.drpdf td{padding:4px;text-align:center;border:1px solid #cfe8c8}.drpdf tbody tr:nth-child(odd) td{background:#dff1d9}.drpdf tbody tr:nth-child(even) td{background:#fff}.drpdf td.hl{font-size:10px}.drpdf tfoot td{border:1px solid #4faa3c;font-size:13px;padding:5px;background:#fff}';
+    const frag = '<div class="drpdf" dir="rtl"><style>' + css + '</style><h1>رحلات المغادرة لحج 1447</h1><div class="s">' + esc(R.sub) + '</div>' + tableHtml(R) + '</div>';
+    toast('جارٍ تجهيز PDF…');
+    try { await savePDF(frag, 'departure-report-' + R.d + '.pdf', true); void 0; } catch (e) { toast('تعذّر إنشاء PDF: ' + (e.message || e), 'err'); }
   };
 }
 
