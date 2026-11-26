@@ -75,6 +75,9 @@ function doGet(e) {
       case 'fc_lookup':   return json_(fcLookup_(payload_(p), ctx));
       case 'appr_get':    return json_(memo_('appr', 15, apprGet_));
       case 'appr_set':    return json_(apprSet_(payload_(p), ctx));
+      case 'tasks_get':   return json_(memo_('tasks', 15, tasksGet_));
+      case 'task_set':    return json_(taskSet_(payload_(p), ctx));
+      case 'team_get':    return json_(teamGet_(ctx));
       case 'names_get':   return json_(namesCached_(p));
       case 'notes_get':   return json_(notesCached_(p));
       case 'note_set':    return json_(noteSet_(payload_(p), ctx));
@@ -524,29 +527,53 @@ function write_(req, ctx) {
     const pcol = masked ? passCol_(st, kind, headers) : -1;
     const norm = function (col, v) { v = String(v == null ? '' : v).trim(); return (masked && col === pcol) ? mask_(v) : v; };
 
-    const keyCache = {};
+    // قراءة واحدة لكل عمود مفتاحي ولصفوف النطاق، ثم كتابة دفعة واحدة لكل مجموعة صفوف متتالية (بدل خلية خلية)
+    const keyCache = {}, lastRow = sh.getLastRow();
+    const keyColVals = function (keyCol) {
+      if (!keyCache[keyCol]) {
+        const n = lastRow - headerRow;
+        keyCache[keyCol] = n > 0 ? sh.getRange(headerRow + 1, keyCol + 1, n, 1).getDisplayValues().map(function (r) { return norm(keyCol, r[0]); }) : [];
+      }
+      return keyCache[keyCol];
+    };
+    let scopeRows = null;
+    const rowVals = function (row) {
+      if (!scopeRows) { const n = lastRow - headerRow; scopeRows = n > 0 ? sh.getRange(headerRow + 1, 1, n, sh.getLastColumn()).getDisplayValues() : []; }
+      return scopeRows[row - headerRow - 1] || [];
+    };
+    const now = new Date(), seen = {}, todo = [];
     const results = ops.map(function (op) {
       try {
         let row = Number(op.row);
         if (!(row > headerRow) || row !== Math.floor(row) || row > sh.getMaxRows()) throw new Error('رقم صف غير صالح');
         const keyCol = op.keyHeader ? findCol_(headers, op.keyHeader) : -1;
         if (keyCol >= 0 && op.key) {
-          const cur = norm(keyCol, sh.getRange(row, keyCol + 1).getDisplayValue());
-          if (cur !== String(op.key).trim()) {            // تغيّر ترتيب الصفوف: ابحث بالقيمة المفتاحية
-            row = locateRow_(sh, headerRow, keyCol, String(op.key).trim(), keyCache, function (v) { return norm(keyCol, v); });
-            if (row === -1) throw new Error('لم يُعثر على السجل (تغيّر الجدول)');
-            if (row === -2) throw new Error('القيمة المفتاحية مكرّرة — تعذّر تحديد الصف');
+          const want = String(op.key).trim(), vals = keyColVals(keyCol);
+          if (vals[row - headerRow - 1] !== want) {        // تغيّر ترتيب الصفوف: ابحث بالقيمة المفتاحية
+            let found = -1, count = 0;
+            vals.forEach(function (v, i) { if (v === want) { count++; found = headerRow + 1 + i; } });
+            if (count === 0) throw new Error('لم يُعثر على السجل (تغيّر الجدول)');
+            if (count > 1) throw new Error('القيمة المفتاحية مكرّرة — تعذّر تحديد الصف');
+            row = found;
           }
         }
-        if (scope.length) { const rv = sh.getRange(row, 1, 1, sh.getLastColumn()).getDisplayValues()[0]; if (!inScope_(scope, rv)) throw new Error('هذا السجل خارج نطاق صلاحيتك'); }
-        const on = op.value === true;
-        sh.getRange(row, colCheck + 1).setValue(CONFIG.WRITE_AS === 'text' ? (on ? (cfg.textOn || 'تم') : CONFIG.TEXT_OFF) : on);
-        if (colAt >= 0) sh.getRange(row, colAt + 1).setValue(on ? new Date() : '');
-        if (colBy >= 0) sh.getRange(row, colBy + 1).setValue(on ? by : '');
+        if (scope.length && !inScope_(scope, rowVals(row))) throw new Error('هذا السجل خارج نطاق صلاحيتك');
+        if (seen[row]) return { ok: true, row: row };
+        seen[row] = 1; todo.push({ row: row, on: op.value === true });
         return { ok: true, row: row };
       } catch (err) {
         return { ok: false, error: String(err.message || err) };
       }
+    });
+    todo.sort(function (a, b) { return a.row - b.row; });
+    const runs = [];
+    todo.forEach(function (t) { const r = runs[runs.length - 1]; if (r && r.end + 1 === t.row) { r.end = t.row; r.items.push(t); } else runs.push({ start: t.row, end: t.row, items: [t] }); });
+    const chk = function (on) { return CONFIG.WRITE_AS === 'text' ? (on ? (cfg.textOn || 'تم') : CONFIG.TEXT_OFF) : on; };
+    runs.forEach(function (r) {
+      const n = r.items.length;
+      sh.getRange(r.start, colCheck + 1, n, 1).setValues(r.items.map(function (t) { return [chk(t.on)]; }));
+      if (colAt >= 0) sh.getRange(r.start, colAt + 1, n, 1).setValues(r.items.map(function (t) { return [t.on ? now : '']; }));
+      if (colBy >= 0) sh.getRange(r.start, colBy + 1, n, 1).setValues(r.items.map(function (t) { return [t.on ? by : '']; }));
     });
     SpreadsheetApp.flush(); bumpData_();
     log_(st, kind, ctx, by, ops[0] && ops[0].value === true, results, String(req.ctx || '').slice(0, 120));
@@ -738,6 +765,71 @@ function fcLookup_(req, ctx) {
   const item = { key: key, flight: flight, airline: fcClean_(req.airline, 60), date: date, status: res.found ? 'ok' : 'notfound', official: res.official || '', mode: 'auto', note: res.found ? '' : 'لم يجد المزوّد رحلة بهذا الرقم في هذا اليوم', by: 'تلقائي' };
   fcWrite_(st, item); item.at = new Date().toISOString();
   return { ok: true, item: item };
+}
+
+/* ============================ إسناد المهام واستلام التنبيهات ============================ */
+// تبويب Tasks: صف لكل مجموعة/تنبيه — المسؤول عنه (إسناد) ومن استلم التنبيه ويتابعه الآن.
+const TASKS_SHEET = 'Tasks';
+const TASK_HEAD = ['المفتاح', 'الصفحة', 'الوصف', 'المسؤول', 'اسم المسؤول', 'استلمه', 'اسم من استلم', 'وقت الاستلام', 'بواسطة', 'آخر تحديث'];
+function tasksSheet_(st, create) {
+  const ss = openSS_(st); let sh = ss.getSheetByName(TASKS_SHEET);
+  if (!sh && create) { sh = ss.insertSheet(TASKS_SHEET); sh.getRange(1, 1, 1, TASK_HEAD.length).setValues([TASK_HEAD]).setFontWeight('bold'); sh.setFrozenRows(1); sh.getRange(1, 8, sh.getMaxRows(), 1).setNumberFormat('@'); }
+  return sh;
+}
+function tasksGet_() {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  const sh = tasksSheet_(st, false), items = [];
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, TASK_HEAD.length).getDisplayValues().forEach(function (r) {
+    if (r[0] && (r[3] || r[5])) items.push({ key: r[0], kind: r[1], label: r[2], owner: r[3], ownerName: r[4], ack: r[5], ackName: r[6], ackAt: r[7], by: r[8], at: r[9] });
+  });
+  return { ok: true, items: items, ts: Date.now() };
+}
+function canTask_(ctx) { const P = ctx.perms; return !!(ctx.owner || P.notes || P.confArr || P.confDep || P.ready || P.appr); }
+function canAssignOthers_(ctx) { return !!(ctx.owner || ctx.role === 'supervisor'); }
+// req: {key, kind, label, assign?: 'username' | '' , ack?: true|false}
+function taskSet_(req, ctx) {
+  const st = settings_(); if (!st) return { ok: false, error: 'not_configured' };
+  if (!canTask_(ctx)) return { ok: false, error: 'forbidden' };
+  const key = String(req.key || '').trim().slice(0, 200); if (!key) return { ok: false, error: 'مفتاح المهمة مفقود' };
+  const kind = ['arrival', 'departure', 'transfers', 'alert'].indexOf(String(req.kind)) >= 0 ? String(req.kind) : 'alert';
+  const me = ctx.username.toLowerCase(), by = byOf_(ctx);
+  let owner = null, ownerName = '';
+  if (req.assign !== undefined) {
+    owner = String(req.assign || '').trim().toLowerCase().slice(0, 30);
+    if (owner && owner !== me && !canAssignOthers_(ctx)) return { ok: false, error: 'إسناد المهام لغيرك للمالك والمشرف العام فقط — يمكنك أن تتولاها بنفسك' };
+    if (owner) {
+      if (owner === String(CONFIG.OWNER_USER).toLowerCase()) ownerName = 'المالك';
+      else { const u = usersMap_()[owner]; if (!u || !userUsable_(u)) return { ok: false, error: 'المستخدم غير موجود أو موقوف' }; ownerName = u.name || u.username; }
+    }
+  }
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const sh = tasksSheet_(st, true), last = sh.getLastRow();
+    const rows = last > 1 ? sh.getRange(2, 1, last - 1, TASK_HEAD.length).getDisplayValues() : [];
+    let at = -1, cur = null;
+    for (let i = 0; i < rows.length; i++) if (rows[i][0] === key) { at = i + 2; cur = rows[i]; break; }
+    const rec = cur ? cur.slice() : [cell_(key), kind, '', '', '', '', '', '', '', ''];
+    rec[1] = kind; if (req.label) rec[2] = cell_(String(req.label).replace(/[\r\n\t]+/g, ' ').trim().slice(0, 120));
+    let ev = '';
+    if (owner !== null) { rec[3] = owner; rec[4] = cell_(ownerName); ev = owner ? 'إسناد: ' + ownerName : 'إلغاء إسناد'; }
+    if (req.ack === true) { rec[5] = me; rec[6] = cell_(ctx.name || ctx.username); rec[7] = nowStr_(); ev = 'استلام تنبيه'; }
+    else if (req.ack === false) { rec[5] = ''; rec[6] = ''; rec[7] = ''; ev = 'إلغاء استلام'; }
+    rec[8] = by; rec[9] = nowStr_();
+    if (!rec[3] && !rec[5]) { if (at > 0) sh.deleteRow(at); }
+    else if (at > 0) sh.getRange(at, 1, 1, TASK_HEAD.length).setValues([rec]);
+    else sh.getRange(last + 1, 1, 1, TASK_HEAD.length).setValues([rec]);
+    SpreadsheetApp.flush(); bumpData_();
+    log_(st, kind === 'departure' ? 'departure' : kind === 'transfers' ? 'transfers' : 'arrival', ctx, by, true, [{ ok: true }], ev + ' | ' + String(rec[2] || key).slice(0, 80), ev || 'مهمة');
+    return { ok: true, item: { key: key, kind: kind, label: rec[2], owner: rec[3], ownerName: rec[4], ack: rec[5], ackName: rec[6], ackAt: rec[7], by: rec[8], at: rec[9] } };
+  } finally { try { lock.releaseLock(); } catch (x) { } }
+}
+// قائمة الفريق لاختيار المسؤول: الاسم واليوزر والقسم فقط (بلا بيانات حساسة)
+function teamGet_(ctx) {
+  if (!canTask_(ctx)) return { ok: true, items: [] };
+  const map = usersMap_(), items = [{ username: String(CONFIG.OWNER_USER).toLowerCase(), name: 'المالك', dept: '' }];
+  Object.keys(map).forEach(function (k) { const u = map[k]; if (userUsable_(u)) items.push({ username: u.username.toLowerCase(), name: u.name || u.username, dept: u.dept || '' }); });
+  return { ok: true, items: items, canAssign: canAssignOthers_(ctx), me: ctx.username.toLowerCase() };
 }
 
 /* ============================ اعتماد المغادرة للرحلات ============================ */
