@@ -6,7 +6,7 @@
    ملاحظة: هذا الملف عام (أسماء الشركات ورموزها وروابط خوادمها ظاهرة)، أما بيانات الحجاج فتبقى في ملف كل شركة ولا تمر من هنا. */
 window.HAJJ_CONFIG = {
   // للدليل setup.html: رقم واتساب يستقبل طلبات التفعيل (بالصيغة الدولية بلا +، مثل 9665xxxxxxxx)، ورابط «إنشاء نسخة» لقالب جاهز إن وُجد
-  support: { whatsapp: '', template: '' },
+  support: { whatsapp: '966569090301', template: '' },
   tenants: {
     main: { name: '', webapp: "https://script.google.com/macros/s/AKfycbyVjqP_BW7pzvtdQbLC63KU7kmOvxAh8UrQVbffdLbOp7-BkyXX9ZX3QVRWnp8oi5tukw/exec", legacy: true }
   }
