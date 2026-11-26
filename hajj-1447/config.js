@@ -7,8 +7,10 @@ window.HAJJ_CONFIG = {
   // للدليل setup.html: رقم واتساب يستقبل طلبات التفعيل (بالصيغة الدولية بلا +، مثل 9665xxxxxxxx)، ورابط «إنشاء نسخة» لقالب جاهز إن وُجد
   support: { whatsapp: '966569090301', template: '' },
   // خادم المزوّد (خادم شركتك الأولى): يحفظ سجل الشركات، ومنه يدخل المالك إلى لوحة حالة الشركات
-  registry: "https://script.google.com/macros/s/AKfycbyTXgSBC40XoMh3NLb2V_KfZKSPWFXKybsFSDefolSYsKacpkLp_4w9kxFbEfPnZHVQ/exec",
+  registry: "https://script.google.com/macros/s/AKfycbyVjqP_BW7pzvtdQbLC63KU7kmOvxAh8UrQVbffdLbOp7-BkyXX9ZX3QVRWnp8oi5tukw/exec",
   tenants: {
-    main: { name: '', webapp: "https://script.google.com/macros/s/AKfycbyTXgSBC40XoMh3NLb2V_KfZKSPWFXKybsFSDefolSYsKacpkLp_4w9kxFbEfPnZHVQ/exec", legacy: true }
+    main: { name: '', webapp: "https://script.google.com/macros/s/AKfycbyVjqP_BW7pzvtdQbLC63KU7kmOvxAh8UrQVbffdLbOp7-BkyXX9ZX3QVRWnp8oi5tukw/exec", legacy: true },
+    // مؤقتاً هنا حتى يعمل سجل الشركات على خادم المزوّد، ثم تُنقل إلى لوحة حالة الشركات
+    anjum: { name: 'أنجم', webapp: "https://script.google.com/macros/s/AKfycbyTXgSBC40XoMh3NLb2V_KfZKSPWFXKybsFSDefolSYsKacpkLp_4w9kxFbEfPnZHVQ/exec", logo: 'tenants/anjum.png' }
   }
 };
