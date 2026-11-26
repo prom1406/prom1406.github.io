@@ -699,7 +699,7 @@ function openTenantPick() {
   ov.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><h3>رمز الشركة</h3><p class="hint">اكتب رمز شركتك كما وصلك من مسؤول المنظومة في شركتك. يُطلب مرة واحدة على هذا الجهاز.</p>' +
     '<div class="set"><label class="full">الرمز<input id="tcI" dir="ltr" autocapitalize="off" autocomplete="organization" spellcheck="false" placeholder="مثال: alnoor"></label></div>' +
     '<div id="tcM" class="hint" style="min-height:20px">' + (TEN.bad ? '<span style="color:var(--red)">✗ الرمز «' + esc(TEN.bad) + '» غير معروف — تأكد منه مع مسؤول شركتك</span>' : '') + '</div>' +
-    '<div class="act"><button class="btn gold" id="tcOk" type="button">متابعة</button></div></div>';
+    '<div class="act"><button class="btn gold" id="tcOk" type="button">متابعة</button></div><p class="hint" style="text-align:center;margin-top:12px">شركتك جديدة على المنظومة؟ <a class="lnk" href="setup.html">دليل التجهيز</a></p></div>';
   document.body.appendChild(ov);
   const go = () => {
     const v = $('#tcI', ov).value.trim().toLowerCase();

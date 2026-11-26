@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07182D">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<title>تجهيز شركتك — منظومة تحركات الحجاج</title>
+<link rel="stylesheet" href="app.css?v=20261126m">
+<style>
+.wrap{max-width:900px;margin:0 auto;padding:22px 16px 60px}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:8px}.top img{width:44px;height:44px}
+.lead{color:var(--mut);margin:6px 0 20px;line-height:1.8}
+.step{display:grid;grid-template-columns:44px 1fr;gap:14px;align-items:start}
+.step .n{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:18px;background:rgba(197,160,89,.15);color:var(--gold);border:1px solid var(--gold)}
+.step h2{margin:6px 0 8px;font-size:17px}.step h2::before{display:none}
+.step p,.step li{line-height:1.85;margin:4px 0}.step ol,.step ul{padding-inline-start:20px;margin:6px 0}
+.path{display:inline-block;padding:1px 8px;border-radius:7px;background:var(--card2);border:1px solid var(--line2);font-weight:700;white-space:nowrap}
+code,.kbd{font-family:ui-monospace,Consolas,monospace;direction:ltr;unicode-bidi:isolate;background:var(--card2);border:1px solid var(--line2);border-radius:6px;padding:1px 6px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.props{display:grid;grid-template-columns:auto 1fr auto;gap:8px 12px;align-items:center;margin-top:8px}
+.tip{margin-top:10px;padding:9px 12px;border-radius:10px;background:rgba(14,165,233,.10);border:1px solid rgba(14,165,233,.45);font-size:13.5px;line-height:1.8}
+.warn{background:rgba(245,165,36,.10);border-color:rgba(245,165,36,.55)}
+.cols td,.cols th{padding:6px 10px;border-bottom:1px solid var(--line2);text-align:start;vertical-align:top;font-size:13.5px}
+.cols{border-collapse:collapse;width:100%;min-width:0}.cols th{color:var(--gold2)}
+.out{white-space:pre-wrap;background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px;direction:rtl}
+.ok{color:var(--ok)}.bad{color:var(--red)}
+[data-theme=light] .tip{background:#E8F5FD}[data-theme=light] .warn{background:#FFF8E1}
+code{word-break:break-all}@media(max-width:600px){.step{grid-template-columns:1fr;gap:6px}.step .n{width:34px;height:34px;font-size:16px}.path{white-space:normal}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="top"><img src="icon.svg" alt=""><div><h1 style="margin:0;font-size:24px">تجهيز شركتك على <span style="color:var(--gold)">منظومة تحركات الحجاج</span></h1></div></div>
+  <p class="lead">بيانات حجاج شركتك تبقى في ملف Google Sheets خاص بك وعلى حساب Google الخاص بشركتك، ولا يطّلع عليها مزوّد المنظومة ولا أي شركة أخرى. التجهيز يأخذ قرابة 10 دقائق ويتم مرة واحدة.</p>
+
+  <section class="panel step"><span class="n">1</span><div>
+    <h2>أنشئ ملف Google Sheets</h2>
+    <p>ادخل بحساب Google الخاص بشركتك (يُفضّل حساب للشركة لا حساباً شخصياً)، ثم أنشئ ملفاً جديداً وسمّه مثلاً «حجاج 1447 — اسم الشركة».</p>
+    <div class="row"><a class="btn gold" href="https://sheets.new" target="_blank" rel="noopener">📄 ملف Google Sheets جديد</a></div>
+    <p class="tip" id="tplTip" hidden>أو انسخ القالب الجاهز (فيه التبويبات والسكربت): <a class="lnk" id="tplLink" target="_blank" rel="noopener">إنشاء نسخة من القالب</a> — ثم انتقل مباشرة إلى الخطوة 3.</p>
+  </div></section>
+
+  <section class="panel step"><span class="n">2</span><div>
+    <h2>ألصق كود الخادم</h2>
+    <ol>
+      <li>من الملف: <span class="path">الإضافات ← Apps Script</span> (Extensions ← Apps Script).</li>
+      <li>احذف كل الكود الموجود في <code>Code.gs</code>، ثم ألصق الكود الذي تنسخه من الزر أدناه.</li>
+      <li>اضغط 💾 حفظ.</li>
+    </ol>
+    <div class="row"><button class="btn gold" id="cpCode" type="button">📋 نسخ Code.gs</button><a class="btn" href="Code.gs" download="Code.gs">⬇ تنزيل الملف</a><span class="hint" id="cpMsg"></span></div>
+  </div></section>
+
+  <section class="panel step"><span class="n">3</span><div>
+    <h2>حدّد حساب مدير الشركة</h2>
+    <p>في Apps Script: <span class="path">⚙ Project Settings</span> ← انزل إلى <span class="path">Script properties</span> ← <span class="path">Add script property</span>، وأضف خاصيتين:</p>
+    <div class="props">
+      <code>OWNER_USER</code><span>اسم مستخدم المدير بالإنجليزية (مثل <code>alnoor-admin</code>)</span><button class="btn sm" type="button" data-cp="OWNER_USER">نسخ</button>
+      <code>OWNER_PASSWORD</code><span>كلمة مرور قوية (12 حرفاً فأكثر، تخلط حروفاً وأرقاماً)</span><button class="btn sm" type="button" data-cp="OWNER_PASSWORD">نسخ</button>
+    </div>
+    <p class="tip warn">لا تكتب كلمة المرور داخل الكود نفسه، ولا ترسلها لأحد. المدير يضيف بقية فريقه لاحقاً من داخل الموقع بأسماء وكلمات مرور خاصة بهم.</p>
+  </div></section>
+
+  <section class="panel step"><span class="n">4</span><div>
+    <h2>جهّز الملف بضغطة</h2>
+    <ol>
+      <li>في Apps Script من القائمة أعلى الكود اختر الدالة <code>setupNewCompany</code> ثم اضغط <span class="path">▶ Run / تشغيل</span>.</li>
+      <li>أول مرة تطلب Google الأذونات: <span class="path">Review permissions</span> ← اختر حسابك ← <span class="path">Advanced</span> ← <span class="path">Go to … (unsafe)</span> ← <span class="path">Allow</span>. السكربت سكربتك أنت ويعمل على ملفك فقط.</li>
+      <li>تظهر رسالة بما أُنجز: تُنشأ التبويبات <code>Arrival</code> و<code>Departure</code> و<code>Transfers</code> و<code>Main</code> بعناوين أعمدتها، ويُربط الخادم بالملف.</li>
+    </ol>
+    <p class="tip">بعد إعادة فتح الملف تظهر قائمة «منظومة الحجاج» في شريطه، وفيها التجهيز والنسخة الاحتياطية.</p>
+  </div></section>
+
+  <section class="panel step"><span class="n">5</span><div>
+    <h2>انشر الخادم</h2>
+    <ol>
+      <li><span class="path">Deploy / نشر ← New deployment / نشر جديد</span>، ومن ⚙ بجانب «Select type» اختر <span class="path">Web app / تطبيق ويب</span>.</li>
+      <li><b>Execute as / التنفيذ باسم:</b> <span class="path">Me / أنا</span> — <b>Who has access / من يمكنه الوصول:</b> <span class="path">Anyone / أي شخص</span>.</li>
+      <li>اضغط <span class="path">Deploy</span>، ثم انسخ <b>Web app URL</b> (ينتهي بـ <code>/exec</code>).</li>
+    </ol>
+    <p class="tip">«أي شخص» يعني أن الرابط يستقبل الطلبات، لكن لا أحد يقرأ أو يكتب شيئاً بدون اسم مستخدم وكلمة مرور من حسابات شركتك.</p>
+  </div></section>
+
+  <section class="panel step"><span class="n">6</span><div>
+    <h2>أرسل الرابط لتفعيل شركتك</h2>
+    <div class="set">
+      <label>اسم الشركة كما يظهر للفريق<input id="fName" dir="auto" placeholder="شركة النور للحج"></label>
+      <label>الرمز المقترح (إنجليزي قصير)<input id="fCode" dir="ltr" placeholder="alnoor" autocapitalize="off" spellcheck="false"></label>
+      <label class="full">رابط الخادم (Web app URL)<input id="fUrl" dir="ltr" placeholder="https://script.google.com/macros/s/…/exec"></label>
+    </div>
+    <div class="row"><button class="btn" id="fTest" type="button">🔎 فحص الرابط</button><button class="btn green" id="fWa" type="button">إرسال عبر واتساب</button><button class="btn" id="fCp" type="button">نسخ الرسالة</button></div>
+    <div class="out" id="fOut" hidden></div>
+  </div></section>
+
+  <section class="panel step"><span class="n">7</span><div>
+    <h2>بعد التفعيل</h2>
+    <ul>
+      <li>يصلك رابط شركتك مثل <code>…/hajj-1447/?c=alnoor</code>. افتحه وادخل باسم المدير وكلمة مروره.</li>
+      <li>من <span class="path">☰ ← 👥 المستخدمون والصلاحيات</span> أضف فريقك: مشرف وصول، مشرف مغادرة، مشاهدة فقط… مع نطاق المدن.</li>
+      <li>أرسل الرابط نفسه للفريق. على الجوال: افتحه ثم «إضافة إلى الشاشة الرئيسية».</li>
+      <li>ألصق بيانات الحجاج في التبويبات حسب الجدول أدناه. الموقع يكتشف الأعمدة بأسمائها العربية أو الإنجليزية، ويمكن تعديل الربط من ⚙.</li>
+    </ul>
+  </div></section>
+
+  <section class="panel step"><span class="n">8</span><div>
+    <h2>التحديثات</h2>
+    <p>إذا ظهرت للمدير رسالة صفراء «خادم شركتك إصدار قديم»: انسخ <code>Code.gs</code> من الخطوة 2 وألصقه بدل القديم واحفظ، ثم <span class="path">Deploy ← Manage deployments ← ✏ ← Version: New version ← Deploy</span>. الرابط لا يتغيّر.</p>
+  </div></section>
+
+  <section class="panel"><h2>الأعمدة في كل تبويب</h2>
+    <div class="tw"><table class="cols">
+      <tr><th>التبويب</th><th>أعمدة أساسية</th><th>اختيارية</th></tr>
+      <tr><td><b>Arrival</b> الوصول</td><td>Name · Passport · Nationality · Flight · Date · Time · Hotel · Check</td><td>Airline · Airport · Arrival City · Stay City · Room · Group · Phone · Check_At · Check_By</td></tr>
+      <tr><td><b>Departure</b> المغادرة</td><td>Name · Passport · Nationality · Flight · Date · Time · Hotel · Check_De</td><td>Airline · Airport · Departure City · Stay City · Room · Group · Phone · Check_De_At · Check_De_By</td></tr>
+      <tr><td><b>Transfers</b> التنقلات</td><td>Passport، ثم لكل إقامة: الفندق · المدينة · تاريخ الدخول · تاريخ الخروج</td><td>حتى 4 إقامات أو أكثر بنفس النمط</td></tr>
+      <tr><td><b>Main</b> الأسماء</td><td>Passport · First_Name · Last_Name</td><td>Nationality · Phone</td></tr>
+    </table></div>
+    <p class="hint">التاريخ بصيغة يوم/شهر/سنة (مثل 15/05/2027) والوقت 24 ساعة (14:30). أعمدة Check يكتبها الموقع عند التأكيد ولا تحتاج تعبئة.</p>
+  </section>
+</main>
+<script src="config.js?v=20261126m"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  try { var th = localStorage.getItem('hajj1447.theme'); if (th) document.documentElement.dataset.theme = th; } catch (e) { }
+  var CFG = window.HAJJ_CONFIG || {}, sup = CFG.support || {};
+  if (sup.template) { $('#tplTip').hidden = false; $('#tplLink').href = sup.template; }
+  var WEB = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec$/;
+  function copy(t, el, ok) {
+    var done = function () { if (el) { var o = el.textContent; el.textContent = ok || '✓ نُسخ'; setTimeout(function () { el.textContent = o; }, 1500); } };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, fb); else fb();
+    function fb() { var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); done(); } catch (e) { } a.remove(); }
+  }
+  $('#cpCode').onclick = function () {
+    var b = this; $('#cpMsg').textContent = 'جارٍ التحميل…';
+    fetch('Code.gs', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.text(); }).then(function (t) { copy(t, b, '✓ نُسخ الكود'); $('#cpMsg').textContent = t.split('\n').length + ' سطراً — ألصقه في Apps Script'; })
+      .catch(function () { $('#cpMsg').textContent = 'تعذّر التحميل — استخدم زر التنزيل'; });
+  };
+  document.querySelectorAll('[data-cp]').forEach(function (b) { b.onclick = function () { copy(b.dataset.cp, b); }; });
+  function msg() {
+    var n = $('#fName').value.trim(), c = $('#fCode').value.trim().toLowerCase(), u = $('#fUrl').value.trim();
+    return 'طلب تفعيل شركة على منظومة تحركات الحجاج\nالاسم: ' + (n || '—') + '\nالرمز المقترح: ' + (c || '—') + '\nرابط الخادم: ' + (u || '—');
+  }
+  function check() {
+    var u = $('#fUrl').value.trim(), c = $('#fCode').value.trim().toLowerCase(), out = $('#fOut'), bad = [];
+    if (!$('#fName').value.trim()) bad.push('اكتب اسم الشركة');
+    if (c && !/^[a-z0-9-]{2,30}$/.test(c)) bad.push('الرمز: حروف إنجليزية صغيرة وأرقام و - فقط');
+    else if (c && CFG.tenants && CFG.tenants[c]) bad.push('الرمز «' + c + '» مستخدم — اختر غيره');
+    if (!WEB.test(u)) bad.push('الرابط يجب أن يبدأ بـ https://script.google.com/ وينتهي بـ /exec');
+    out.hidden = false; out.innerHTML = '';
+    if (bad.length) { out.innerHTML = bad.map(function (x) { return '<div class="bad">✗ ' + x.replace(/</g, '&lt;') + '</div>'; }).join(''); return false; }
+    return true;
+  }
+  $('#fTest').onclick = function () {
+    if (!check()) return; var out = $('#fOut'); out.textContent = 'جارٍ الفحص…';
+    fetch($('#fUrl').value.trim() + '?action=public&t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (t) {
+      var j; try { j = JSON.parse(t); } catch (e) { j = null; }
+      if (!j || j.service !== 'hajj-sync') { out.innerHTML = '<div class="bad">✗ الرابط لا يرد كخادم المنظومة — تأكد أن النشر «تطبيق ويب» والوصول «أي شخص».</div>'; return; }
+      out.innerHTML = '<div class="ok">✓ الخادم يعمل (إصدار ' + (j.v || '؟') + ')' + (j.configured ? ' ومربوط بالملف' : ' — لم يُربط بالملف بعد: شغّل setupNewCompany (الخطوة 4)') + '</div>';
+    }).catch(function () { out.innerHTML = '<div class="bad">✗ تعذّر الوصول للرابط — تحقق منه ومن إعداد «أي شخص».</div>'; });
+  };
+  $('#fWa').onclick = function () { if (check()) window.open('https://wa.me/' + String(sup.whatsapp || '').replace(/\D/g, '') + '?text=' + encodeURIComponent(msg()), '_blank', 'noopener'); };
+  $('#fCp').onclick = function () { if (check()) copy(msg(), this); };
+})();
+</script>
+</body>
+</html>

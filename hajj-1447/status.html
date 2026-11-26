@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#07182D">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<title>حالة الشركات — منظومة تحركات الحجاج</title>
+<link rel="stylesheet" href="app.css?v=20261126m">
+<style>
+.wrap{max-width:1100px;margin:0 auto;padding:22px 16px 60px}
+.st td,.st th{padding:10px 12px;border-bottom:1px solid var(--line2);text-align:start;vertical-align:middle}
+.st{border-collapse:collapse;width:100%;min-width:760px}.st th{color:var(--gold2);font-size:13px;white-space:nowrap}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-inline-end:6px;background:var(--mut)}
+.dot.ok{background:var(--ok)}.dot.bad{background:var(--red)}.dot.warn{background:var(--amber)}
+.kp{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.kp div{padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line2)}.kp b{display:block;font-size:26px}.kp small{color:var(--mut)}
+.out{white-space:pre-wrap;direction:ltr;text-align:left;background:var(--card2);border:1px solid var(--line2);border-radius:10px;padding:10px 12px;font:13px ui-monospace,Consolas,monospace;margin-top:10px}
+.lnkc{font-family:ui-monospace,Consolas,monospace;direction:ltr;font-size:12px;color:var(--mut)}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="hero"><div><h1>حالة <span>الشركات</span></h1><p>لمزوّد المنظومة: هل خادم كل شركة يعمل، ومربوط بملفه، وبأي إصدار. لا تظهر هنا أي بيانات حجاج.</p></div>
+    <div class="hero-actions"><button class="btn gold" id="re" type="button">🔄 فحص الكل</button><a class="btn" href="setup.html" target="_blank" rel="noopener">📘 دليل تجهيز العميل</a></div></section>
+  <div class="kp" id="kp"></div>
+  <section class="panel"><h2>الشركات المسجّلة في config.js</h2><div class="tw"><table class="st"><thead><tr><th>الشركة</th><th>الرمز</th><th>الخادم</th><th>الإصدار</th><th>مربوط بالملف</th><th>الاستجابة</th><th>رابط الفريق</th></tr></thead><tbody id="tb"></tbody></table></div>
+    <p class="hint">أحدث إصدار يحتاجه الموقع: <b id="minV"></b>. الشركات الأقدم يظهر لمديرها تنبيه التحديث تلقائياً.</p></section>
+  <section class="panel"><h2>إضافة شركة</h2>
+    <div class="set">
+      <label>اسم الشركة<input id="aName" dir="auto" placeholder="شركة النور للحج"></label>
+      <label>الرمز<input id="aCode" dir="ltr" placeholder="alnoor" autocapitalize="off" spellcheck="false"></label>
+      <label class="full">رابط الخادم (…/exec)<input id="aUrl" dir="ltr"></label>
+      <label class="full">الشعار (اختياري، مسار داخل المستودع)<input id="aLogo" dir="ltr" placeholder="tenants/alnoor.png"></label>
+    </div>
+    <div class="row" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn gold" id="aGo" type="button">فحص وتجهيز السطر</button><button class="btn" id="aCp" type="button" hidden>نسخ السطر</button><button class="btn" id="aMsg" type="button" hidden>نسخ رسالة للعميل</button></div>
+    <div id="aRes"></div>
+    <p class="hint">ألصق السطر داخل <code>tenants: { … }</code> في <code>hajj-1447/config.js</code> على GitHub واحفظ، فتعمل الشركة خلال دقيقة.</p>
+  </section>
+</main>
+<script src="config.js?v=20261126m"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  try { var th = localStorage.getItem('hajj1447.theme'); if (th) document.documentElement.dataset.theme = th; } catch (e) { }
+  var MIN_V = 5, T = (window.HAJJ_CONFIG && window.HAJJ_CONFIG.tenants) || {}, codes = Object.keys(T);
+  var WEB = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec$/;
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var base = new URL('index.html', location.href).href, team = function (c) { return base + '?c=' + encodeURIComponent(c); };
+  $('#minV').textContent = MIN_V;
+  function copy(t, el) { var d = function () { if (el) { var o = el.textContent; el.textContent = '✓ نُسخ'; setTimeout(function () { el.textContent = o; }, 1400); } }; if (navigator.clipboard) navigator.clipboard.writeText(t).then(d, function () { }); }
+  function ping(url) {
+    var t0 = Date.now(), ctl = window.AbortController ? new AbortController() : null, to = setTimeout(function () { if (ctl) ctl.abort(); }, 20000);
+    return fetch(url + '?action=public&t=' + t0, { cache: 'no-store', signal: ctl && ctl.signal }).then(function (r) { return r.text(); }).then(function (t) {
+      clearTimeout(to); var j = null; try { j = JSON.parse(t); } catch (e) { }
+      if (!j || j.service !== 'hajj-sync') return { ok: false, why: 'لا يرد كخادم المنظومة', ms: Date.now() - t0 };
+      return { ok: true, v: +j.v || 0, conf: !!j.configured, ms: Date.now() - t0 };
+    }).catch(function () { clearTimeout(to); return { ok: false, why: 'تعذّر الوصول', ms: Date.now() - t0 }; });
+  }
+  var res = {};
+  function kp() {
+    var all = codes.length, up = 0, old = 0, nc = 0, down = 0;
+    codes.forEach(function (c) { var r = res[c]; if (!r) return; if (!r.ok) down++; else { up++; if (r.v < MIN_V) old++; if (!r.conf) nc++; } });
+    $('#kp').innerHTML = '<div><small>الشركات</small><b>' + all + '</b></div><div><small>تعمل</small><b style="color:var(--ok)">' + up + '</b></div><div><small>لا تستجيب</small><b style="color:var(--red)">' + down + '</b></div><div><small>تحتاج تحديث Code.gs</small><b style="color:var(--amber)">' + old + '</b></div><div><small>غير مربوطة بملف</small><b>' + nc + '</b></div>';
+  }
+  function row(c) {
+    var t = T[c], r = res[c];
+    var srv = !t.webapp ? '<span class="dot warn"></span>بلا رابط' : !r ? '<span class="dot"></span>جارٍ الفحص…' : r.ok ? '<span class="dot ok"></span>يعمل' : '<span class="dot bad"></span>' + esc(r.why);
+    var v = r && r.ok ? (r.v < MIN_V ? '<span style="color:var(--amber)">' + r.v + ' ⚠ قديم</span>' : r.v + ' ✓') : '—';
+    return '<tr><td><b>' + esc(t.name || (t.legacy ? 'الشركة الأولى' : c)) + '</b>' + (t.legacy ? ' <small class="hint">(legacy)</small>' : '') + '</td><td><code>' + esc(c) + '</code></td><td>' + srv + '</td><td>' + v + '</td><td>' + (r && r.ok ? (r.conf ? '✓' : '<span style="color:var(--amber)">✗ لم يُجهَّز</span>') : '—') + '</td><td class="lnkc">' + (r ? (r.ms / 1000).toFixed(1) + ' ث' : '') + '</td><td><button class="btn sm" type="button" data-cp="' + esc(team(c)) + '">نسخ الرابط</button></td></tr>';
+  }
+  function draw() { $('#tb').innerHTML = codes.length ? codes.map(row).join('') : '<tr><td colspan="7" class="hint">لا توجد شركات في config.js</td></tr>'; kp(); }
+  function all() { res = {}; draw(); codes.forEach(function (c) { if (T[c].webapp) ping(T[c].webapp).then(function (r) { res[c] = r; draw(); }); }); }
+  $('#tb').addEventListener('click', function (e) { var b = e.target.closest('[data-cp]'); if (b) copy(b.dataset.cp, b); });
+  $('#re').onclick = all; all();
+  var line = '';
+  $('#aGo').onclick = function () {
+    var n = $('#aName').value.trim(), c = $('#aCode').value.trim().toLowerCase(), u = $('#aUrl').value.trim(), lg = $('#aLogo').value.trim(), out = $('#aRes'), bad = [];
+    if (!n) bad.push('اكتب اسم الشركة');
+    if (!/^[a-z0-9-]{2,30}$/.test(c)) bad.push('الرمز: 2–30 حرفاً إنجليزياً صغيراً أو رقماً أو -');
+    else if (T[c]) bad.push('الرمز مستخدم');
+    if (!WEB.test(u)) bad.push('رابط الخادم غير صالح (…/exec)');
+    $('#aCp').hidden = $('#aMsg').hidden = true;
+    if (bad.length) { out.innerHTML = '<div class="out" style="direction:rtl;text-align:right;color:var(--red)">' + bad.map(esc).join('<br>') + '</div>'; return; }
+    out.innerHTML = '<div class="hint">جارٍ فحص الخادم…</div>';
+    ping(u).then(function (r) {
+      line = '    ' + c + ": { name: '" + n.replace(/\\/g, '').replace(/'/g, "\\'") + "', webapp: \"" + u + '"' + (lg ? ", logo: '" + lg.replace(/'/g, '') + "'" : '') + ' },';
+      var st = r.ok ? '✓ الخادم يعمل · إصدار ' + r.v + (r.v < MIN_V ? ' (قديم)' : '') + (r.conf ? ' · مربوط بالملف' : ' · لم يُجهَّز: يشغّل العميل setupNewCompany') : '⚠ ' + r.why + ' — يمكنك الإضافة الآن والفحص لاحقاً';
+      out.innerHTML = '<div class="hint" style="margin-top:8px">' + esc(st) + '</div><div class="out">' + esc(line) + '</div><div class="hint">رابط الفريق: <span class="lnkc">' + esc(team(c)) + '</span></div>';
+      $('#aCp').hidden = $('#aMsg').hidden = false;
+      $('#aMsg').dataset.t = 'تم تفعيل ' + n + ' على منظومة تحركات الحجاج ✅\nرابط شركتكم: ' + team(c) + '\nادخل باسم المدير وكلمة المرور التي ضبطتها في Script properties، ثم أضف فريقك من ☰ ← 👥 المستخدمون.';
+    });
+  };
+  $('#aCp').onclick = function () { copy(line, this); };
+  $('#aMsg').onclick = function () { copy(this.dataset.t, this); };
+})();
+</script>
+</body>
+</html>

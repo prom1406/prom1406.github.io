@@ -920,6 +920,50 @@ function backupDaily_(on) {
 // تُستدعى من المشغّل اليومي
 function dailyBackup() { try { backupNow_('يومي تلقائي'); } catch (e) { } }
 
+/* ============================ تجهيز ملف شركة جديدة ============================ */
+// تُشغَّل مرة واحدة من محرر Apps Script (اختر setupNewCompany ثم ▶ تشغيل) أو من قائمة «منظومة الحجاج» في الملف.
+// تُنشئ التبويبات وعناوين الأعمدة الناقصة فقط (لا تمس بيانات موجودة)، وتربط الخادم بهذا الملف تلقائياً.
+const TEMPLATE_ = {
+  Arrival:   ['Name', 'Passport', 'Nationality', 'Flight', 'Airline', 'Date', 'Time', 'Airport', 'Arrival City', 'Hotel', 'Stay City', 'Room', 'Group', 'Phone', 'Check', 'Check_At', 'Check_By'],
+  Departure: ['Name', 'Passport', 'Nationality', 'Flight', 'Airline', 'Date', 'Time', 'Airport', 'Departure City', 'Hotel', 'Stay City', 'Room', 'Group', 'Phone', 'Check_De', 'Check_De_At', 'Check_De_By'],
+  Transfers: ['Passport', 'الفندق 1', 'المدينة 1', 'تاريخ الدخول 1', 'تاريخ الخروج 1', 'الفندق 2', 'المدينة 2', 'تاريخ الدخول 2', 'تاريخ الخروج 2', 'الفندق 3', 'المدينة 3', 'تاريخ الدخول 3', 'تاريخ الخروج 3', 'الفندق 4', 'المدينة 4', 'تاريخ الدخول 4', 'تاريخ الخروج 4'],
+  Main:      ['Passport', 'First_Name', 'Last_Name', 'Nationality', 'Phone']
+};
+const TEXT_COLS_ = /^(passport|date|time|phone|room)$|تاريخ/i;   // تبقى نصاً كي لا يحوّلها الجدول إلى أرقام أو تواريخ
+function setupNewCompany() {
+  const ss = CONFIG.SPREADSHEET_ID ? SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('افتح Apps Script من داخل ملف Google Sheets (الإضافات ← Apps Script) ثم شغّل الدالة');
+  const done = [];
+  Object.keys(TEMPLATE_).forEach(function (name) {
+    let sh = ss.getSheetByName(name), heads = TEMPLATE_[name];
+    if (!sh) { sh = ss.insertSheet(name); done.push('أُنشئ تبويب ' + name); }
+    if (sh.getLastRow() === 0) {
+      sh.getRange(1, 1, 1, heads.length).setValues([heads]).setFontWeight('bold').setBackground('#07182D').setFontColor('#E3C98A');
+      sh.setFrozenRows(1);
+      heads.forEach(function (h, i) { if (TEXT_COLS_.test(h)) sh.getRange(1, i + 1, sh.getMaxRows(), 1).setNumberFormat('@'); });
+      done.push('عناوين ' + name);
+    } else {   // تبويب فيه بيانات: أضف أعمدة التأكيد الناقصة فقط في آخره
+      const cur = sh.getRange(1, 1, 1, Math.max(1, sh.getLastColumn())).getDisplayValues()[0];
+      const need = heads.filter(function (h) { return /^Check/.test(h) && findCol_(cur, h) < 0; });
+      if (need.length) { sh.getRange(1, cur.length + 1, 1, need.length).setValues([need]).setFontWeight('bold'); done.push('أعمدة ' + need.join('، ') + ' في ' + name); }
+    }
+  });
+  const P = PropertiesService.getScriptProperties();
+  if (!settings_()) { P.setProperty(PROP_KEY, JSON.stringify(clean_({ source: { link: ss.getUrl(), arrivalTab: 'Arrival', departureTab: 'Departure' }, perms: { confirm: 'all' } }, null))); done.push('رُبط الخادم بهذا الملف'); }
+  const miss = ['OWNER_USER', 'OWNER_PASSWORD'].filter(function (k) { return !P.getProperty(k); });
+  const msg = (done.length ? '✓ ' + done.join(' · ') : '✓ الملف جاهز مسبقاً') +
+    (miss.length ? '\n⚠ أضف في Project Settings ← Script properties: ' + miss.join(' و ') : '\n✓ حساب المدير مضبوط') +
+    '\nالخطوة التالية: نشر ← نشر جديد ← تطبيق ويب (التنفيذ: أنا · الوصول: أي شخص) ثم أرسل رابط /exec لمزوّد المنظومة.';
+  console.log(msg);
+  try { SpreadsheetApp.getUi().alert('منظومة الحجاج', msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) { }
+  return msg;
+}
+// قائمة في الملف نفسه (للسكربت المرتبط بالملف)
+function onOpen() {
+  try { SpreadsheetApp.getUi().createMenu('منظومة الحجاج').addItem('تجهيز الملف (مرة واحدة)', 'setupNewCompany').addItem('نسخة احتياطية الآن', 'menuBackup').addToUi(); } catch (e) { }
+}
+function menuBackup() { const r = backupNow_('يدوي من القائمة'); try { SpreadsheetApp.getUi().alert(r.ok ? 'تمت النسخة: ' + r.made.join('، ') : 'تعذّرت النسخة: ' + r.error); } catch (e) { } }
+
 /* ============================ سجل التأكيدات ============================ */
 // يمنع تحويل نص يبدأ بـ = + - @ إلى معادلة في الجدول
 function cell_(v) { v = String(v == null ? '' : v); return /^[=+\-@]/.test(v) ? "'" + v : v; }
