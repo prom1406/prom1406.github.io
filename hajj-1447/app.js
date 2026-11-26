@@ -659,53 +659,91 @@ const { esc, normAr, ST, ST_LABEL } = C;
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
 /* ---------------- الشركات (العملاء): كل شركة لها ملفها وخادمها، والموقع واحد ----------------
-   السجل في config.js ← window.HAJJ_CONFIG.tenants = { رمز: { name, webapp, logo?, legacy? } }
-   الشركة تُحدَّد من الرابط ?c=رمز وتُحفظ في الجهاز. ما يُحفظ في المتصفح منفصل لكل شركة. */
+   • شركة المزوّد (legacy) في config.js ← HAJJ_CONFIG.tenants
+   • بقية الشركات في «سجل الشركات» على خادم المزوّد (HAJJ_CONFIG.registry) — غير منشور، ويُسأل عن الشركة برمزها فقط،
+     ثم تُحفظ بياناتها في الجهاز. الشركة تُحدَّد من الرابط ?c=رمز. ما يُحفظ في المتصفح منفصل لكل شركة. */
 const TENANTS = (window.HAJJ_CONFIG && window.HAJJ_CONFIG.tenants) || {};
-const T_KEY = 'hajj1447.tenant';
+const REGISTRY = (window.HAJJ_CONFIG && window.HAJJ_CONFIG.registry) || '';
+const T_KEY = 'hajj1447.tenant', REG_LS = 'hajj1447.reg';
+const CODE_RE = /^[a-z0-9-]{2,30}$/;
+const regCache = (() => { try { return JSON.parse(localStorage.getItem(REG_LS) || '{}') || {}; } catch (e) { return {}; } })();
+const regSaveLS = () => { try { localStorage.setItem(REG_LS, JSON.stringify(regCache)); } catch (e) { } };
+const tenantOf = c => TENANTS[c] || regCache[c] || null;
+// يسأل خادم المزوّد عن شركة برمزها: {ok, name, webapp, logo} | {ok:false, error:'not_found'} | null عند تعذّر الاتصال
+async function regLookup(c) {
+  if (!REGISTRY || !CODE_RE.test(c)) return { ok: false, error: 'not_found' };
+  try { const r = await fetch(REGISTRY + '?action=reg_get&c=' + encodeURIComponent(c) + '&t=' + Date.now(), { cache: 'no-store' }); return JSON.parse(await r.text()); }
+  catch (e) { return null; }
+}
 const TEN = (() => {
   const raw = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
   // توافق: config.js قديم برابط خادم واحد بلا سجل شركات
   if (!Object.keys(TENANTS).length && window.HAJJ_CONFIG && window.HAJJ_CONFIG.webapp) TENANTS.main = { name: '', webapp: window.HAJJ_CONFIG.webapp, legacy: true };
   let q = ''; try { q = (new URLSearchParams(location.search).get('c') || '').trim().toLowerCase(); } catch (e) { }
-  const saved = raw(T_KEY), one = Object.keys(TENANTS).length === 1 ? Object.keys(TENANTS)[0] : '';
+  const saved = raw(T_KEY), one = !REGISTRY && Object.keys(TENANTS).length === 1 ? Object.keys(TENANTS)[0] : '';
   let code = '';
-  if (q && TENANTS[q]) code = q;
-  else if (saved && TENANTS[saved]) code = saved;
-  else if (saved !== '-') {
+  if (q && tenantOf(q)) code = q;
+  else if (!q && saved && tenantOf(saved)) code = saved;
+  else if (!q && saved !== '-') {
     // من استخدم المنظومة قبل تعدد الشركات: يبقى على شركته دون أن يُطلب منه رمز
     const leg = Object.keys(TENANTS).find(k => TENANTS[k].legacy);
     if (leg && raw('hajj1447.conn')) code = leg;
-    else if (one && !q) code = one;
+    else if (one) code = one;
   }
   if (code) try { localStorage.setItem(T_KEY, code); } catch (e) { }
-  const t = code ? TENANTS[code] : null;
-  return { code, t, bad: q && !TENANTS[q] ? q : '', many: Object.keys(TENANTS).length > 1, prefix: t && !t.legacy ? 'hajj1447.t.' + code + '.' : '' };
+  const t = code ? tenantOf(code) : null;
+  return { code, t, ask: q && !code && CODE_RE.test(q) ? q : '', bad: q && !code && !CODE_RE.test(q) ? q : '', fromReg: !!(code && !TENANTS[code]),
+    many: !!REGISTRY || Object.keys(TENANTS).length > 1, prefix: t && !t.legacy ? 'hajj1447.t.' + code + '.' : '' };
 })();
 window.HAJJ_CONFIG = window.HAJJ_CONFIG || {};
 window.HAJJ_CONFIG.webapp = TEN.t ? (TEN.t.webapp || '') : '';
 const BRAND = (TEN.t && TEN.t.name) || 'منظومة تحركات الحجاج';
-// مفاتيح التخزين: تُسبق برمز الشركة (عدا السمة ورمز الشركة نفسه). الشركة القديمة تبقى على مفاتيحها كما هي
-const nk = k => (TEN.prefix && /^hajj1447\./.test(k) && k !== 'hajj1447.theme' && k !== T_KEY) ? TEN.prefix + k.slice(9) : k;
+// مفاتيح التخزين: تُسبق برمز الشركة (عدا السمة ورمز الشركة وسجلها). الشركة القديمة تبقى على مفاتيحها كما هي
+const nk = k => (TEN.prefix && /^hajj1447\./.test(k) && k !== 'hajj1447.theme' && k !== T_KEY && k !== REG_LS) ? TEN.prefix + k.slice(9) : k;
 const wrapStore = st => ({ getItem: k => st.getItem(nk(k)), setItem: (k, v) => st.setItem(nk(k), v), removeItem: k => st.removeItem(nk(k)) });
 const LS = wrapStore(window.localStorage), SS = wrapStore(window.sessionStorage);
 function switchTenant() {
   try { localStorage.setItem(T_KEY, '-'); } catch (e) { }
   location.href = location.pathname.replace(/[^/]*$/, '') + 'index.html';
 }
+// يحوّل الجهاز إلى شركة برمزها (من config.js أو من سجل المزوّد). يعيد رسالة خطأ أو '' عند النجاح
+async function goTenant(c) {
+  c = String(c || '').trim().toLowerCase();
+  if (!TENANTS[c]) {
+    const r = await regLookup(c);
+    if (!r) return 'تعذّر الاتصال — تحقق من الإنترنت وأعد المحاولة';
+    if (!r.ok) return r.error === 'busy' ? 'محاولات كثيرة — انتظر دقائق' : 'رمز غير معروف — تأكد منه مع مسؤول شركتك';
+    regCache[c] = { name: r.name, webapp: r.webapp, logo: r.logo || '', ts: Date.now() }; regSaveLS();
+  }
+  try { localStorage.setItem(T_KEY, c); } catch (e) { }
+  location.replace(location.pathname + '?c=' + encodeURIComponent(c));
+  return '';
+}
+// تحديث بيانات الشركة المحفوظة من سجل المزوّد (تغيّر اسمها أو رابط خادمها أو أُوقفت)
+async function regRefresh() {
+  if (!TEN.fromReg) return;
+  const r = await regLookup(TEN.code); if (!r) return;
+  if (!r.ok && r.error === 'not_found') { delete regCache[TEN.code]; regSaveLS(); try { localStorage.setItem(T_KEY, '-'); } catch (e) { } location.reload(); return; }
+  if (r.ok) {
+    const o = regCache[TEN.code] || {}, changed = o.webapp !== r.webapp || o.name !== r.name || (o.logo || '') !== (r.logo || '');
+    regCache[TEN.code] = { name: r.name, webapp: r.webapp, logo: r.logo || '', ts: Date.now() }; regSaveLS();
+    if (changed) location.reload();
+  }
+}
 // اختيار الشركة: أول فتح بلا رمز، أو رمز غير معروف
-function openTenantPick() {
+function openTenantPick(msg) {
   const ov = document.createElement('div'); ov.className = 'ov gate';
   ov.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><h3>رمز الشركة</h3><p class="hint">اكتب رمز شركتك كما وصلك من مسؤول المنظومة في شركتك. يُطلب مرة واحدة على هذا الجهاز.</p>' +
     '<div class="set"><label class="full">الرمز<input id="tcI" dir="ltr" autocapitalize="off" autocomplete="organization" spellcheck="false" placeholder="مثال: alnoor"></label></div>' +
-    '<div id="tcM" class="hint" style="min-height:20px">' + (TEN.bad ? '<span style="color:var(--red)">✗ الرمز «' + esc(TEN.bad) + '» غير معروف — تأكد منه مع مسؤول شركتك</span>' : '') + '</div>' +
+    '<div id="tcM" class="hint" style="min-height:20px">' + (msg ? '<span style="color:var(--red)">✗ ' + esc(msg) + '</span>' : TEN.bad ? '<span style="color:var(--red)">✗ الرمز «' + esc(TEN.bad) + '» غير صالح</span>' : '') + '</div>' +
     '<div class="act"><button class="btn gold" id="tcOk" type="button">متابعة</button></div><p class="hint" style="text-align:center;margin-top:12px">شركتك جديدة على المنظومة؟ <a class="lnk" href="setup.html">دليل التجهيز</a></p></div>';
   document.body.appendChild(ov);
-  const go = () => {
-    const v = $('#tcI', ov).value.trim().toLowerCase();
-    if (!TENANTS[v]) { $('#tcM', ov).innerHTML = '<span style="color:var(--red)">✗ رمز غير معروف — تأكد منه مع مسؤول شركتك</span>'; return; }
-    try { localStorage.setItem(T_KEY, v); } catch (e) { }
-    location.replace(location.pathname + '?c=' + encodeURIComponent(v));
+  const go = async () => {
+    const b = $('#tcOk', ov), v = $('#tcI', ov).value.trim().toLowerCase();
+    if (!CODE_RE.test(v)) { $('#tcM', ov).innerHTML = '<span style="color:var(--red)">✗ الرمز حروف إنجليزية وأرقام فقط</span>'; return; }
+    b.disabled = true; $('#tcM', ov).textContent = 'جارٍ التحقق…';
+    const err = await goTenant(v);
+    if (err) { b.disabled = false; $('#tcM', ov).innerHTML = '<span style="color:var(--red)">✗ ' + esc(err) + '</span>'; }
   };
   $('#tcOk', ov).onclick = go; ov.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
   setTimeout(() => { const i = $('#tcI', ov); if (i) i.focus(); }, 50);
@@ -4105,7 +4143,11 @@ async function boot() {
   let th = 'dark'; try { th = LS.getItem(LS_THEME) || 'dark'; } catch (e) { }
   document.documentElement.dataset.theme = th;
   const page = document.body.dataset.page;
-  if (!TEN.code) { openTenantPick(); return; }
+  if (!TEN.code) {
+    if (TEN.ask) { const err = await goTenant(TEN.ask); if (err) openTenantPick(err); return; }   // رابط ?c= لشركة غير محفوظة بعد: اسأل سجل المزوّد
+    openTenantPick(); return;
+  }
+  regRefresh();
   if (TEN.t && TEN.t.name) document.title = document.title.replace('حجاج 1447هـ', TEN.t.name);
   if (page === 'index') ensureChart();
   kindsInUse = page === 'index' ? ['arrival', 'departure', 'transfers'] : (page === 'pilgrim' || page === 'follow') ? ['arrival', 'departure', 'transfers'] : page === 'transfers' ? ['transfers', 'arrival'] : [page];

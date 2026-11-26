@@ -44,7 +44,7 @@ const CONFIG = {
 
 const PROP_KEY = 'HAJJ_SETTINGS';
 // رقم إصدار الخادم: يرتفع مع كل تحديث يحتاج نشراً جديداً، والموقع ينبّه مدير الشركة إن كان خادمه أقدم
-const SERVER_V = 5;
+const SERVER_V = 6;
 let OWNER_U_ = null;
 function ownerUser_() {
   if (OWNER_U_ === null) OWNER_U_ = String(PropertiesService.getScriptProperties().getProperty('OWNER_USER') || CONFIG.OWNER_USER || '').trim().toLowerCase();
@@ -57,7 +57,7 @@ function doGet(e) {
   try {
     const act = String(p.action || '');
     const ctx = auth_(p); p.ctx_ = ctx;
-    if (act && act !== 'public' && act !== 'login' && !ctx) return json_({ ok: false, error: 'auth' });
+    if (act && act !== 'public' && act !== 'login' && act !== 'reg_get' && !ctx) return json_({ ok: false, error: 'auth' });
     if (ctx && ctx.mustChange && ['public', 'whoami', 'logout', 'change_password'].indexOf(act) < 0) return json_({ ok: false, error: 'must_change' });
     switch (act) {
       case 'public':      return json_(publicInfo_(ctx));
@@ -83,6 +83,9 @@ function doGet(e) {
       case 'fc_lookup':   return json_(fcLookup_(payload_(p), ctx));
       case 'appr_get':    return json_(memo_('appr', 15, apprGet_));
       case 'appr_set':    return json_(apprSet_(payload_(p), ctx));
+      case 'reg_get':     return json_(regGet_(p));
+      case 'reg_list':    requireOwner_(ctx); return json_({ ok: true, items: regRead_() });
+      case 'reg_save':    requireOwner_(ctx); return json_(regSave_(payload_(p), ctx));
       case 'tasks_get':   return json_(memo_('tasks', 15, tasksGet_));
       case 'task_set':    return json_(taskSet_(payload_(p), ctx));
       case 'team_get':    return json_(teamGet_(ctx));
@@ -773,6 +776,45 @@ function fcLookup_(req, ctx) {
   const item = { key: key, flight: flight, airline: fcClean_(req.airline, 60), date: date, status: res.found ? 'ok' : 'notfound', official: res.official || '', mode: 'auto', note: res.found ? '' : 'لم يجد المزوّد رحلة بهذا الرقم في هذا اليوم', by: 'تلقائي' };
   fcWrite_(st, item); item.at = new Date().toISOString();
   return { ok: true, item: item };
+}
+
+/* ============================ سجل الشركات (خادم مزوّد المنظومة فقط) ============================ */
+// يُحفظ في خصائص هذا السكربت لا في ملف عام، فلا تظهر قائمة العملاء لأحد.
+// reg_get: يعيد شركة واحدة برمزها (يحتاجه الموقع ليعرف خادمها)؛ reg_list و reg_save: للمالك فقط (لوحة حالة الشركات).
+// في خوادم العملاء يبقى السجل فارغاً فلا أثر له.
+const REG_KEY = 'HAJJ_TENANTS';
+const CODE_RE_ = /^[a-z0-9-]{2,30}$/;
+const WEBAPP_RE_ = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec$/;
+function regRead_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(REG_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function regGet_(p) {
+  const c = String(p.c || '').trim().toLowerCase();
+  const n = Number(cache_().get('rg_n') || 0);                 // حد بسيط ضد تخمين الرموز بكثرة
+  if (n > 600) return { ok: false, error: 'busy' };
+  try { cache_().put('rg_n', String(n + 1), 600); } catch (e) { }
+  const t = CODE_RE_.test(c) ? regRead_()[c] : null;
+  if (!t || t.off) return { ok: false, error: 'not_found' };
+  return { ok: true, code: c, name: t.name, webapp: t.webapp, logo: t.logo || '' };
+}
+function regSave_(req, ctx) {
+  const c = String(req.code || '').trim().toLowerCase();
+  if (!CODE_RE_.test(c)) return { ok: false, error: 'الرمز: 2–30 حرفاً إنجليزياً صغيراً أو رقماً أو -' };
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const m = regRead_();
+    if (req.remove === true) { delete m[c]; activity_(ctx, 'حذف شركة', c); }
+    else {
+      const name = str_(req.name, 80), webapp = str_(req.webapp, 300), logo = str_(req.logo, 120);
+      if (!name) return { ok: false, error: 'اكتب اسم الشركة' };
+      if (!WEBAPP_RE_.test(webapp)) return { ok: false, error: 'رابط الخادم غير صالح (…/exec)' };
+      if (logo && !/^[A-Za-z0-9_\/.-]+\.(png|jpe?g|svg|webp)$/.test(logo)) return { ok: false, error: 'مسار الشعار غير صالح' };
+      if (req.isNew === true && m[c]) return { ok: false, error: 'الرمز مستخدم' };
+      m[c] = { name: name, webapp: webapp, logo: logo, off: req.off === true, at: nowStr_() };
+      activity_(ctx, req.isNew ? 'إضافة شركة' : 'تعديل شركة', c + (req.off === true ? ' · موقوفة' : ''));
+    }
+    PropertiesService.getScriptProperties().setProperty(REG_KEY, JSON.stringify(m));
+    return { ok: true, items: m };
+  } finally { try { lock.releaseLock(); } catch (x) { } }
 }
 
 /* ============================ إسناد المهام واستلام التنبيهات ============================ */
