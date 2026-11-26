@@ -672,8 +672,11 @@ const tenantOf = c => TENANTS[c] || regCache[c] || null;
 // يسأل خادم المزوّد عن شركة برمزها: {ok, name, webapp, logo} | {ok:false, error:'not_found'} | null عند تعذّر الاتصال
 async function regLookup(c) {
   if (!REGISTRY || !CODE_RE.test(c)) return { ok: false, error: 'not_found' };
-  try { const r = await fetch(REGISTRY + '?action=reg_get&c=' + encodeURIComponent(c) + '&t=' + Date.now(), { cache: 'no-store' }); return JSON.parse(await r.text()); }
+  let txt = '';
+  try { const r = await fetch(REGISTRY + '?action=reg_get&c=' + encodeURIComponent(c) + '&t=' + Date.now(), { cache: 'no-store' }); txt = await r.text(); }
   catch (e) { return null; }
+  try { return JSON.parse(txt); }
+  catch (e) { return { ok: false, error: 'bad_response', text: txt.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) }; }
 }
 const TEN = (() => {
   const raw = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
@@ -711,8 +714,13 @@ async function goTenant(c) {
   c = String(c || '').trim().toLowerCase();
   if (!TENANTS[c]) {
     const r = await regLookup(c);
-    if (!r) return 'تعذّر الاتصال — تحقق من الإنترنت وأعد المحاولة';
-    if (!r.ok) return r.error === 'busy' ? 'محاولات كثيرة — انتظر دقائق' : 'رمز غير معروف — تأكد منه مع مسؤول شركتك';
+    if (!r) return 'تعذّر الوصول إلى خادم المزوّد — تحقق من الإنترنت، أو أن نشر Code.gs «أي شخص»';
+    if (!r.ok) {
+      if (r.error === 'busy') return 'محاولات كثيرة — انتظر دقائق';
+      if (r.error === 'bad_response') return 'خادم المزوّد ردّ بصفحة خطأ بدل البيانات: «' + (r.text || '—') + '» — يلزم مراجعة نشر Code.gs على خادم المزوّد';
+      if (r.error === 'auth' || /إجراء غير معروف/.test(r.error || '')) return 'خادم المزوّد يعمل بإصدار قديم من Code.gs (قبل سجل الشركات) — انشر الإصدار 6';
+      return 'رمز غير معروف — تأكد منه مع مسؤول شركتك';
+    }
     regCache[c] = { name: r.name, webapp: r.webapp, logo: r.logo || '', ts: Date.now() }; regSaveLS();
   }
   try { localStorage.setItem(T_KEY, c); } catch (e) { }
