@@ -866,3 +866,9 @@ body.n-exp #xXls,body.n-exp #xPdf,body.n-exp #xPrint,body.n-exp #xWa,body.n-exp 
 }
 @media print{.own,.ackb,.obx,.hmenu{display:none!important}.gtbl th.c-act,.gtbl td.c-act{position:static;box-shadow:none}}
 @media(max-width:760px){.alist li{flex-wrap:wrap}.alist li .aact{width:100%;justify-content:flex-start;margin-inline-start:34px}}
+
+/* ---- تعدد الشركات ---- */
+.svold{margin:12px 22px 0;padding:10px 14px;border-radius:12px;border:1px solid #E0A21B;background:rgba(245,165,36,.12);color:#fcd34d;font-size:13.5px}
+.svold span{color:var(--ink)}[data-theme=light] .svold{color:#8A5A00;background:#FFF8E1}
+.lnk{all:unset;cursor:pointer;color:var(--gold);text-decoration:underline;font-weight:700}
+.brand .logo img,.gatelogo img{width:100%;height:100%;object-fit:contain;border-radius:inherit}

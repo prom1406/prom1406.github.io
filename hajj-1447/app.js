@@ -658,6 +658,61 @@ const C = window.HajjCore;
 const { esc, normAr, ST, ST_LABEL } = C;
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+/* ---------------- الشركات (العملاء): كل شركة لها ملفها وخادمها، والموقع واحد ----------------
+   السجل في config.js ← window.HAJJ_CONFIG.tenants = { رمز: { name, webapp, logo?, legacy? } }
+   الشركة تُحدَّد من الرابط ?c=رمز وتُحفظ في الجهاز. ما يُحفظ في المتصفح منفصل لكل شركة. */
+const TENANTS = (window.HAJJ_CONFIG && window.HAJJ_CONFIG.tenants) || {};
+const T_KEY = 'hajj1447.tenant';
+const TEN = (() => {
+  const raw = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+  // توافق: config.js قديم برابط خادم واحد بلا سجل شركات
+  if (!Object.keys(TENANTS).length && window.HAJJ_CONFIG && window.HAJJ_CONFIG.webapp) TENANTS.main = { name: '', webapp: window.HAJJ_CONFIG.webapp, legacy: true };
+  let q = ''; try { q = (new URLSearchParams(location.search).get('c') || '').trim().toLowerCase(); } catch (e) { }
+  const saved = raw(T_KEY), one = Object.keys(TENANTS).length === 1 ? Object.keys(TENANTS)[0] : '';
+  let code = '';
+  if (q && TENANTS[q]) code = q;
+  else if (saved && TENANTS[saved]) code = saved;
+  else if (saved !== '-') {
+    // من استخدم المنظومة قبل تعدد الشركات: يبقى على شركته دون أن يُطلب منه رمز
+    const leg = Object.keys(TENANTS).find(k => TENANTS[k].legacy);
+    if (leg && raw('hajj1447.conn')) code = leg;
+    else if (one && !q) code = one;
+  }
+  if (code) try { localStorage.setItem(T_KEY, code); } catch (e) { }
+  const t = code ? TENANTS[code] : null;
+  return { code, t, bad: q && !TENANTS[q] ? q : '', many: Object.keys(TENANTS).length > 1, prefix: t && !t.legacy ? 'hajj1447.t.' + code + '.' : '' };
+})();
+window.HAJJ_CONFIG = window.HAJJ_CONFIG || {};
+window.HAJJ_CONFIG.webapp = TEN.t ? (TEN.t.webapp || '') : '';
+const BRAND = (TEN.t && TEN.t.name) || 'منظومة تحركات الحجاج';
+// مفاتيح التخزين: تُسبق برمز الشركة (عدا السمة ورمز الشركة نفسه). الشركة القديمة تبقى على مفاتيحها كما هي
+const nk = k => (TEN.prefix && /^hajj1447\./.test(k) && k !== 'hajj1447.theme' && k !== T_KEY) ? TEN.prefix + k.slice(9) : k;
+const wrapStore = st => ({ getItem: k => st.getItem(nk(k)), setItem: (k, v) => st.setItem(nk(k), v), removeItem: k => st.removeItem(nk(k)) });
+const LS = wrapStore(window.localStorage), SS = wrapStore(window.sessionStorage);
+function switchTenant() {
+  try { localStorage.setItem(T_KEY, '-'); } catch (e) { }
+  location.href = location.pathname.replace(/[^/]*$/, '') + 'index.html';
+}
+// اختيار الشركة: أول فتح بلا رمز، أو رمز غير معروف
+function openTenantPick() {
+  const ov = document.createElement('div'); ov.className = 'ov gate';
+  ov.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><h3>رمز الشركة</h3><p class="hint">اكتب رمز شركتك كما وصلك من مسؤول المنظومة في شركتك. يُطلب مرة واحدة على هذا الجهاز.</p>' +
+    '<div class="set"><label class="full">الرمز<input id="tcI" dir="ltr" autocapitalize="off" autocomplete="organization" spellcheck="false" placeholder="مثال: alnoor"></label></div>' +
+    '<div id="tcM" class="hint" style="min-height:20px">' + (TEN.bad ? '<span style="color:var(--red)">✗ الرمز «' + esc(TEN.bad) + '» غير معروف — تأكد منه مع مسؤول شركتك</span>' : '') + '</div>' +
+    '<div class="act"><button class="btn gold" id="tcOk" type="button">متابعة</button></div></div>';
+  document.body.appendChild(ov);
+  const go = () => {
+    const v = $('#tcI', ov).value.trim().toLowerCase();
+    if (!TENANTS[v]) { $('#tcM', ov).innerHTML = '<span style="color:var(--red)">✗ رمز غير معروف — تأكد منه مع مسؤول شركتك</span>'; return; }
+    try { localStorage.setItem(T_KEY, v); } catch (e) { }
+    location.replace(location.pathname + '?c=' + encodeURIComponent(v));
+  };
+  $('#tcOk', ov).onclick = go; ov.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  setTimeout(() => { const i = $('#tcI', ov); if (i) i.focus(); }, 50);
+}
+// يُبقي رمز الشركة ظاهراً في الرابط (حتى يُثبَّت التطبيق على الجوال على الشركة الصحيحة)
+if (TEN.code && !TEN.t.legacy) { try { const u = new URL(location.href); if (u.searchParams.get('c') !== TEN.code) { u.searchParams.set('c', TEN.code); history.replaceState(null, '', u); } } catch (e) { } }
+
 const LS_VIEW = 'hajj1447.view', LS_CONN = 'hajj1447.conn', LS_PUB = 'hajj1447.pub', LS_THEME = 'hajj1447.theme', LS_BADGE = 'hajj1447.badges';
 const LIBS = {
   xlsx: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
@@ -670,8 +725,8 @@ function merge(a, b) { for (const k in b) { if (b[k] && typeof b[k] === 'object'
 const WEB_RE = /^https:\/\/script\.google\.com\/(a\/macros\/[A-Za-z0-9.-]+|macros)\/s\/[A-Za-z0-9_-]+\/exec$/;
 // الاتصال المحفوظ في هذا المتصفح: رابط الخادم (عام) وجلسة المالك فقط. الإعدادات نفسها تأتي من الخادم.
 const CONN = { webapp: '', session: '', user: null };
-try { Object.assign(CONN, JSON.parse(localStorage.getItem(LS_CONN) || '{}')); } catch (e) { }
-const saveConn = () => { try { localStorage.setItem(LS_CONN, JSON.stringify({ webapp: CONN.webapp, session: CONN.session, user: CONN.user })); } catch (e) { } };
+try { Object.assign(CONN, JSON.parse(LS.getItem(LS_CONN) || '{}')); } catch (e) { }
+const saveConn = () => { try { LS.setItem(LS_CONN, JSON.stringify({ webapp: CONN.webapp, session: CONN.session, user: CONN.user })); } catch (e) { } };
 const REMOTE = { configured: false, owner: false, email: '', error: '', locked: false, user: null };
 let S = clone(C.DEFAULTS);
 function applyRemote(st) { S = merge(clone(C.DEFAULTS), st || {}); S.webapp = CONN.webapp; S.readVia = 'webapp'; }
@@ -821,7 +876,7 @@ async function loadNames(force) {
   try {
     const j = await api('names_get'); if (!j.ok || !j.items) { NAMES.err = j.error || ''; return; }
     NAMES.map = j.items; NAMES.err = '';
-    try { localStorage.setItem('hajj1447.names', JSON.stringify(j.items)); } catch (e) { }
+    try { LS.setItem('hajj1447.names', JSON.stringify(j.items)); } catch (e) { }
     ['arrival', 'departure'].forEach(k => { if (state.data[k]) applyNames(state.data[k].records); });
   } catch (e) { NAMES.err = String(e.message || e); }
 }
@@ -933,7 +988,7 @@ async function trSetAppr(key, label, on) {
   if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ forbidden: 'ليست لديك صلاحية لهذا الإجراء', auth: 'انتهت الجلسة', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
   if (!st) delete state.appr[key]; else state.appr[key] = { key, status: st, by: auth.by };
   guardSet('appr', key, st ? state.appr[key] : null);
-  try { localStorage.setItem('hajj1447.appr', JSON.stringify(state.appr)); } catch (x) { }
+  try { LS.setItem('hajj1447.appr', JSON.stringify(state.appr)); } catch (x) { }
 }
 
 
@@ -1084,7 +1139,7 @@ async function loadReady() {
   try {
     const j = await api('ready_get'); if (!j.ok || !Array.isArray(j.items)) return;
     const m = {}; (j.items || []).forEach(x => { m[x.key] = x; }); guardMerge('ready', m); state.ready = m;
-    try { localStorage.setItem('hajj1447.ready', JSON.stringify(m)); } catch (e) { }
+    try { LS.setItem('hajj1447.ready', JSON.stringify(m)); } catch (e) { }
   } catch (e) { }
 }
 
@@ -1131,7 +1186,7 @@ async function loadFc() {
   try {
     const j = await api('fc_get'); if (!j.ok || !Array.isArray(j.items)) return;
     const m = {}; j.items.forEach(x => { m[x.key] = x; }); guardMerge('fc', m); state.fc = m; fcServer = j.lookup === true ? true : (fcServer === true ? true : false);
-    try { localStorage.setItem('hajj1447.fc', JSON.stringify(m)); } catch (e) { }
+    try { LS.setItem('hajj1447.fc', JSON.stringify(m)); } catch (e) { }
   } catch (e) { }
 }
 function fcGroupsAll() { return fcGroups(); }
@@ -1139,7 +1194,7 @@ function fcGroups() { return ['arrival', 'departure'].flatMap(k => { const d = s
 async function fcLookup(g, quiet) {
   const sch = fcSched(g), code = fcCode(g); if (!code || !sch) return { ok: false, error: 'no_code' };
   const j = await api('fc_lookup', {}, { key: fcKeyOf(g), label: 'رحلة ' + g.flight, flight: code, airline: g.airline || '', role: fcKind(g), date: fcDate(sch), sched: fcDate(sch) + ' ' + C.fmtTime(sch) });
-  if (j.ok && j.item) { state.fc[j.item.key] = j.item; guardSet('fc', j.item.key, j.item); try { localStorage.setItem('hajj1447.fc', JSON.stringify(state.fc)); } catch (x) { } }
+  if (j.ok && j.item) { state.fc[j.item.key] = j.item; guardSet('fc', j.item.key, j.item); try { LS.setItem('hajj1447.fc', JSON.stringify(state.fc)); } catch (x) { } }
   if (!j.ok && j.error === 'no_key') fcServer = false;
   return j;
 }
@@ -1181,7 +1236,7 @@ function openFc(g) {
       const j = await api('fc_set', {}, { key: k, label: 'رحلة ' + g.flight, flight: code || g.flight, airline: g.airline || '', role: fcKind(g), date: day, status: clear ? '' : status, official: status === 'notfound' ? '' : off, mode: 'manual', note: $('#fcNote', ov).value, by: auth.by, pin: auth.pin });
       if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error(j.error === 'bad_pin' ? 'رمز المشرف غير صحيح' : (j.error || 'خطأ')); }
       if (clear) delete state.fc[k]; else state.fc[k] = { key: k, flight: code || g.flight, status, official: status === 'notfound' ? '' : off, mode: 'manual', note: $('#fcNote', ov).value, by: auth.by };
-      guardSet('fc', k, clear ? null : state.fc[k]); try { localStorage.setItem('hajj1447.fc', JSON.stringify(state.fc)); } catch (x) { }
+      guardSet('fc', k, clear ? null : state.fc[k]); try { LS.setItem('hajj1447.fc', JSON.stringify(state.fc)); } catch (x) { }
       ov.close(); emit(); toast('تم الحفظ', 'ok');
     } catch (x) { msg('فشل الحفظ: ' + (x.message || x)); }
   };
@@ -1193,23 +1248,23 @@ async function loadAppr() {
   try {
     const j = await api('appr_get'); if (!j.ok || !Array.isArray(j.items)) return;
     const m = {}; (j.items || []).forEach(x => { m[x.key] = x; }); guardMerge('appr', m); state.appr = m;
-    try { localStorage.setItem('hajj1447.appr', JSON.stringify(m)); } catch (e) { }
+    try { LS.setItem('hajj1447.appr', JSON.stringify(m)); } catch (e) { }
   } catch (e) { }
 }
 function updateBadges() {
-  const b = {}; try { Object.assign(b, JSON.parse(localStorage.getItem(LS_BADGE) || '{}')); } catch (e) { }
+  const b = {}; try { Object.assign(b, JSON.parse(LS.getItem(LS_BADGE) || '{}')); } catch (e) { }
   ['arrival', 'departure'].forEach(k => { if (state.data[k]) { b[k] = alertStats(k).crit.g; } });
-  try { localStorage.setItem(LS_BADGE, JSON.stringify(b)); } catch (e) { }
+  try { LS.setItem(LS_BADGE, JSON.stringify(b)); } catch (e) { }
   ['arrival', 'departure'].forEach(k => { const el = $('#bd-' + k); if (!el) return; el.hidden = !b[k]; el.textContent = b[k] || ''; el.title = (b[k] || 0) + ' مجموعة حرجة'; });
 }
 async function loadKind(kind) {
   try {
     const rows = await fetchRows(kind); processRows(kind, rows);
     state.sync[kind] = Date.now(); state.err[kind] = null;
-    try { localStorage.setItem('hajj1447.cache.' + kind, JSON.stringify({ ts: Date.now(), rows })); } catch (e) { }
+    try { LS.setItem('hajj1447.cache.' + kind, JSON.stringify({ ts: Date.now(), rows })); } catch (e) { }
   } catch (e) {
     state.err[kind] = e.message || String(e);
-    if (e.code === 'nc') { REMOTE.configured = false; state.data[kind] = null; try { localStorage.removeItem('hajj1447.cache.' + kind); } catch (x) { } }   // حذف المالك الإعدادات: لا تبقى بيانات معروضة
+    if (e.code === 'nc') { REMOTE.configured = false; state.data[kind] = null; try { LS.removeItem('hajj1447.cache.' + kind); } catch (x) { } }   // حذف المالك الإعدادات: لا تبقى بيانات معروضة
   }
 }
 let kindsInUse = [], lastTry = 0, lastPubTs = 0;
@@ -1234,7 +1289,7 @@ async function loadNotes(kind) {
     const m = {}; (j.items || []).forEach(x => { m[x.key] = x; });
     const raw = Object.assign({}, m);
     guardMerge('notes.' + kind, m); state.notes[kind] = m;
-    try { localStorage.setItem('hajj1447.notes.' + kind, JSON.stringify(m)); } catch (e) { }
+    try { LS.setItem('hajj1447.notes.' + kind, JSON.stringify(m)); } catch (e) { }
     return raw;
   } catch (e) { return null; }
 }
@@ -1249,7 +1304,7 @@ async function syncPublic() {
     if (REMOTE.owner) return;
     REMOTE.configured = !!j.configured;
     if (!j.configured) { clearCaches(); return; }
-    if (j.settings && j.settings.updatedAt !== S.updatedAt) { applyRemote(j.settings); try { localStorage.setItem(LS_PUB, JSON.stringify({ configured: true, settings: j.settings })); } catch (e) { } }
+    if (j.settings && j.settings.updatedAt !== S.updatedAt) { applyRemote(j.settings); try { LS.setItem(LS_PUB, JSON.stringify({ configured: true, settings: j.settings })); } catch (e) { } }
   } catch (e) { }
 }
 async function refresh(kinds) {
@@ -1266,23 +1321,23 @@ async function refresh(kinds) {
 }
 function hydrate(kinds) {
   obRestore();
-  try { state.tasks = JSON.parse(localStorage.getItem('hajj1447.tasks') || '{}') || {}; } catch (e) { }
-  try { NAMES.map = JSON.parse(localStorage.getItem('hajj1447.names') || '{}') || {}; } catch (e) { }
-  try { state.ready = JSON.parse(localStorage.getItem('hajj1447.ready') || '{}') || {}; } catch (e) { }
-  try { state.appr = JSON.parse(localStorage.getItem('hajj1447.appr') || '{}') || {}; } catch (e) { }
-  try { state.fc = JSON.parse(localStorage.getItem('hajj1447.fc') || '{}') || {}; } catch (e) { }
+  try { state.tasks = JSON.parse(LS.getItem('hajj1447.tasks') || '{}') || {}; } catch (e) { }
+  try { NAMES.map = JSON.parse(LS.getItem('hajj1447.names') || '{}') || {}; } catch (e) { }
+  try { state.ready = JSON.parse(LS.getItem('hajj1447.ready') || '{}') || {}; } catch (e) { }
+  try { state.appr = JSON.parse(LS.getItem('hajj1447.appr') || '{}') || {}; } catch (e) { }
+  try { state.fc = JSON.parse(LS.getItem('hajj1447.fc') || '{}') || {}; } catch (e) { }
   kinds.forEach(k => {
-    try { state.notes[k] = JSON.parse(localStorage.getItem('hajj1447.notes.' + k) || '{}') || {}; } catch (e) { }
-    try { const c = JSON.parse(localStorage.getItem('hajj1447.cache.' + k) || 'null'); if (c && c.rows) { processRows(k, c.rows); state.sync[k] = c.ts; state.cached = true; } } catch (e) { }
+    try { state.notes[k] = JSON.parse(LS.getItem('hajj1447.notes.' + k) || '{}') || {}; } catch (e) { }
+    try { const c = JSON.parse(LS.getItem('hajj1447.cache.' + k) || 'null'); if (c && c.rows) { processRows(k, c.rows); state.sync[k] = c.ts; state.cached = true; } } catch (e) { }
   });
 }
 
 /* ---------------- الهوية والصلاحيات ---------------- */
 const LS_BY = 'hajj1447.by', SS_PIN = 'hajj1447.pin';
-const lsGet = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
-const lsSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) { } };
-const ssGet = k => { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } };
-const ssSet = (k, v) => { try { v ? sessionStorage.setItem(k, v) : sessionStorage.removeItem(k); } catch (e) { } };
+const lsGet = k => { try { return LS.getItem(k) || ''; } catch (e) { return ''; } };
+const lsSet = (k, v) => { try { v ? LS.setItem(k, v) : LS.removeItem(k); } catch (e) { } };
+const ssGet = k => { try { return SS.getItem(k) || ''; } catch (e) { return ''; } };
+const ssSet = (k, v) => { try { v ? SS.setItem(k, v) : SS.removeItem(k); } catch (e) { } };
 const PAGE_NOW = document.body.dataset.page;
 const canConfirm = () => PAGE_NOW === 'arrival' ? can('confArr') : PAGE_NOW === 'departure' ? can('confDep') : (can('confArr') || can('confDep'));
 const needPin = () => false;
@@ -1331,13 +1386,15 @@ function showLoginGate(msg) {
   const old = document.getElementById('loginGate');
   if (old) { const m = old.querySelector('#lgMsg'); if (m && msg) m.textContent = msg; return; }
   const ov = document.createElement('div'); ov.className = 'ov gate'; ov.id = 'loginGate';
-  ov.innerHTML = '<div class="modal gatebox" role="dialog" aria-modal="true"><div class="gatelogo">' + ICON.plane + '</div>' +
-    '<h3>منظومة تحركات الحجاج <span>1447هـ</span></h3><p class="hint">سجّل الدخول للمتابعة</p>' +
+  ov.innerHTML = '<div class="modal gatebox" role="dialog" aria-modal="true"><div class="gatelogo">' + (TEN.t && TEN.t.logo ? '<img src="' + esc(TEN.t.logo) + '" alt="">' : ICON.plane) + '</div>' +
+    '<h3>' + esc(BRAND) + ' <span>1447هـ</span></h3><p class="hint">سجّل الدخول للمتابعة' + (TEN.t && TEN.t.name ? ' — منظومة تحركات الحجاج' : '') + '</p>' +
     '<div class="set one"><label>اسم المستخدم<input id="lgU" dir="ltr" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>' +
     '<label>كلمة المرور<input id="lgP" type="password" dir="ltr" autocomplete="current-password"></label></div>' +
     '<div id="lgMsg" class="hint gatemsg">' + esc(msg || '') + '</div>' +
-    '<div class="act"><button class="btn gold" id="lgOk" type="button" style="min-width:180px;justify-content:center">دخول</button></div></div>';
+    '<div class="act"><button class="btn gold" id="lgOk" type="button" style="min-width:180px;justify-content:center">دخول</button></div>' +
+    (TEN.many ? '<p class="hint" style="text-align:center;margin-top:10px">ليست شركتك؟ <button type="button" class="lnk" id="lgT">غيّر رمز الشركة</button></p>' : '') + '</div>';
   document.body.appendChild(ov);
+  if ($('#lgT', ov)) $('#lgT', ov).onclick = switchTenant;
   const say = (t, bad) => { const m = $('#lgMsg', ov); m.textContent = t || ''; m.style.color = bad ? 'var(--red)' : ''; };
   const go = async () => {
     const u = $('#lgU', ov).value.trim(), p = $('#lgP', ov).value, b = $('#lgOk', ov);
@@ -1387,7 +1444,7 @@ function showChangePw(force) {
 
 function openRole() {
   const u = REMOTE.user; if (!u) { showLoginGate(); return; }
-  const r = roleInfo(), rows = [['الاسم', u.name], ['اسم المستخدم', u.username], ['نوع الصلاحية', u.roleLabel], ['القسم', u.dept], ['الجوال', u.phone], ['البريد', u.email], ['نطاق المدن', scopeText(u.scope)]].filter(x => x[1]);
+  const r = roleInfo(), rows = [['الشركة', TEN.t && TEN.t.name], ['الاسم', u.name], ['اسم المستخدم', u.username], ['نوع الصلاحية', u.roleLabel], ['القسم', u.dept], ['الجوال', u.phone], ['البريد', u.email], ['نطاق المدن', scopeText(u.scope)]].filter(x => x[1]);
   const allowed = [].concat(...PERM_GROUPS.map(g => g[1])).filter(k => can(k));
   const light = document.documentElement.dataset.theme === 'light', page = document.body.dataset.page;
   const tracker = page === 'arrival' || page === 'departure';
@@ -1398,6 +1455,7 @@ function openRole() {
     canTaskUi() && ['mMine', '🙋', 'مهامي'],
     canTaskUi() && ['mShift', '🔁', 'تسليم الوردية'],
     obCount() && ['mObx', '⏳', 'إرسال المحفوظ في الجهاز (' + obCount() + ')'],
+    TEN.many && ['mTen', '🏢', 'تبديل الشركة'],
     u.owner && ['rUs', '👥', 'المستخدمون والصلاحيات'],
     u.owner && ['rSt', '⚙️', 'الإعدادات'],
     !u.owner && ['rPw', '🔑', 'تغيير كلمة المرور'],
@@ -1419,6 +1477,7 @@ function openRole() {
   on('mObx', () => { ov.close(); flushOutbox(); });
   on('mMine', () => { ov.close(); if (tracker && window.__mine) window.__mine(); else location.href = (can('pArrival') ? 'arrival' : 'departure') + '.html?mine=1'; });
   on('mShift', () => { ov.close(); openShift(); });
+  on('mTen', async () => { if (obCount() && !(await confirmBox('تبديل الشركة', 'لديك ' + obCount() + ' تأكيد محفوظ لم يُرسل بعد، وسيبقى محفوظاً لهذه الشركة. متابعة؟', 'متابعة'))) return; switchTenant(); });
 }
 
 const genPw = () => { const a = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', r = new Uint32Array(10); (window.crypto || window.msCrypto).getRandomValues(r); return [...r].map(x => a[x % a.length]).join(''); };
@@ -1559,7 +1618,7 @@ const myName = () => String((REMOTE.user && REMOTE.user.username) || '').toLower
 const tKey = (kind, key) => ((kind === 'arrival' ? 'A|' : kind === 'departure' ? 'D|' : kind === 'transfers' ? 'T|' : 'X|') + key).slice(0, 200);
 const taskOf = k => state.tasks[k] || null;
 const isMine = t => !!(t && t.owner && t.owner === myName());
-const tasksSave = () => { try { localStorage.setItem('hajj1447.tasks', JSON.stringify(state.tasks)); } catch (e) { } };
+const tasksSave = () => { try { LS.setItem('hajj1447.tasks', JSON.stringify(state.tasks)); } catch (e) { } };
 async function loadTasks() {
   if (!canTaskUi()) return;
   try {
@@ -1634,7 +1693,7 @@ function shiftText(o) {
   const KN = { arrival: 'وصول', departure: 'مغادرة' };
   const who = t => [t && t.owner ? 'المسؤول: ' + (t.ownerName || t.owner) : '', t && t.ack ? 'يتابعها: ' + (t.ackName || t.ack) : 'بلا متابع'].filter(Boolean).join(' · ');
   const left = g => g.rows.reduce((n, r) => n + (r.done ? 0 : (r.pax || 1)), 0);
-  L.push('🔁 *تسليم وردية — منظومة تحركات الحجاج 1447هـ*');
+  L.push('🔁 *تسليم وردية — ' + BRAND + ' 1447هـ*');
   L.push('من: ' + (u.name || u.username || '—') + ' · ' + C.fmtDayAr(new Date(now)) + ' ' + C.fmtTime(new Date(now)));
   // 1) المعلّق الآن
   const crit = [], watch = [];
@@ -1728,10 +1787,10 @@ const opOf = (r, value) => ({ row: r.row, key: r.key, keyHeader: r.keyHeader, va
 /* ---- طابور الحفظ دون اتصال: التأكيدات تُحفظ في الجهاز وتُرسل تلقائياً عند عودة الاتصال ---- */
 const OUTBOX_LS = 'hajj1447.outbox';
 const OUTBOX = { list: [], busy: false };
-try { OUTBOX.list = JSON.parse(localStorage.getItem(OUTBOX_LS) || '[]') || []; } catch (e) { OUTBOX.list = []; }
+try { OUTBOX.list = JSON.parse(LS.getItem(OUTBOX_LS) || '[]') || []; } catch (e) { OUTBOX.list = []; }
 const obCount = () => OUTBOX.list.reduce((n, x) => n + x.ops.length, 0);
 function obSave() {
-  try { OUTBOX.list.length ? localStorage.setItem(OUTBOX_LS, JSON.stringify(OUTBOX.list)) : localStorage.removeItem(OUTBOX_LS); } catch (e) { }
+  try { OUTBOX.list.length ? LS.setItem(OUTBOX_LS, JSON.stringify(OUTBOX.list)) : LS.removeItem(OUTBOX_LS); } catch (e) { }
   drawOutbox();
 }
 function drawOutbox() {
@@ -1917,13 +1976,13 @@ new MutationObserver(() => { if (!heroQ) heroQ = requestAnimationFrame(() => { h
 /* ---------------- شريط التنقل ---------------- */
 function toggleTheme() {
   const n = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-  document.documentElement.dataset.theme = n; try { localStorage.setItem(LS_THEME, n); } catch (e) { }
+  document.documentElement.dataset.theme = n; try { LS.setItem(LS_THEME, n); } catch (e) { }
   emit(window.__themeChanged = true);
 }
 function renderNav(page) {
   const tabs = [['index', 'لوحة المؤشرات', 'dash'], ['arrival', 'متابعة الوصول', 'land'], ['departure', 'متابعة المغادرة', 'take'], ['transfers', 'التنقلات', 'swap'], ['pilgrim', 'رحلة حاج', 'user'], ['follow', 'المتابعة', 'bell']];
   const nav = $('#nav'); nav.className = 'nav';
-  nav.innerHTML = '<a class="brand" href="index.html"><span class="logo">' + ICON.plane + '</span><span><b>منظومة تحركات الحجاج</b><small>موسم 1447هـ</small></span></a>' +
+  nav.innerHTML = '<a class="brand" href="index.html"><span class="logo">' + (TEN.t && TEN.t.logo ? '<img src="' + esc(TEN.t.logo) + '" alt="">' : ICON.plane) + '</span><span><b>' + esc(BRAND) + '</b><small>موسم 1447هـ</small></span></a>' +
     '<nav class="tabs" aria-label="التنقل الرئيسي">' + tabs.filter(t => can(PAGE_KEY[t[0]])).map(t => '<a class="tab' + (t[0] === page ? ' active' : '') + '" href="' + t[0] + '.html"' + (t[0] === page ? ' aria-current="page"' : '') + '>' + ICON[t[2]] + '<span class="tl">' + t[1] + '</span>' + (t[0] !== 'index' ? '<span class="badge" id="bd-' + t[0] + '" hidden></span>' : '') + '</a>').join('') + '</nav>' +
     '<div class="tools"><button class="pill view" id="bRole" type="button" aria-haspopup="dialog"></button><span class="live" id="live"><i></i><em id="syncTxt">—</em></span><button class="obx" id="obx" type="button" hidden></button>' +
     '<button class="ibtn" id="bRef" title="تحديث الآن" aria-label="تحديث">' + ICON.refresh + '</button>' +
@@ -1943,9 +2002,9 @@ function renderNav(page) {
 /* ---------------- الاتصال بالخادم، دخول المالك، روابط الزوار ---------------- */
 const b64e = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const b64d = s => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))));
-const clearCaches = () => { try { ['arrival', 'departure', 'transfers'].forEach(k => localStorage.removeItem('hajj1447.cache.' + k)); localStorage.removeItem(LS_BADGE); localStorage.removeItem(LS_PUB); localStorage.removeItem('hajj1447.tasks'); } catch (e) { } };
+const clearCaches = () => { try { ['arrival', 'departure', 'transfers'].forEach(k => LS.removeItem('hajj1447.cache.' + k)); LS.removeItem(LS_BADGE); LS.removeItem(LS_PUB); LS.removeItem('hajj1447.tasks'); } catch (e) { } };
 const siteBase = () => new URL('index.html', location.href).href.split('#')[0];
-const visitorLink = () => siteBase() + '#w=' + b64e(CONN.webapp);
+const visitorLink = () => TEN.code ? siteBase() + '?c=' + encodeURIComponent(TEN.code) : siteBase() + '#w=' + b64e(CONN.webapp);
 const serverTail = () => { const m = /\/s\/([^/]+)\/exec/.exec(CONN.webapp || ''); return m ? '…' + m[1].slice(-8) : '—'; };
 
 // رابط الزوار: #w=<رابط الخادم>. لا يحمل أي سر، لكنه يغيّر الخادم الذي يتصل به المتصفح، فيُطلب التأكيد إن كان مختلفاً عن المحفوظ.
@@ -1958,6 +2017,14 @@ async function handleHash() {
   if (CONN.webapp && !(await confirmBox('تغيير خادم المنظومة', 'هذا الرابط سيوجّه هذا المتصفح إلى خادم آخر (…' + url.split('/s/')[1].slice(-8) + ') بدل الحالي (' + serverTail() + '). تابع فقط إن كان من جهة تثق بها، ولا تُدخل كلمة مرور المالك إن لم تكن متأكداً.', 'تغيير الخادم'))) return;
   CONN.webapp = url; CONN.session = ''; clearCaches(); saveConn();
 }
+// تنبيه مدير الشركة إن كان خادمه (Code.gs) أقدم مما يحتاجه الموقع
+const MIN_SERVER_V = 5;
+function serverBanner() {
+  if (!REMOTE.owner || !REMOTE.serverV || REMOTE.serverV >= MIN_SERVER_V || $('#svOld')) return;
+  const b = document.createElement('div'); b.id = 'svOld'; b.className = 'svold';
+  b.innerHTML = '<b>⚠ خادم شركتك (Code.gs) إصدار قديم</b> <span>(' + REMOTE.serverV + ' والمطلوب ' + MIN_SERVER_V + ') — بعض المزايا لن تعمل. انسخ أحدث Code.gs والصقه في Apps Script، ثم نشر ← إدارة عمليات النشر ← ✏ ← إصدار جديد.</span>';
+  const app = $('#app'); if (app) app.parentNode.insertBefore(b, app);
+}
 async function initConnection() {
   const fixed = window.HAJJ_CONFIG && window.HAJJ_CONFIG.webapp;           // مثبّت من ملف config.js على الموقع (الأقوى)
   if (typeof fixed === 'string' && WEB_RE.test(fixed)) {
@@ -1969,11 +2036,11 @@ async function initConnection() {
     const j = await api('public');
     if (!j.ok) throw new Error(j.error || 'خطأ في الخادم');
     lastPubTs = Date.now();
-    REMOTE.configured = !!j.configured;
+    REMOTE.configured = !!j.configured; REMOTE.serverV = +j.v || 0;
     if (j.user) {
       setUser(j.user);
       if (j.settings) applyRemote(j.settings);
-      try { localStorage.setItem(LS_PUB, JSON.stringify({ configured: REMOTE.configured, settings: j.settings })); } catch (e) { }
+      try { LS.setItem(LS_PUB, JSON.stringify({ configured: REMOTE.configured, settings: j.settings })); } catch (e) { }
       if (j.user.owner) {
         const g = await api('owner_get');
         if (g.ok) { REMOTE.email = g.email || ''; if (g.settings) { S = merge(clone(C.DEFAULTS), g.settings); S.webapp = CONN.webapp; S.readVia = 'webapp'; } }
@@ -1982,12 +2049,16 @@ async function initConnection() {
   } catch (e) {
     if (e && e.message === 'انتهت الجلسة') return;
     REMOTE.error = e.message || String(e);
-    try { const c = JSON.parse(localStorage.getItem(LS_PUB) || 'null'); if (c && c.configured && CONN.session && CONN.user) { REMOTE.configured = true; REMOTE.user = CONN.user; REMOTE.owner = !!CONN.user.owner; applyRemote(c.settings); } } catch (x) { }   // دون اتصال: آخر إعدادات محفوظة لمن سبق دخوله
+    try { const c = JSON.parse(LS.getItem(LS_PUB) || 'null'); if (c && c.configured && CONN.session && CONN.user) { REMOTE.configured = true; REMOTE.user = CONN.user; REMOTE.owner = !!CONN.user.owner; applyRemote(c.settings); } } catch (x) { }   // دون اتصال: آخر إعدادات محفوظة لمن سبق دخوله
   }
 }
 
 // أول دخول بلا رابط خادم: يلصقه المالك مرة واحدة (الزائر يصله رابط الدعوة جاهزاً)
 function openConnect() {
+  if (TEN.code) {   // الشركة مسجّلة ولم يُربط خادمها بعد
+    const ov = modal('<h3>' + esc(BRAND) + '</h3><p class="hint">لم يُربط خادم هذه الشركة بالمنظومة بعد. تواصل مع مسؤول المنظومة.</p>' + (TEN.many ? '<div class="act"><button class="btn" id="cT" type="button">تغيير رمز الشركة</button></div>' : ''));
+    if ($('#cT', ov)) $('#cT', ov).onclick = switchTenant; return;
+  }
   const ov = modal('<h3>ربط المنظومة بالخادم</h3><p class="hint">الصق رابط تطبيق الويب (…/exec) الذي حصلت عليه من Apps Script. إن كنت زائراً فاطلب من المالك «رابط الزوار» وافتحه مباشرة.</p>' +
     '<div class="set"><label class="full">رابط تطبيق الويب<input id="cUrl" dir="ltr" placeholder="https://script.google.com/macros/s/…/exec"></label></div>' +
     '<div class="act"><button class="btn gold" id="cOk">اتصال</button><button class="btn" id="cX">إغلاق</button></div><div id="cMsg" class="hint" style="margin-top:10px"></div>');
@@ -2065,8 +2136,8 @@ function openSettings(first) {
     '<div style="grid-column:1/-1" class="bk"><b>النسخ الاحتياطي</b><div class="hint" id="sBkInfo">جارٍ التحقق…</div><div class="act" style="margin-top:6px"><button class="btn" type="button" id="sBkNow">نسخة الآن</button><button class="btn" type="button" id="sBkDaily">—</button></div><div class="hint">تُحفظ النسخ كتبويبات مخفية Backup_… في الملف نفسه (آخر 12). وتُؤخذ نسخة تلقائياً قبل أي تأكيد جماعي (10 فأكثر). للاستعادة: أظهر التبويب وانسخ محتواه.</div></div>' +
     '<h4>رابط الموقع</h4><p class="hint" style="grid-column:1/-1;margin:0">يفتح الموقع ويطلب اسم المستخدم وكلمة المرور، ولا يحمل أي سر.</p>' +
     '<div class="full" style="grid-column:1/-1;display:flex;gap:8px"><input id="sShare" readonly dir="ltr" style="flex:1" value="' + esc(visitorLink()) + '"><button class="btn sky" type="button" id="sCopy">نسخ الرابط</button></div>' +
-    '<p class="hint" style="grid-column:1/-1;margin:0">لتثبيته لكل الزوار: ضع هذا في ملف <b>config.js</b> بجانب الصفحات:</p>' +
-    '<input class="full" style="grid-column:1/-1" readonly dir="ltr" id="sCfg" value="' + esc('window.HAJJ_CONFIG = { webapp: "' + CONN.webapp + '" };') + '">' +
+    '<p class="hint" style="grid-column:1/-1;margin:0">سطر هذه الشركة في سجل الشركات (<b>config.js</b>) لدى مزوّد المنظومة:</p>' +
+    '<input class="full" style="grid-column:1/-1" readonly dir="ltr" id="sCfg" value="' + esc((TEN.code || 'code') + ': { name: \'' + ((TEN.t && TEN.t.name) || 'اسم الشركة') + '\', webapp: "' + CONN.webapp + '" },') + '">' +
     '</div></details><details class="sg danger"><summary>⚠ منطقة الخطر</summary><div class="set">' +
     '<div style="grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="sWipe" style="color:var(--red)">حذف كل الإعدادات من الخادم</button>' +
     (REMOTE.locked ? '' : '<button class="btn" type="button" id="sUnlink" style="color:var(--red)">فصل هذا المتصفح عن الخادم</button>') + '</div>' +
@@ -2118,7 +2189,7 @@ function openSettings(first) {
       const j = await api('owner_save', {}, p);
       if (!j.ok) throw new Error(j.error || 'تعذّر الحفظ');
       S = merge(clone(C.DEFAULTS), j.settings); S.webapp = CONN.webapp; S.readVia = 'webapp'; REMOTE.configured = true;
-      if (JSON.stringify(S.source) !== prev) ['arrival', 'departure'].forEach(k => { try { localStorage.removeItem('hajj1447.cache.' + k); } catch (e) { } state.data[k] = null; kindsInUse.forEach(x => { state.err[x] = null; }); });
+      if (JSON.stringify(S.source) !== prev) ['arrival', 'departure'].forEach(k => { try { LS.removeItem('hajj1447.cache.' + k); } catch (e) { } state.data[k] = null; kindsInUse.forEach(x => { state.err[x] = null; }); });
       ov.close(); startAuto(); await refresh(); toast('تم الحفظ — تظهر هذه الإعدادات الآن لكل الزوار', 'ok');
     } catch (e) { m.innerHTML = '<div style="color:var(--red)">✗ ' + esc(e.message || e) + '</div>'; b.disabled = false; }
   };
@@ -2145,7 +2216,7 @@ function reportHtml(o) {
   return '<div dir="rtl" style="font-family:Tajawal,Tahoma,sans-serif;color:#0B1B30;background:#fff;padding:6px">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #C5A059;padding-bottom:8px;margin-bottom:10px">' +
     '<div><div style="font-size:20px;font-weight:800;color:#07182D">' + esc(o.title) + '</div><div style="color:#5A6B82;font-size:11px">' + esc(o.sub || '') + '</div></div>' +
-    '<div style="text-align:left;font-size:11px;color:#5A6B82">منظومة تحركات الحجاج 1447هـ<br>' + esc(new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { dateStyle: 'medium', timeStyle: 'short', timeZone: C.TZ_NAME }).format(new Date())) + '</div></div>' +
+    '<div style="text-align:left;font-size:11px;color:#5A6B82">' + esc(BRAND) + ' 1447هـ<br>' + esc(new Intl.DateTimeFormat('ar-SA-u-nu-latn-ca-gregory', { dateStyle: 'medium', timeStyle: 'short', timeZone: C.TZ_NAME }).format(new Date())) + '</div></div>' +
     '<div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + (o.kpis || []).map(k => '<div style="flex:1;min-width:110px;border:1px solid #d9d3c3;border-top:3px solid ' + (k[2] || '#C5A059') + ';border-radius:6px;padding:6px 10px"><div style="font-size:10.5px;color:#5A6B82">' + esc(k[0]) + '</div><div style="font-size:19px;font-weight:800">' + esc(k[1]) + '</div></div>').join('') + '</div>' +
     '<table style="width:100%;border-collapse:collapse"><thead><tr>' + o.head.map(h => '<th ' + th + '>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' +
     o.rows.map((r, i) => '<tr style="page-break-inside:avoid;background:' + (i % 2 ? '#faf8f3' : '#fff') + '">' + r.map(c => '<td ' + td + '>' + (c && c.html != null ? c.html : esc(c)) + '</td>').join('') + '</tr>').join('') +
@@ -2242,7 +2313,7 @@ const SEC_DEFS = {
 const SEC_N = 5, SEC_MAX = 60, SEC_MS = 30 * 60000;
 function initTracker(kind) {
   const K = KIND[kind], app = $('#app');
-  let view = null; try { view = localStorage.getItem(LS_VIEW); } catch (e) { }
+  let view = null; try { view = LS.getItem(LS_VIEW); } catch (e) { }
   if (view !== 'cards' && view !== 'table') view = window.matchMedia('(max-width:760px)').matches ? 'cards' : 'table';
   const ui = { q: '', status: 'all', nat: 'all', day: 'all', flight: 'all', rdy: 'all', sec: null, sortK: 'when', dir: 1, reveal: false, limit: 150, sel: new Set(), open: new Set(), view, modal: null, mine: false };
   const qs = new URLSearchParams(location.search); ['status', 'q', 'day', 'nat', 'flight', 'rdy'].forEach(k => { if (qs.get(k)) ui[k] = qs.get(k); });
@@ -2446,7 +2517,7 @@ function initTracker(kind) {
         const j = await api('ready_set', {}, Object.assign({ key: gk, label: 'رحلة ' + g.flight + (hotel ? ' — ' + hotel : ''), by: auth.by, pin: auth.pin }, v));
         if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ forbidden: 'ليست لديك صلاحية لهذا الإجراء', auth: 'انتهت الجلسة', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
         if (j.cleared) delete state.ready[gk]; else state.ready[gk] = Object.assign({ key: gk }, v, { by: auth.by }); guardSet('ready', gk, j.cleared ? null : state.ready[gk]);
-        try { localStorage.setItem('hajj1447.ready', JSON.stringify(state.ready)); } catch (x) { }
+        try { LS.setItem('hajj1447.ready', JSON.stringify(state.ready)); } catch (x) { }
         applyReady(); ov.close(); render(); toast(j.cleared ? 'تم مسح الاستعداد' : 'تم حفظ الاستعداد المسبق', 'ok');
       } catch (x) { toast('فشل الحفظ: ' + (x.message || x), 'err'); }
     };
@@ -2507,7 +2578,7 @@ function initTracker(kind) {
         const j = await api('appr_set', {}, { key: g.key, label: 'رحلة ' + g.flight, status: st, by: auth.by, pin: auth.pin });
         if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ forbidden: 'ليست لديك صلاحية لهذا الإجراء', auth: 'انتهت الجلسة', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
         if (!st) delete state.appr[g.key]; else state.appr[g.key] = { key: g.key, status: st, by: auth.by }; guardSet('appr', g.key, st ? state.appr[g.key] : null);
-        try { localStorage.setItem('hajj1447.appr', JSON.stringify(state.appr)); } catch (x) { }
+        try { LS.setItem('hajj1447.appr', JSON.stringify(state.appr)); } catch (x) { }
         ov.close(); render(); toast(st ? 'تم تسجيل الاعتماد' : 'أُلغي الاعتماد', 'ok');
       } catch (x) { toast('فشل الحفظ: ' + (x.message || x), 'err'); }
     };
@@ -2531,7 +2602,7 @@ function initTracker(kind) {
         const j = await api('note_set', {}, { kind, key: nkey(g), label: gTitle(g), status: st, note, by: auth.by, pin: auth.pin });
         if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ forbidden: 'ليست لديك صلاحية لهذا الإجراء', auth: 'انتهت الجلسة', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
         if (!st && !note) delete state.notes[kind][nkey(g)]; else state.notes[kind][nkey(g)] = { key: nkey(g), status: st, note, by: auth.by, at: '' };
-        try { localStorage.setItem('hajj1447.notes.' + kind, JSON.stringify(state.notes[kind])); } catch (e) { }
+        try { LS.setItem('hajj1447.notes.' + kind, JSON.stringify(state.notes[kind])); } catch (e) { }
         guardSet('notes.' + kind, nkey(g), (!st && !note) ? null : state.notes[kind][nkey(g)]);
         setTimeout(async () => { const raw = await loadNotes(kind), has = !!(raw && raw[nkey(g)]); if (raw && ((st || note) ? !has : has)) toast('تنبيه: لم تُحفظ الملاحظة في ملف Google — تحقق من نشر أحدث Code.gs وصلاحية تبويب Notes', 'err'); }, 5000);
         ov.close(); render(); toast(!st && !note ? 'تم مسح الملاحظة' : 'تم حفظ الحالة والملاحظة', 'ok');
@@ -2892,7 +2963,7 @@ function initTracker(kind) {
     if ((el = t.closest('[data-gdet]'))) { const g = gmap.get(el.dataset.gdet); if (g) openDet(g); return; }
     if ((el = t.closest('[data-gact]'))) { const g = gmap.get(el.dataset.key); if (g) doWrite(g.rows, el.dataset.gact === 'ok', K.act + ' — ' + gTitle(g)); return; }
     if ((el = t.closest('[data-grp]'))) { openGroup(el.dataset.grp, el.dataset.nat); return; }
-    if ((el = t.closest('[data-view]'))) { ui.view = el.dataset.view; try { localStorage.setItem(LS_VIEW, ui.view); } catch (x) { } render(); return; }
+    if ((el = t.closest('[data-view]'))) { ui.view = el.dataset.view; try { LS.setItem(LS_VIEW, ui.view); } catch (x) { } render(); return; }
     if ((el = t.closest('[data-fready]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fready); if (g) openReadyPick(g); return; }
     if ((el = t.closest('[data-gready]'))) { e.stopPropagation(); const g = gmap.get(el.dataset.gready); if (g) openReady(g); return; }
     if ((el = t.closest('[data-fappr]'))) { e.stopPropagation(); const g = C.groupFlights(recs()).find(x => x.key === el.dataset.fappr); if (g) openTripAppr(g); return; }
@@ -3095,7 +3166,7 @@ function initDashboard() {
   // ملخص اليوم للمشاركة
   function dailyText() {
     const now = Date.now(), today = C.fmtDay(new Date(now)), o = overall(now), L = [];
-    L.push('📊 ملخص حجاج 1447هـ', C.fmtDayAr(new Date(now)) + ' · ' + C.fmtTime(new Date(now)), '', 'الوضع العام: ' + o.label);
+    L.push('📊 ملخص ' + (TEN.t && TEN.t.name ? TEN.t.name + ' — ' : '') + 'حجاج 1447هـ', C.fmtDayAr(new Date(now)) + ' · ' + C.fmtTime(new Date(now)), '', 'الوضع العام: ' + o.label);
     [['arrival', 'الوصول', 'سُكّن'], ['departure', 'المغادرة', 'غادر']].forEach(([k, t, v]) => {
       const d = state.data[k]; if (!d) return; const s = C.summarize(d.records, now, S), gs = grps(k).filter(g => g.when && C.fmtDay(g.when) === today);
       L.push('', '✈️ ' + t + ': إجمالي ' + s.total + ' · ' + v + ' ' + s.done + ' (' + s.pct + '%) · متبقٍ ' + s.pending, '   اليوم: ' + gs.length + ' مجموعة · ' + gs.reduce((n, g) => n + g.pax, 0) + ' فرد · مكتمل ' + gs.filter(g => g.open === 0).length, '   أزحم ساعة اليوم: ' + peakTxt(peakOf(hourly(k, 0))));
@@ -3361,7 +3432,7 @@ function initDashboard() {
   $('#xPdf').onclick = async () => {
     if (!snap) return toast('لا توجد بيانات بعد', 'warn'); toast('جارٍ تجهيز PDF…');
     const { a, d } = snap, rows = [...$$('#nat .nr')].map((el, i) => [i + 1, el.querySelector('.nn span').textContent, el.querySelector('.nn b').textContent]);
-    const html = reportHtml({ title: 'التقرير التنفيذي — حجاج 1447هـ', sub: 'ملخص الوصول والمغادرة والجوازات حسب الجنسية', kpis: [['القادمون', a.total], ['تم التسكين', a.done, '#006C35'], ['بانتظار التسكين', a.pending, '#F5A524'], ['المغادرون', d.total, '#0EA5E9'], ['تمت المغادرة', d.done, '#006C35'], ['مجموعات حرجة', critG(), '#E5484D']], head: ['#', 'الجنسية', 'العدد / النسبة'], rows });
+    const html = reportHtml({ title: 'التقرير التنفيذي — ' + (TEN.t && TEN.t.name ? TEN.t.name + ' — ' : '') + 'حجاج 1447هـ', sub: 'ملخص الوصول والمغادرة والجوازات حسب الجنسية', kpis: [['القادمون', a.total], ['تم التسكين', a.done, '#006C35'], ['بانتظار التسكين', a.pending, '#F5A524'], ['المغادرون', d.total, '#0EA5E9'], ['تمت المغادرة', d.done, '#006C35'], ['مجموعات حرجة', critG(), '#E5484D']], head: ['#', 'الجنسية', 'العدد / النسبة'], rows });
     try { await savePDF(html, 'hajj1447-dashboard-' + stamp() + '.pdf', false); void 0; } catch (e) { toast('تعذّر إنشاء PDF: ' + e.message, 'err'); }
   };
   onData(() => { if (window.__themeChanged) { Object.keys(charts).forEach(k => { charts[k].destroy(); delete charts[k]; }); window.__themeChanged = false; } render(); });
@@ -3377,7 +3448,7 @@ function initTv() {
   if (QS.get('theme') !== 'light') document.documentElement.dataset.theme = 'dark';
   document.documentElement.classList.add('tvh'); document.body.classList.add('tv');
   const root = document.createElement('div'); root.id = 'tvroot';
-  root.innerHTML = '<div id="tvbar"><div class="tvt"><span class="tvl">✈</span><div><b>منظومة تحركات الحجاج 1447هـ</b><small>غرفة التحكم · عرض مباشر</small></div></div><div class="tvc"><b id="tvClk">--:--:--</b><small id="tvDay"></small></div><div class="tvs"><span id="tvDot" class="tvdot"></span><small id="tvUp">جارٍ التحميل…</small><button type="button" id="tvFs" class="tvbtn" title="ملء الشاشة">⛶</button></div></div><div id="tvMain"><div class="empty" style="grid-column:1/-1;align-self:center;font-size:30px">جارٍ تحميل البيانات…</div></div>';
+  root.innerHTML = '<div id="tvbar"><div class="tvt"><span class="tvl">✈</span><div><b>' + esc(BRAND) + ' 1447هـ</b><small>غرفة التحكم · عرض مباشر</small></div></div><div class="tvc"><b id="tvClk">--:--:--</b><small id="tvDay"></small></div><div class="tvs"><span id="tvDot" class="tvdot"></span><small id="tvUp">جارٍ التحميل…</small><button type="button" id="tvFs" class="tvbtn" title="ملء الشاشة">⛶</button></div></div><div id="tvMain"><div class="empty" style="grid-column:1/-1;align-self:center;font-size:30px">جارٍ تحميل البيانات…</div></div>';
   document.body.appendChild(root);
   let upd = Date.now();
   const fit = () => {
@@ -3474,7 +3545,7 @@ function initTransfers() {
         if (!j.ok) { if (j.error === 'bad_pin') { ssSet(SS_PIN, ''); updateRole(); } throw new Error({ forbidden: 'ليست لديك صلاحية لهذا الإجراء', auth: 'انتهت الجلسة', bad_pin: 'رمز المشرف غير صحيح', locked: 'محاولات كثيرة — انتظر 15 دقيقة', readonly: 'الموقع بوضع العرض فقط' }[j.error] || j.error || 'فشل الحفظ'); }
         const N = state.notes.transfers;
         if (!st && !note) delete N[nkey(m)]; else N[nkey(m)] = { key: nkey(m), status: st, note, by: auth.by, at: '' };
-        try { localStorage.setItem('hajj1447.notes.transfers', JSON.stringify(N)); } catch (e) { }
+        try { LS.setItem('hajj1447.notes.transfers', JSON.stringify(N)); } catch (e) { }
         guardSet('notes.transfers', nkey(m), (!st && !note) ? null : N[nkey(m)]);
         ov.close(); render(); toast(!st && !note ? 'تم مسح الملاحظة' : 'تم حفظ الحالة والملاحظة', 'ok');
       } catch (e) { toast('فشل الحفظ: ' + (e.message || e), 'err'); }
@@ -3823,7 +3894,7 @@ function initPilgrim() {
 
 /* ------------------------- المتابعة: تنبيهات ومؤشرات يومية ------------------------- */
 const CAP_LS = 'hajj1447.cap';
-const capGet = () => { try { return JSON.parse(localStorage.getItem(CAP_LS) || '{}') || {}; } catch (e) { return {}; } };
+const capGet = () => { try { return JSON.parse(LS.getItem(CAP_LS) || '{}') || {}; } catch (e) { return {}; } };
 function followData() {
   const { A, D, T } = pfAll(), now = Date.now(), alerts = [], H = 3600e3, day = {};
   const lateMs = (+S.lateH || 2) * H, lead = +lsGet('hajj1447.alertH') || 24;
@@ -3920,7 +3991,7 @@ function initFollow() {
     const ov = modal('<h3>سعة الفنادق</h3><p class="hint">أدخل الحد الأقصى للحجاج في كل فندق ليُنبَّه عند تجاوزه. تُحفظ في هذا المتصفح فقط. الذروة محسوبة من تواريخ الدخول والخروج في Transfers.</p><div class="capl">' +
       hs.map((h, i) => '<label><span>' + esc(h) + ' <small class="hint">ذروة ' + peak(h) + '</small></span><input type="number" min="0" data-ch="' + i + '" value="' + (cap[h] || '') + '" placeholder="غير محدد"></label>').join('') + '</div><div class="act"><button class="btn green" id="cOk">حفظ</button><button class="btn" id="cX">إلغاء</button></div>');
     $('#cX', ov).onclick = () => ov.close();
-    $('#cOk', ov).onclick = () => { const o = {}; ov.querySelectorAll('[data-ch]').forEach(i => { const v = +i.value; if (v > 0) o[hs[+i.dataset.ch]] = v; }); try { localStorage.setItem(CAP_LS, JSON.stringify(o)); } catch (e) { } ov.close(); render(); toast('تم حفظ السعات', 'ok'); };
+    $('#cOk', ov).onclick = () => { const o = {}; ov.querySelectorAll('[data-ch]').forEach(i => { const v = +i.value; if (v > 0) o[hs[+i.dataset.ch]] = v; }); try { LS.setItem(CAP_LS, JSON.stringify(o)); } catch (e) { } ov.close(); render(); toast('تم حفظ السعات', 'ok'); };
   };
   onData(render); render();
 }
@@ -3928,7 +3999,7 @@ function initFollow() {
 /* ---------------- تقرير الوصول اليومي (مشابه لتقرير «رحلات الوصول لحج 1447») ---------------- */
 const DR_LS = 'hajj1447.drOpts';
 const DR_ETA = { jeddah: { makkah: 1, madinah: 4 }, madinah: { madinah: 1, makkah: 4 } };
-const drOpts = () => { try { return Object.assign({ lag: 1, note: 'بعد التحديث والمراجعة' }, JSON.parse(localStorage.getItem(DR_LS) || '{}')); } catch (e) { return { lag: 1, note: 'بعد التحديث والمراجعة' }; } };
+const drOpts = () => { try { return Object.assign({ lag: 1, note: 'بعد التحديث والمراجعة' }, JSON.parse(LS.getItem(DR_LS) || '{}')); } catch (e) { return { lag: 1, note: 'بعد التحديث والمراجعة' }; } };
 async function openDailyArrival(records, busMin) {
   const A = records || [];
   if (!A.length) { toast('لا توجد بيانات وصول بعد', 'warn'); return; }
@@ -3952,7 +4023,7 @@ async function openDailyArrival(records, busMin) {
   const HD = ['الرقم', 'الطيران', 'رقم الرحلة', 'تاريخ ووقت الوصول', 'عدد الحجاج', 'مدينة الوصول', 'طريقة التنقل للوجهة', 'مدينة الوجهة', 'وقت الوصول المقدر', 'الفندق', 'المغادرة'];
   const build = () => {
     const note = $('#drNote', ov).value.trim(), d = $('#drDay', ov).value;
-    try { localStorage.setItem(DR_LS, JSON.stringify({ note })); } catch (e) { }
+    try { LS.setItem(DR_LS, JSON.stringify({ note })); } catch (e) { }
     const gs = groups.filter(g => g.when && C.fmtDay(g.when) === d).sort((a, b) => a.when - b.when || (a.flight > b.flight ? 1 : -1));
     const rows = gs.map((g, i) => {
       const lag = (DR_ETA[g.airCity] || {})[g.stayCity] || 0, eta = new Date(g.when.getTime() + lag * 36e5), tp = C.transportFor(g.airCity, g.stayCity, g.pax, busMin || 8);
@@ -4003,7 +4074,7 @@ async function openDailyDeparture(records, Sx) {
   const cell = v => (v === '' || v == null) ? '—' : v;
   const build = () => {
     const note = $('#drNote', ov).value.trim(), d = $('#drDay', ov).value;
-    try { localStorage.setItem(DR_LS, JSON.stringify({ note })); } catch (e) { }
+    try { LS.setItem(DR_LS, JSON.stringify({ note })); } catch (e) { }
     const gs = groups.filter(g => g.when && C.fmtDay(g.when) === d).sort((a, b) => a.when - b.when || (a.flight > b.flight ? 1 : -1));
     const rows = gs.map((g, i) => {
       const mv = C.movementTime(g.when, g.stayCity, g.airCity, lead), tp = C.transportFor(g.airCity, g.stayCity, g.pax, busMin || 8);
@@ -4031,16 +4102,18 @@ async function openDailyDeparture(records, Sx) {
 }
 
 async function boot() {
-  let th = 'dark'; try { th = localStorage.getItem(LS_THEME) || 'dark'; } catch (e) { }
+  let th = 'dark'; try { th = LS.getItem(LS_THEME) || 'dark'; } catch (e) { }
   document.documentElement.dataset.theme = th;
   const page = document.body.dataset.page;
+  if (!TEN.code) { openTenantPick(); return; }
+  if (TEN.t && TEN.t.name) document.title = document.title.replace('حجاج 1447هـ', TEN.t.name);
   if (page === 'index') ensureChart();
   kindsInUse = page === 'index' ? ['arrival', 'departure', 'transfers'] : (page === 'pilgrim' || page === 'follow') ? ['arrival', 'departure', 'transfers'] : page === 'transfers' ? ['transfers', 'arrival'] : [page];
   const startUi = () => { if (page === 'index') initDashboard(); else if (page === 'transfers') initTransfers(); else if (page === 'pilgrim') initPilgrim(); else if (page === 'follow') initFollow(); else initTracker(page); };
   // مسار سريع: إن وُجدت إعدادات وبيانات محفوظة تُعرض فوراً دون انتظار الخادم، ثم يُحدَّث في الخلفية
   let early = false;
   try {
-    const fixed = window.HAJJ_CONFIG && window.HAJJ_CONFIG.webapp, pub = JSON.parse(localStorage.getItem(LS_PUB) || 'null');
+    const fixed = window.HAJJ_CONFIG && window.HAJJ_CONFIG.webapp, pub = JSON.parse(LS.getItem(LS_PUB) || 'null');
     if (typeof fixed === 'string' && WEB_RE.test(fixed) && CONN.webapp === fixed && CONN.session && CONN.user && pub && pub.configured && pub.settings) {
       REMOTE.locked = true; REMOTE.configured = true; REMOTE.user = CONN.user; REMOTE.owner = !!CONN.user.owner; applyRemote(pub.settings);
       if (!pageAllowed(page)) return;
@@ -4048,6 +4121,7 @@ async function boot() {
     }
   } catch (e) { early = false; console.error('fast-path', e && e.stack || e); }
   await initConnection();
+  serverBanner();
   if (!CONN.webapp) { openConnect(); return; }
   if (!REMOTE.user) {
     if (early) { CONN.session = ''; CONN.user = null; saveConn(); clearCaches(); location.reload(); return; }

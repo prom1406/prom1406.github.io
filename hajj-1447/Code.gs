@@ -1,7 +1,7 @@
 /**
  * منظومة تحركات الحجاج 1447هـ — الخادم (Google Apps Script Web App)
  * ---------------------------------------------------------------------------
- *  • الدخول إلزامي لكل أحد (اسم مستخدم + كلمة مرور). المالك: CONFIG.OWNER_USER وكلمة مروره في Script Properties (OWNER_PASSWORD).
+ *  • الدخول إلزامي لكل أحد (اسم مستخدم + كلمة مرور). المالك: OWNER_USER و OWNER_PASSWORD في Script Properties (أو CONFIG احتياطاً).
  *  • بقية المستخدمين وصلاحياتهم في تبويب «Users» بالملف، والمالك يديرهم من الموقع. الإعدادات والمستخدمون للمالك وحده.
  *  • الإعدادات تُحفظ هنا (خصائص السكربت) لا في المتصفح، فتظهر لكل من يفتح الموقع.
  *  • الجدول يُقرأ ويُكتب عبر هذا السكربت فقط، فيمكن إبقاء الجدول خاصاً (غير منشور).
@@ -9,8 +9,9 @@
  * طريقة التركيب: README.md  — بعد أي تعديل هنا: نشر ← إدارة عمليات النشر ← ✏ ← إصدار جديد.
  */
 const CONFIG = {
-  // حساب المالك: اسم المستخدم هنا، وكلمة المرور تُضبط في «خصائص السكربت» باسم OWNER_PASSWORD
-  // (Apps Script ← Project Settings ← Script properties) فلا تُكتب في هذا الملف المرفوع على GitHub.
+  // حساب المالك (مدير الشركة): الأفضل ضبطه في «خصائص السكربت» (Apps Script ← Project Settings ← Script properties):
+  //   OWNER_USER = اسم مستخدم المدير   ·   OWNER_PASSWORD = كلمة مروره
+  // فلا يحتاج كل عميل تعديل هذا الملف. القيمة هنا احتياطية فقط إن لم تُضبط الخاصية.
   OWNER_USER: 'prom1406',
   OWNER_PASSWORD: '',
 
@@ -42,6 +43,13 @@ const CONFIG = {
 };
 
 const PROP_KEY = 'HAJJ_SETTINGS';
+// رقم إصدار الخادم: يرتفع مع كل تحديث يحتاج نشراً جديداً، والموقع ينبّه مدير الشركة إن كان خادمه أقدم
+const SERVER_V = 5;
+let OWNER_U_ = null;
+function ownerUser_() {
+  if (OWNER_U_ === null) OWNER_U_ = String(PropertiesService.getScriptProperties().getProperty('OWNER_USER') || CONFIG.OWNER_USER || '').trim().toLowerCase();
+  return OWNER_U_;
+}
 
 /* ============================ نقطة الدخول ============================ */
 function doGet(e) {
@@ -83,7 +91,7 @@ function doGet(e) {
       case 'note_set':    return json_(noteSet_(payload_(p), ctx));
       case 'read':        return json_(read_(p));
       case 'write':       return json_(write_(payload_(p), ctx));
-      default:            return json_(act ? { ok: false, error: 'إجراء غير معروف: ' + act } : { ok: true, service: 'hajj-sync', v: 4 });
+      default:            return json_(act ? { ok: false, error: 'إجراء غير معروف: ' + act } : { ok: true, service: 'hajj-sync', v: SERVER_V });
     }
   } catch (err) {
     return json_({ ok: false, error: String(err.message || err) });
@@ -129,7 +137,7 @@ function userUsable_(u) { return !!u.hash && !u.inactive && !expired_(u.expires)
 
 function ownerCtx_() {
   const perms = {}; PERM_KEYS.forEach(function (k) { perms[k] = true; });
-  return { owner: true, username: CONFIG.OWNER_USER, name: 'المالك', role: 'owner', roleLabel: 'المالك', perms: perms, scope: [], dept: '', phone: '', email: '', mustChange: false };
+  return { owner: true, username: ownerUser_(), name: 'المالك', role: 'owner', roleLabel: 'المالك', perms: perms, scope: [], dept: '', phone: '', email: '', mustChange: false };
 }
 function effPerms_(u) {
   const base = (ROLES[u.role] || ROLES.viewer).perms, ov = u.perms || {}, o = {};
@@ -244,7 +252,7 @@ function login_(req) {
   const c = cache_(), fkey = 'f_' + uname, fails = Number(c.get(fkey) || 0), gf = Number(c.get('f_all') || 0);
   if (fails >= 5 || gf >= 60) return { ok: false, error: 'محاولات كثيرة خاطئة — انتظر 15 دقيقة ثم أعد المحاولة' };
   let ctx = null, rec = null, why = '';
-  if (uname === String(CONFIG.OWNER_USER).toLowerCase()) {
+  if (uname === ownerUser_()) {
     const op = ownerPassword_();
     if (!op) return { ok: false, error: 'لم تُضبط كلمة مرور المالك: أضِف OWNER_PASSWORD في خصائص السكربت (Project Settings ← Script properties)' };
     if (safeEq_(pw, op)) ctx = ownerCtx_();
@@ -259,7 +267,7 @@ function login_(req) {
   if (why) { activity_({ username: uname }, 'دخول مرفوض', why); return { ok: false, error: why }; }
   if (!ctx) {
     try { c.put(fkey, String(fails + 1), 900); c.put('f_all', String(gf + 1), 900); } catch (e) { }
-    if (uname === String(CONFIG.OWNER_USER).toLowerCase() || usersMap_()[uname]) activity_({ username: uname }, 'فشل دخول', 'كلمة مرور خاطئة (' + (fails + 1) + ')');
+    if (uname === ownerUser_() || usersMap_()[uname]) activity_({ username: uname }, 'فشل دخول', 'كلمة مرور خاطئة (' + (fails + 1) + ')');
     return { ok: false, error: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
   }
   c.remove(fkey);
@@ -302,13 +310,13 @@ function usersGet_() {
       active: !u.inactive, expires: u.expires, expired: expired_(u.expires), must: u.must, created: u.created, by: u.by, last: u.last, hasPw: !!u.hash };
   }).sort(function (a, b) { return a.name < b.name ? -1 : 1; });
   const roles = Object.keys(ROLES).map(function (k) { return { key: k, label: ROLES[k].label, perms: ROLES[k].perms }; });
-  return { ok: true, users: users, roles: roles, permKeys: PERM_KEYS, owner: CONFIG.OWNER_USER };
+  return { ok: true, users: users, roles: roles, permKeys: PERM_KEYS, owner: ownerUser_() };
 }
 function userSave_(req, ctx) {
   const st = settings_(); if (!st) return { ok: false, error: 'اربط ملف البيانات من الإعدادات أولاً' };
   const uname = String(req.username || '').trim().toLowerCase();
   if (!/^[a-z0-9_.-]{3,30}$/.test(uname)) return { ok: false, error: 'اسم المستخدم: 3 إلى 30 حرفاً إنجليزياً أو أرقاماً أو _ . -' };
-  if (uname === String(CONFIG.OWNER_USER).toLowerCase()) return { ok: false, error: 'هذا اسم المالك — اختر اسماً آخر' };
+  if (uname === ownerUser_()) return { ok: false, error: 'هذا اسم المالك — اختر اسماً آخر' };
   const name = str_(req.name, 60); if (!name) return { ok: false, error: 'اكتب اسم المستخدم الظاهر (الاسم الكامل)' };
   const role = ROLES[req.role] ? String(req.role) : 'viewer';
   const ov = {}; if (req.perms && typeof req.perms === 'object') PERM_KEYS.forEach(function (k) { if (typeof req.perms[k] === 'boolean') ov[k] = req.perms[k]; });
@@ -404,14 +412,14 @@ function publicSettings_(st) {
 }
 function publicInfo_(ctx) {
   const st = settings_();
-  const o = { ok: true, service: 'hajj-sync', v: 4, configured: !!st };
+  const o = { ok: true, service: 'hajj-sync', v: SERVER_V, configured: !!st };
   if (ctx) { o.settings = st ? publicSettings_(st) : null; o.user = publicUser_(ctx); }
   return o;
 }
 function ownerView_(st) { if (!st) return st; const o = JSON.parse(JSON.stringify(st)); o.pinSet = !!st.pin; o.pinArrSet = !!st.pinArr; o.pinDepSet = !!st.pinDep; delete o.pin; delete o.pinArr; delete o.pinDep; return o; }
 function ownerGet_() {
   const st = settings_();
-  return { ok: true, email: CONFIG.OWNER_USER, configured: !!st, settings: ownerView_(st) };
+  return { ok: true, email: ownerUser_(), configured: !!st, settings: ownerView_(st) };
 }
 function num_(v, d, lo, hi) { v = Number(v); return isFinite(v) && v >= lo && v <= hi ? v : d; }
 function str_(v, max) { return typeof v === 'string' ? v.trim().slice(0, max) : ''; }
@@ -798,7 +806,7 @@ function taskSet_(req, ctx) {
     owner = String(req.assign || '').trim().toLowerCase().slice(0, 30);
     if (owner && owner !== me && !canAssignOthers_(ctx)) return { ok: false, error: 'إسناد المهام لغيرك للمالك والمشرف العام فقط — يمكنك أن تتولاها بنفسك' };
     if (owner) {
-      if (owner === String(CONFIG.OWNER_USER).toLowerCase()) ownerName = 'المالك';
+      if (owner === ownerUser_()) ownerName = 'المالك';
       else { const u = usersMap_()[owner]; if (!u || !userUsable_(u)) return { ok: false, error: 'المستخدم غير موجود أو موقوف' }; ownerName = u.name || u.username; }
     }
   }
@@ -827,7 +835,7 @@ function taskSet_(req, ctx) {
 // قائمة الفريق لاختيار المسؤول: الاسم واليوزر والقسم فقط (بلا بيانات حساسة)
 function teamGet_(ctx) {
   if (!canTask_(ctx)) return { ok: true, items: [] };
-  const map = usersMap_(), items = [{ username: String(CONFIG.OWNER_USER).toLowerCase(), name: 'المالك', dept: '' }];
+  const map = usersMap_(), items = [{ username: ownerUser_(), name: 'المالك', dept: '' }];
   Object.keys(map).forEach(function (k) { const u = map[k]; if (userUsable_(u)) items.push({ username: u.username.toLowerCase(), name: u.name || u.username, dept: u.dept || '' }); });
   return { ok: true, items: items, canAssign: canAssignOthers_(ctx), me: ctx.username.toLowerCase() };
 }
