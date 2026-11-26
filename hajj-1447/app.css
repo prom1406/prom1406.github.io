@@ -744,3 +744,6 @@ body.n-exp #xXls,body.n-exp #xPdf,body.n-exp #xPrint,body.n-exp #xWa,body.n-exp 
 }
 
 @media(max-width:700px){.dr-wrap{padding:4px}.drt{min-width:0;table-layout:fixed;font-size:9px}.drt th,.drt td{padding:3px 1px;word-break:break-word;overflow-wrap:anywhere}.drt th{font-size:8.5px;white-space:normal;line-height:1.3;overflow:visible;text-overflow:clip;vertical-align:middle;word-break:keep-all}.drt td{font-size:9px}.drh{font-size:14px}}
+
+/* أزرار الإجراءات على الحاج نفسه (صفحة رحلة الحاج) */
+.tlac{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.tlac .btn{min-height:40px}

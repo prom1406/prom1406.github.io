@@ -1952,6 +1952,14 @@ function initTracker(kind) {
   if (view !== 'cards' && view !== 'table') view = window.matchMedia('(max-width:760px)').matches ? 'cards' : 'table';
   const ui = { q: '', status: 'all', nat: 'all', day: 'all', flight: 'all', rdy: 'all', sec: null, sortK: 'when', dir: 1, reveal: false, limit: 150, sel: new Set(), open: new Set(), view, modal: null };
   const qs = new URLSearchParams(location.search); ['status', 'q', 'day', 'nat', 'flight', 'rdy'].forEach(k => { if (qs.get(k)) ui[k] = qs.get(k); });
+  // قادم من «رحلة الحاج»: يفتح استعداد مجموعة الحاج (وصول) أو اعتماد رحلته (مغادرة) مرة واحدة بعد وصول البيانات
+  const ACT = qs.get('act'), ACT_ROW = +qs.get('row') || 0, ACT_P = passKey(qs.get('q') || ''); let actDone = !ACT;
+  const runAct = () => {
+    if (actDone) return; const R = recs(); if (!R.length) return; actDone = true;
+    const has = g => g.rows.some(r => (ACT_ROW && r.row === ACT_ROW) || (!ACT_ROW && ACT_P && passKey(r.passport) === ACT_P));
+    if (ACT === 'ready' && kind === 'arrival') { if (!can('ready')) return toast('ليست لديك صلاحية الاستعداد المسبق', 'warn'); const g = C.groupRecords(R).find(has); g ? openReady(g) : toast('لم يُعثر على الحاج في بيانات الوصول', 'warn'); }
+    else if (ACT === 'appr' && kind === 'departure') { if (!can('appr')) return toast('ليست لديك صلاحية الاعتماد', 'warn'); const g = C.groupFlights(R).find(has); g ? openTripAppr(g) : toast('لم يُعثر على الحاج في بيانات المغادرة', 'warn'); }
+  };
   let prevDanger = null, gmap = new Map(), ridx = new Map(), mo = null, shownGroups = [], lastFl = null;
   // موعد المرجع للرحلة: الوصول، أو في المغادرة أبكر موعد تحرك بين سجلاتها (وإلا الإقلاع)
   // أوامر الاستعداد والاعتماد لا تُقبل إلا قبل الرحلة بأسبوعين على الأقل
@@ -2595,7 +2603,7 @@ function initTracker(kind) {
     });
     try { await savePDF(html, 'hajj1447-' + kind + '-' + stamp() + '.pdf', true); void 0; } catch (e) { toast('تعذّر إنشاء PDF: ' + e.message, 'err'); }
   };
-  onData(render); render();
+  onData(render); render(); onData(() => setTimeout(runAct, 0)); setTimeout(runAct, 0);
 }
 
 /* =====================================================================
@@ -3392,13 +3400,21 @@ function initPilgrim() {
     idx = { m, list: [...m.values()] }; idxSrc = tag + (A && A.records) + (D && D.records) + (T && T.records); return idx;
   };
   const chip = (cls, t) => '<span class="chip ' + cls + '">' + t + '</span>';
+  // إجراءات على الحاج نفسه: تسكين/مغادرة لهذا الحاج وحده، والاستعداد/الاعتماد يُفتح لمجموعته في صفحة الرحلة فيُسجَّل على الرحلة نفسها
+  let ACTS = [];
+  const pAct = (cls, label, a) => '<button type="button" class="btn sm ' + cls + '" data-pa="' + (ACTS.push(a) - 1) + '">' + label + '</button>';
+  const pLink = (href, label) => '<a class="btn sm" href="' + esc(href) + '">' + label + '</a>';
+  const actLink = (page, act, r) => page + '.html?act=' + act + '&row=' + encodeURIComponent(r.row) + '&q=' + encodeURIComponent(r.passport || '');
   function timeline(o) {
     const { T } = pfAll(), items = [], now = Date.now(), jis = journeyIssues(o);
+    ACTS = [];
     o.a.forEach(r => {
       const gk = C.groupRecords([r])[0].key, rd = state.ready[rk(gk)] || state.ready[rKey(r)], reg = rd && (rd.status === 'entered' || rd.status === 'approved');
       items.push({ ord: 0, ts: r.when ? r.when.getTime() : 9e15, ic: '🛬', t: 'الوصول — رحلة ' + esc(r.flight || '—'), when: pfWhen(r.when),
         kv: [['مدينة الوصول', esc(C.cityName(r.airCity, r.airCityRaw) || '—')], ['المطار', esc(r.airport || '—')], ['فندق الوجهة', esc(r.hotel || '—') + (r.stayCity ? ' · ' + esc(C.cityName(r.stayCity, r.stayCityRaw)) : '')]],
-        st: [r.done ? chip('ok', '✓ تم التسكين') : chip(r.when && r.when.getTime() < now ? 'warn' : 'info', 'لم يُسكَّن بعد'), reg ? chip('ok', '🛂 مسجّل في نسك مسار') : chip('na', 'استعداد غير مسجّل')] });
+        st: [r.done ? chip('ok', '✓ تم التسكين') : chip(r.when && r.when.getTime() < now ? 'warn' : 'info', 'لم يُسكَّن بعد'), reg ? chip('ok', '🛂 مسجّل في نسك مسار') : chip('na', 'استعداد غير مسجّل')],
+        ac: (can('confArr') ? r.syncing ? '<button type="button" class="btn sm" disabled>⏳ جارٍ الحفظ…</button>' : (r.done ? pAct('', '↩ إلغاء تسكين هذا الحاج', { kind: 'arrival', r, v: false }) : pAct('green', '✅ تسكين هذا الحاج', { kind: 'arrival', r, v: true })) : '') +
+          (can('ready') ? pLink(actLink('arrival', 'ready', r), '🛂 الاستعداد المسبق لمجموعته') : '') });
     });
     if (T) o.t.forEach(r => {
       r.stays.forEach((s, i) => items.push({ ord: 10 + i * 10, ts: s.inn ? trDate(s.inn).getTime() - 3600e3 : 9e15, ic: '🏨', t: 'إقامة ' + (i + 1) + ' — ' + esc(s.hotel), when: s.inn ? esc(pfDayKeyTxt(s.inn)) + (s.out ? ' ← ' + esc(pfDayKeyTxt(s.out)) : '') : '—',
@@ -3419,11 +3435,13 @@ function initPilgrim() {
       const fg = C.groupFlights([r])[0], ap = state.appr[fg.key], aok = ap && ap.status === 'approved';
       items.push({ ord: 100, ts: r.when ? r.when.getTime() : 9e15, ic: '🛫', t: 'المغادرة — رحلة ' + esc(r.flight || '—'), when: pfWhen(r.when),
         kv: [['المطار', esc(r.airport || '—')], ['مدينة المطار', esc(C.cityName(r.airCity, r.airCityRaw) || '—')], ['الفندق', esc(r.hotel || '—')]],
-        st: [...jis.filter(x => x.ty !== 'pre').map(x => chip('warn', x.ty === 'early' ? '⚠ قبل خروج آخر فندق' : '⚠ بعد خروج آخر فندق')), r.done ? chip('ok', '✓ غادر') : chip('info', 'لم يغادر بعد'), aok ? chip('ok', '🧾 اعتماد الحافلة مسجّل') : chip('na', 'اعتماد غير مسجّل')] });
+        st: [...jis.filter(x => x.ty !== 'pre').map(x => chip('warn', x.ty === 'early' ? '⚠ قبل خروج آخر فندق' : '⚠ بعد خروج آخر فندق')), r.done ? chip('ok', '✓ غادر') : chip('info', 'لم يغادر بعد'), aok ? chip('ok', '🧾 اعتماد الحافلة مسجّل') : chip('na', 'اعتماد غير مسجّل')] ,
+        ac: (can('confDep') ? r.syncing ? '<button type="button" class="btn sm" disabled>⏳ جارٍ الحفظ…</button>' : (r.done ? pAct('', '↩ إلغاء مغادرة هذا الحاج', { kind: 'departure', r, v: false }) : pAct('sky', '🛫 تأكيد مغادرة هذا الحاج', { kind: 'departure', r, v: true })) : '') +
+          (can('appr') ? pLink(actLink('departure', 'appr', r), '🧾 اعتماد رحلته') : '') });
     });
     items.sort((a, b) => (a.ord - b.ord) || (a.ts - b.ts));
     return (jis.length ? '<div class="jnote"><b>⚠ ملاحظات على رحلة الحاج</b><ul>' + jis.map(x => '<li>' + esc(x.t) + '</li>').join('') + '</ul></div>' : '') + '<ol class="tlv">' + items.map(x => '<li class="' + (x.ts < now ? 'past' : '') + '"><span class="dot">' + x.ic + '</span><div class="tlc"><div class="tlh"><b>' + x.t + '</b><span class="hint">' + x.when + '</span></div>' +
-      '<div class="tlkv">' + x.kv.map(k => '<div><small>' + k[0] + '</small><span>' + k[1] + '</span></div>').join('') + '</div>' + (x.st.length ? '<div class="tlst">' + x.st.join(' ') + '</div>' : '') + '</div></li>').join('') + '</ol>';
+      '<div class="tlkv">' + x.kv.map(k => '<div><small>' + k[0] + '</small><span>' + k[1] + '</span></div>').join('') + '</div>' + (x.st.length ? '<div class="tlst">' + x.st.join(' ') + '</div>' : '') + (x.ac ? '<div class="tlac">' + x.ac + '</div>' : '') + '</div></li>').join('') + '</ol>';
   }
   function render() {
     const { A, D, T } = pfAll(), box = $('#pRes'), stale = $('#stale');
@@ -3455,7 +3473,8 @@ function initPilgrim() {
   }
   $('#pQ').value = q;
   $('#pQ').oninput = e => { q = e.target.value.trim(); sel = ''; lim = 60; render(); };
-  $('#pRes').onclick = e => { if (e.target.closest('[data-back]')) { sel = ''; render(); return; } if (e.target.closest('[data-more]')) { lim += 60; render(); return; } const b = e.target.closest('[data-pk]'); if (b) { sel = b.dataset.pk; render(); if (flt) window.scrollTo({ top: 0, behavior: 'smooth' }); } };
+  $('#pRes').onclick = e => { if (e.target.closest('[data-back]')) { sel = ''; render(); return; }
+    const pa = e.target.closest('[data-pa]'); if (pa) { const x = ACTS[+pa.dataset.pa]; if (x && x.r.done !== x.v && !x.r.syncing) writeChecks(x.kind, [x.r], x.v); return; } if (e.target.closest('[data-more]')) { lim += 60; render(); return; } const b = e.target.closest('[data-pk]'); if (b) { sel = b.dataset.pk; render(); if (flt) window.scrollTo({ top: 0, behavior: 'smooth' }); } };
   $('#pFlt').onclick = e => { const b = e.target.closest('[data-fl]'); if (!b) return; flt = flt === b.dataset.fl ? '' : b.dataset.fl; sel = ''; lim = 60; render(); };
   onData(render); render();
 }
