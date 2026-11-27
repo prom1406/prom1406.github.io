@@ -10,6 +10,8 @@ window.HAJJ_CONFIG = {
   registry: "https://script.google.com/macros/s/AKfycbyVjqP_BW7pzvtdQbLC63KU7kmOvxAh8UrQVbffdLbOp7-BkyXX9ZX3QVRWnp8oi5tukw/exec",
   tenants: {
     main: { name: '', webapp: "https://script.google.com/macros/s/AKfycbyVjqP_BW7pzvtdQbLC63KU7kmOvxAh8UrQVbffdLbOp7-BkyXX9ZX3QVRWnp8oi5tukw/exec", legacy: true },
+    // نسخة العرض للعملاء والمستثمرين: بيانات وهمية داخل المتصفح (demo.js)، لا خادم ولا بيانات حقيقية
+    demo: { name: 'منظومة تحركات الحجاج — عرض', webapp: "https://script.google.com/macros/s/DEMO-hajj1447/exec", demo: true },
     // مؤقتاً هنا حتى يعمل سجل الشركات على خادم المزوّد، ثم تُنقل إلى لوحة حالة الشركات
     anjum: { name: 'أنجم', webapp: "https://script.google.com/macros/s/AKfycbyTXgSBC40XoMh3NLb2V_KfZKSPWFXKybsFSDefolSYsKacpkLp_4w9kxFbEfPnZHVQ/exec", logo: 'tenants/anjum.png' }
   }

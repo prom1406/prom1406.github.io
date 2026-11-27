@@ -778,7 +778,11 @@ let S = clone(C.DEFAULTS);
 function applyRemote(st) { S = merge(clone(C.DEFAULTS), st || {}); S.webapp = CONN.webapp; S.readVia = 'webapp'; }
 const can = k => !!(REMOTE.owner || (REMOTE.user && REMOTE.user.perms && REMOTE.user.perms[k]));
 function isMasked() { return !can('passports'); }
+// نسخة العرض: خادم وهمي داخل المتصفح (demo.js) بدل Apps Script
+let demoP = null;
+const demoReady = () => demoP || (demoP = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'demo.js?v=20261127g'; sc.onload = res; sc.onerror = () => { demoP = null; rej(new Error('تعذّر تحميل نسخة العرض')); }; document.head.appendChild(sc); }));
 async function api(action, extra, payload) {
+  if (TEN.t && TEN.t.demo) { await demoReady(); return window.HajjDemo.handle(action, extra || {}, payload); }
   if (!CONN.webapp) throw new Error('لم يُضبط رابط الخادم');
   const q = new URLSearchParams(); q.set('action', action);
   if (CONN.session) q.set('s', CONN.session);
@@ -2062,6 +2066,17 @@ async function handleHash() {
   if (url === CONN.webapp) return;
   if (CONN.webapp && !(await confirmBox('تغيير خادم المنظومة', 'هذا الرابط سيوجّه هذا المتصفح إلى خادم آخر (…' + url.split('/s/')[1].slice(-8) + ') بدل الحالي (' + serverTail() + '). تابع فقط إن كان من جهة تثق بها، ولا تُدخل كلمة مرور المالك إن لم تكن متأكداً.', 'تغيير الخادم'))) return;
   CONN.webapp = url; CONN.session = ''; clearCaches(); saveConn();
+}
+// شريط نسخة العرض: يوضح أن البيانات وهمية، ويدعو لطلب المنظومة. يُخفى للتصوير بـ ?rec=1
+function demoBar() {
+  if (!(TEN.t && TEN.t.demo) || $('#demoBar')) return;
+  try { const q = new URLSearchParams(location.search).get('rec'); if (q !== null) SS.setItem('hajj1447.rec', q === '0' ? '' : '1'); if (SS.getItem('hajj1447.rec')) return; } catch (e) { }
+  const wa = ((window.HAJJ_CONFIG.support || {}).whatsapp || '').replace(/\D/g, '');
+  const b = document.createElement('div'); b.id = 'demoBar'; b.className = 'demobar';
+  b.innerHTML = '<span>🎬 <b>نسخة عرض</b> ببيانات وهمية — جرّب التسكين والتنبيهات والإسناد بحرية</span><span class="sp"></span>' +
+    '<button class="btn sm" type="button" id="dbR">↺ إعادة العرض</button>' + (wa ? '<a class="btn sm gold" target="_blank" rel="noopener" href="https://wa.me/' + wa + '?text=' + encodeURIComponent('أرغب في عرض منظومة تحركات الحجاج لشركتنا') + '">اطلب المنظومة لشركتك</a>' : '');
+  const app = $('#app'); if (app) app.parentNode.insertBefore(b, app);
+  $('#dbR').onclick = () => { if (window.HajjDemo) window.HajjDemo.reset(); clearCaches(); location.reload(); };
 }
 // تنبيه مدير الشركة إن كان خادمه (Code.gs) أقدم مما يحتاجه الموقع
 const MIN_SERVER_V = 5;
@@ -4171,7 +4186,7 @@ async function boot() {
     }
   } catch (e) { early = false; console.error('fast-path', e && e.stack || e); }
   await initConnection();
-  serverBanner();
+  serverBanner(); demoBar();
   if (!CONN.webapp) { openConnect(); return; }
   if (!REMOTE.user) {
     if (early) { CONN.session = ''; CONN.user = null; saveConn(); clearCaches(); location.reload(); return; }
