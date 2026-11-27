@@ -5,7 +5,7 @@
    وتُحفظ في «سجل الشركات» على خادم المزوّد (registry أدناه)، والموقع يسأله عن الشركة برمزها فقط. */
 window.HAJJ_CONFIG = {
   // للدليل setup.html: رقم واتساب يستقبل طلبات التفعيل (بالصيغة الدولية بلا +، مثل 9665xxxxxxxx)، ورابط «إنشاء نسخة» لقالب جاهز إن وُجد
-  support: { whatsapp: '966569090301', template: '' },
+  support: { whatsapp: '966580701985', template: '' },
   // خادم المزوّد (خادم شركتك الأولى): يحفظ سجل الشركات، ومنه يدخل المالك إلى لوحة حالة الشركات
   registry: "https://script.google.com/macros/s/AKfycbyVjqP_BW7pzvtdQbLC63KU7kmOvxAh8UrQVbffdLbOp7-BkyXX9ZX3QVRWnp8oi5tukw/exec",
   tenants: {
