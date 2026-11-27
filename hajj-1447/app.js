@@ -931,14 +931,14 @@ async function loadNames(force) {
    صف لكل حاج وفيه إقامات متتالية (فندق/مدينة/دخول/خروج). كل انتقال بين إقامتين متتاليتين
    يُجمَّع مع من يشاركه اليوم والمنطلق والوجهة:
      • مدينتان مختلفتان  → قطار، وحافلتان تحتاجان اعتماداً: الفندق ← المحطة، والمحطة ← الفندق
-     • داخل المدينة مع كدانة/المشاعر → حافلات
+     • داخل المدينة مع منى/المشاعر → حافلات
      • داخل المدينة فندق ← فندق → حافلات
    أقل من 8 أفراد بلا حافلة (سيارة)، وأقصى 49 فرداً في الحافلة.
    ===================================================================== */
 const TR = { BUS_MAX: 49, STATION: { makkah: 'محطة قطار مكة', madinah: 'محطة قطار المدينة', jeddah: 'محطة قطار جدة' } };
 const TR_TYPES = {
   train: { ar: 'قطار بين المدن', ic: '🚆', cls: 'train', o: 0 },
-  mashaer: { ar: 'فندق ↔ كدانة', ic: '🕋', cls: 'car', o: 1 },
+  mashaer: { ar: 'فندق ↔ منى', ic: '🕋', cls: 'car', o: 1 },
   hotel: { ar: 'فندق ← فندق', ic: '🏨', cls: 'bus', o: 2 }
 };
 const CITYTOK = /^(makk?ah|mecca|مكة|مكه|مكة المكرمة|madin[ae]h?|medina|المدينة|المدينة المنورة|jedd?ah|jidda|جدة|جده)$/i;
@@ -3368,7 +3368,7 @@ function initDashboard() {
       if (m.date === today) { tN++; tP += m.pax; }
       trLegs(m).forEach(l => { const bs = trBuses(m, l); if (l.kind === 'bus') busN += bs.length; if (l.apr) bs.forEach((b, i) => { aT++; if (trOk(trKey(m, l, i))) aOk++; }); });
       const fc = m.from.city || m.from.cityRaw || '', tc = m.to.city || m.to.cityRaw || '';
-      const lb = TR_TYPES[m.type].ic + ' ' + (m.type === 'train' ? cn(fc) + ' ← ' + cn(tc) : (m.type === 'mashaer' ? 'فندق ↔ كدانة' : 'فندق ← فندق') + (fc ? ' · ' + cn(fc) : '')), k = m.type + '|' + lb;
+      const lb = TR_TYPES[m.type].ic + ' ' + (m.type === 'train' ? cn(fc) + ' ← ' + cn(tc) : (m.type === 'mashaer' ? 'فندق ↔ منى' : 'فندق ← فندق') + (fc ? ' · ' + cn(fc) : '')), k = m.type + '|' + lb;
       const e = rt.get(k) || { lb, p: 0, n: 0, ty: m.type }; e.p += m.pax; e.n++; rt.set(k, e);
     });
     const rows = [...rt.values()].sort((x, y) => y.p - x.p), mx = rows.length ? rows[0].p : 1, col = { train: '#0EA5E9', mashaer: '#F5A524', hotel: '#34C47A' };
@@ -3546,7 +3546,7 @@ function initInstall() {
 function initTransfers() {
   const app = $('#app'), ui = { q: '', day: 'all', type: 'all', city: 'all', ap: 'all' };
   state.notes.transfers = state.notes.transfers || {};
-  app.innerHTML = '<section class="hero"><div><h1>التنقلات <span>الداخلية</span></h1><p>فندق ← فندق · فندق ↔ كدانة · بين المدن بالقطار مع حافلات الفندق ↔ المحطة</p></div></section>' +
+  app.innerHTML = '<section class="hero"><div><h1>التنقلات <span>الداخلية</span></h1><p>فندق ← فندق · فندق ↔ منى · بين المدن بالقطار مع حافلات الفندق ↔ المحطة</p></div></section>' +
     '<div id="stale"></div><div class="kpis" id="kpis"></div>' +
     '<section class="panel"><div class="toolbar"><div class="qchips" id="qchips"></div>' +
     '<div class="field">' + ICON.search + '<input type="search" id="fQ" placeholder="بحث: جواز، اسم، فندق…"></div>' +
@@ -3728,14 +3728,14 @@ function initTransfers() {
     $('#kpis').innerHTML =
       '<div class="kpi gold"><div class="l">إجمالي الانتقالات</div><div class="v">' + all.reduce((n, m) => n + m.pax, 0) + '</div><div class="s">انتقال حاج · ' + all.length + ' حركة · ' + d.records.length + ' حاج</div></div>' +
       '<div class="kpi ok"><div class="l">🚆 بالقطار بين المدن</div><div class="v">' + sum(m => m.type === 'train') + '</div><div class="s">' + cnt(m => m.type === 'train') + ' حركة</div></div>' +
-      '<div class="kpi amber"><div class="l">🕋 فندق ↔ كدانة</div><div class="v">' + sum(m => m.type === 'mashaer') + '</div><div class="s">' + cnt(m => m.type === 'mashaer') + ' حركة بالحافلات</div></div>' +
+      '<div class="kpi amber"><div class="l">🕋 فندق ↔ منى</div><div class="v">' + sum(m => m.type === 'mashaer') + '</div><div class="s">' + cnt(m => m.type === 'mashaer') + ' حركة بالحافلات</div></div>' +
       '<div class="kpi sky"><div class="l">🏨 فندق ← فندق</div><div class="v">' + sum(m => m.type === 'hotel') + '</div><div class="s">' + cnt(m => m.type === 'hotel') + ' حركة</div></div>' +
       '<div class="kpi red' + (busTot > busOk ? '' : '" style="--accent:var(--ok)') + '"><div class="l">🧾 حافلات الاعتماد (بين المدن)</div><div class="v">' + busOk + ' / ' + busTot + '</div><div class="s">معتمدة · ' + covered + ' حاج' + (busTot > busOk ? ' · المتبقي ' + (busTot - busOk) : '') + '</div></div>';
 
     const days = [...new Set(all.map(m => m.date))].sort();
     const fd = $('#fDay'); if (fd.dataset.n !== String(days.length) + days[0]) { fd.innerHTML = '<option value="all">كل الأيام</option>' + days.map(k => '<option value="' + k + '">' + esc(trDayTxt(k)) + '</option>').join(''); fd.dataset.n = String(days.length) + days[0]; }
     fd.value = ui.day;
-    $('#qchips').innerHTML = [['all', 'الكل', ui.type === 'all' && ui.ap === 'all'], ['train', '🚆 قطار بين المدن', ui.type === 'train'], ['mashaer', '🕋 فندق ↔ كدانة', ui.type === 'mashaer'], ['hotel', '🏨 فندق ← فندق', ui.type === 'hotel'], ['open', '🧾 اعتماد غير مسجّل', ui.ap === 'open']]
+    $('#qchips').innerHTML = [['all', 'الكل', ui.type === 'all' && ui.ap === 'all'], ['train', '🚆 قطار بين المدن', ui.type === 'train'], ['mashaer', '🕋 فندق ↔ منى', ui.type === 'mashaer'], ['hotel', '🏨 فندق ← فندق', ui.type === 'hotel'], ['open', '🧾 اعتماد غير مسجّل', ui.ap === 'open']]
       .map(c => '<button type="button" class="qc' + (c[2] ? ' on' : '') + '" data-qc="' + c[0] + '">' + c[1] + '</button>').join('');
 
     const shown = all.filter(passes);
